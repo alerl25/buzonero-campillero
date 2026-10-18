@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="apple-mobile-web-app-title" content="Buzonero">
+<meta name="robots" content="noindex">
+<title>Buzonero Campillero</title>
+<meta name="description" content="Herramienta privada de correo de uso personal.">
+<style>
+  :root { --bg:#f7f5f0; --fg:#1d1b17; --mute:#6b665c; --line:#e2ddd2; --acc:#b3441f; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#161513; --fg:#f1ede4; --mute:#a39d90; --line:#2c2a26; --acc:#e0764f; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:17px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  main { max-width: 640px; margin: 0 auto; padding: 14vh 24px 10vh; }
+  h1 { font-size: clamp(2rem, 6vw, 3rem); line-height: 1.1; margin: 0 0 1.2rem; letter-spacing: -0.02em; }
+  p { margin: 0 0 1rem; }
+  .mute { color: var(--mute); }
+  a { color: var(--acc); }
+  footer { margin-top: 3rem; padding-top: 1.2rem; border-top: 1px solid var(--line); font-size: .9rem; color: var(--mute); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Buzonero Campillero</h1>
+  <p>Herramienta privada de correo de uso personal.</p>
+  <p class="mute">Es una instalación privada de Buzonero Campillero para ver y gestionar los buzones de correo de su propietario. No está abierta al público ni se ofrece a terceros.</p>
+  <p class="mute"><a href="/app">Entrar</a></p>
+  <footer><a href="/privacidad">Política de privacidad</a> · Buzonero Campillero es software libre (licencia MIT)</footer>
+</main>
+</body>
+</html>

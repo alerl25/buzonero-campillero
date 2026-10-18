@@ -1,0 +1,10 @@
+scripts/
+boceto/
+.env*
+*.sh
+*.md
+pruebas/
+node_modules/
+configuracion.env
+clave-mcp.txt
+LICENSE

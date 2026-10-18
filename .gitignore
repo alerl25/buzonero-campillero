@@ -1,0 +1,6 @@
+.vercel
+.env*
+!.env.example
+configuracion.env
+clave-mcp.txt
+node_modules/
