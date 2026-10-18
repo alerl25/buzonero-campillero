@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Problema de seguridad (aviso privado)
+    url: https://github.com/alerl25/buzonero-campillero/security/advisories/new
+    about: Las vulnerabilidades se avisan en privado, nunca en un issue público.
+  - name: Guía de instalación
+    url: https://github.com/alerl25/buzonero-campillero/blob/main/INSTALAR.md
+    about: Antes de abrir un issue de instalación, mira «Problemas frecuentes».

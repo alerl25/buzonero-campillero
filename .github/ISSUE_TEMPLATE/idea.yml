@@ -1,0 +1,21 @@
+name: Idea o mejora
+description: Propón una función nueva para la app o una herramienta nueva para el MCP
+labels: ["idea"]
+body:
+  - type: textarea
+    id: problema
+    attributes:
+      label: ¿Qué te gustaría poder hacer?
+      placeholder: "Me gustaría pedirle a mi agente que me resuma cada mañana lo importante de todas las cuentas."
+    validations:
+      required: true
+  - type: textarea
+    id: como
+    attributes:
+      label: ¿Cómo te lo imaginas?
+      description: En la app, en el MCP o en los dos.
+  - type: dropdown
+    id: donde
+    attributes:
+      label: ¿Para dónde es?
+      options: ["MCP (agente de IA)", "App web", "Las dos", "Instalación o documentación"]

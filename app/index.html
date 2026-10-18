@@ -784,7 +784,7 @@
     <div class="top-actions">
       <button class="icon-btn" id="theme" aria-label="Cambiar a modo oscuro"><i class="ph ph-moon"></i></button>
       <button class="icon-btn" id="settingsBtn" data-menu="settings" aria-label="Ajustes"><i class="ph ph-gear-six"></i></button>
-      <div class="me" id="me" aria-hidden="true">AR</div>
+      <div class="me" id="me" aria-hidden="true"></div>
     </div>
   </header>
 
@@ -3606,6 +3606,7 @@ async function start(){
     if(x.ancla) ANCLA_K = x.key;
     if(x.foto) PH[x.email.toLowerCase()] = x.foto; ACC[x.key].caida = x.caida; });
   if(!ANCLA_K) ANCLA_K = KEYS[0] || null;
+  if(ANCLA_K && !$('me').querySelector('img')) $('me').textContent = ACC[ANCLA_K].init;   // iniciales de la cuenta principal hasta que llega su foto
   setTimeout(function(){ var mp = ANCLA_K && PH[ACC[ANCLA_K].email.toLowerCase()]; if(mp && !$('me').querySelector('img')) $('me').insertAdjacentHTML('beforeend', '<img src="'+esc(mp)+'" alt="" referrerpolicy="no-referrer" onerror="this.remove()">'); }, 0);
   if(!KEYS.length){ sinCuentas(); return; }
   st.acc = KEYS[0];

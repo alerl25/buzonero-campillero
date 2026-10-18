@@ -1,0 +1,38 @@
+name: Algo no funciona
+description: Avisa de un fallo en la app, el MCP o la instalación
+labels: ["fallo"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gracias por avisar. **No pegues correos reales, direcciones ni claves**: si hace falta, inventa los datos.
+        Si es un problema de seguridad, no abras un issue: usa el aviso privado (pestaña Security).
+  - type: dropdown
+    id: donde
+    attributes:
+      label: ¿Dónde pasa?
+      options: ["App en el ordenador", "App en el móvil", "MCP (agente de IA)", "Instalación", "Avisos al móvil", "Otro"]
+    validations:
+      required: true
+  - type: textarea
+    id: que
+    attributes:
+      label: ¿Qué pasa y qué esperabas?
+      placeholder: "Al pulsar Archivar en un correo de la cuenta 2, desaparece pero vuelve a salir al recargar."
+    validations:
+      required: true
+  - type: textarea
+    id: pasos
+    attributes:
+      label: Pasos para que pase
+      placeholder: "1. …\n2. …\n3. …"
+  - type: input
+    id: entorno
+    attributes:
+      label: Navegador, sistema o agente
+      placeholder: "Safari en iPhone 15 (iOS 18) · Claude Code 2.x · Chrome en Windows 11…"
+  - type: textarea
+    id: extra
+    attributes:
+      label: Capturas o mensajes de error
+      description: Tápale encima a cualquier dato personal.
