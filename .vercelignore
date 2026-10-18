@@ -8,3 +8,7 @@ node_modules/
 configuracion.env
 clave-mcp.txt
 LICENSE
+mcp/
+contrasena.txt
+AGENTS.md
+CLAUDE.md

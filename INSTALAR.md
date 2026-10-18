@@ -9,6 +9,12 @@ Guía completa para tener tu propia instalación, gratis, en unos 30 minutos. Ca
 
 Ningún paso pide tarjeta ni plan de pago. Si algo te lo pide, para: te has equivocado de opción.
 
+> **La forma fácil: que lo haga tu agente.** Copia esto en Claude Code, Cursor, Codex o el agente que uses:
+>
+> *Instálame Buzonero Campillero: https://github.com/alerl25/buzonero-campillero — sigue su AGENTS.md y guíame paso a paso.*
+>
+> El agente sigue [AGENTS.md](AGENTS.md). Hace él todos los comandos, te pide solo los clics en el navegador con los valores exactos, y al final se conecta el MCP. Lo de abajo es la misma instalación hecha a mano.
+
 ---
 
 ## 1. Copia el código y publícalo en Vercel
@@ -56,13 +62,10 @@ cd TU-COPIA
 ## 4. Genera tus claves
 
 ```bash
-node scripts/configurar.mjs
+node scripts/configurar.mjs --client-id "TU-ID" --client-secret "TU-SECRETO" --url "https://TU-APP.vercel.app" --nombre "Personal"
 ```
 
-Te pide:
-- el ID y el secreto de cliente del paso 2;
-- la dirección de tu app;
-- una contraseña para entrar en la web.
+(Sin parámetros, te los pregunta.) La contraseña de la web se genera sola, larga y aleatoria, y queda en `contrasena.txt`. También puedes entrar siempre con tu cuenta de Google.
 
 Luego abre el navegador para que elijas tu **cuenta principal** de Gmail y **marques todas las casillas**. Esa cuenta es la «ancla»: guarda en su Drive, cifrado, el almacén de permisos, y recibe los avisos si otra cuenta se desconecta.
 
@@ -77,11 +80,17 @@ Al terminar tendrás un fichero `configuracion.env` con todo:
 | `APP_PASSWORD_HASH` | tu contraseña, cifrada (scrypt) |
 | `VAPID_PUBLIC`, `VAPID_PRIVATE` | avisos al móvil |
 | `VIGIA_KEY` | protege el aviso de cada minuto |
-| `MCP_KEY_HASH` | opcional, para conectar un asistente de IA |
+| `MCP_KEY_HASH` | la huella de la clave del MCP (la clave está en `clave-mcp.txt`) |
 
-**Súbelas a Vercel**: tu proyecto → **Settings → Environment Variables** → pega el contenido de `configuracion.env` (Vercel separa las variables solo) → entorno **Production** → Save. Después, en **Deployments**, pulsa los tres puntos del último → **Redeploy**.
+**Súbelas a Vercel**, con el script (sube cada variable y vuelve a desplegar; la primera vez enlaza la carpeta con `npx vercel link`):
 
-> `configuracion.env` y `clave-mcp.txt` contienen claves privadas. Están en `.gitignore`: no los subas a GitHub ni los envíes a nadie. Cuando estén en Vercel, puedes borrarlos.
+```bash
+node scripts/subir-a-vercel.mjs
+```
+
+O a mano: tu proyecto → **Settings → Environment Variables** → pega el contenido de `configuracion.env` (Vercel separa las variables solo) → entorno **Production** → Save. Después, en **Deployments**, pulsa los tres puntos del último → **Redeploy**.
+
+> `configuracion.env`, `clave-mcp.txt` y `contrasena.txt` contienen claves privadas. Están en `.gitignore`: no los subas a GitHub ni los envíes a nadie. Cuando estén en Vercel (y la contraseña en tu gestor), puedes borrarlos; la clave del MCP la necesitas en el paso 8.
 
 ## 5. El aviso de cada minuto (correo nuevo y «Avísame si no contesta»)
 
@@ -107,6 +116,16 @@ Vercel Hobby no ejecuta tareas cada minuto, así que lo hace [cron-job.org](http
 - **iPhone (iOS 16.4 o superior)**: abre la app en **Safari** → Compartir → **Añadir a pantalla de inicio**. Ábrela desde el icono, engranaje → **Avisos en este dispositivo** → Permitir.
 - **Android**: Chrome → menú → **Instalar aplicación**, y activa los avisos igual.
 
+## 8. Conecta el MCP a tu agente de IA
+
+Guarda la clave donde el MCP la busca: `~/.config/buzonero/mcp-key.txt` (en Windows, `C:\Users\TU-USUARIO\.config\buzonero\mcp-key.txt`) con el contenido de `clave-mcp.txt`. Luego regístralo (`RUTA` = la carpeta donde clonaste el repositorio; no la muevas después):
+
+- **Claude Code**: `claude mcp add buzonero --scope user -e BUZONERO_URL=https://TU-APP.vercel.app -- node "RUTA/mcp/buzonero-mcp.mjs"`
+- **Cursor, Windsurf, Claude Desktop** (JSON de MCP): `{ "mcpServers": { "buzonero": { "command": "node", "args": ["RUTA/mcp/buzonero-mcp.mjs"], "env": { "BUZONERO_URL": "https://TU-APP.vercel.app" } } } }`
+- **Codex** (`~/.codex/config.toml`): `[mcp_servers.buzonero]` con `command = "node"`, `args = ["RUTA/mcp/buzonero-mcp.mjs"]` y `env = { BUZONERO_URL = "https://TU-APP.vercel.app" }`
+
+Reinicia el agente y pídele: «¿qué cuentas de correo tengo?». La lista de las 28 herramientas está en el [README](README.md). Quien tenga la clave del MCP puede leer tu correo: guárdala como una contraseña. Para cambiarla, vuelve a lanzar `configurar.mjs` o pon en Vercel un `MCP_KEY_HASH` nuevo (el SHA-256 en hexadecimal de la clave).
+
 ---
 
 ## Opcional
@@ -120,7 +139,7 @@ Vercel Hobby no ejecuta tareas cada minuto, así que lo hace [cron-job.org](http
   ```
 
   Sin `env`, el permiso se guarda en el almacén cifrado al pulsar «Reconectar» desde la app.
-- **Asistente de IA (MCP)**: `GET /api/token?acc=CLAVE` con la cabecera `Authorization: Bearer <contenido de clave-mcp.txt>` devuelve un token de una hora para esa cuenta, y `?lista=1` devuelve las cuentas. Úsalo solo desde tu ordenador. Quien tenga esa clave puede leer tu correo.
+- **Usar la API sin el MCP**: `GET /api/token?acc=CLAVE` con la cabecera `Authorization: Bearer <clave del MCP>` devuelve un token de Gmail de una hora para esa cuenta, y `?lista=1` devuelve las cuentas.
 
 ## Problemas frecuentes
 

@@ -2,13 +2,55 @@
 
 **Versión 1.0**
 
-Todos tus correos de Gmail en un solo sitio: una app web (PWA) rápida, bonita y privada para leer y gestionar varias cuentas de Gmail y Google Workspace a la vez, en el ordenador y en el móvil.
+**Todas tus cuentas de Gmail, controladas desde tu agente de IA.** Buzonero es un servidor **MCP** que da a Claude Code, Cursor, Codex, Windsurf o Claude Desktop acceso a varias cuentas de Gmail y Google Workspace a la vez, desde un solo sitio.
 
-Cada persona se instala la suya, gratis, en su propio Vercel y con su propio proyecto de Google. Tu correo no pasa por ningún servidor ajeno.
+- Buscar en todas tus cuentas de una vez.
+- Leer, redactar borradores, responder y reenviar.
+- Archivar y ordenar con etiquetas de color.
+- Darse de baja de boletines y bloquear remitentes.
+- Seguir pedidos y paquetes.
+- Poner «avísame si no contesta».
 
-> *English: a self-hosted, multi-account Gmail web client (PWA). Free to run on Vercel Hobby + your own Google Cloud project. UI in Spanish. Setup guide: [INSTALAR.md](INSTALAR.md).*
+Y además trae su **app web** (PWA) para ti, en el ordenador y en el móvil.
 
-## Qué hace
+Cada persona se lo instala gratis, en su propio Vercel y con su propio proyecto de Google. Tu correo no pasa por ningún servidor ajeno.
+
+> *English: a self-hosted MCP server + PWA that lets any AI coding agent (Claude Code, Cursor, Codex…) manage several Gmail accounts at once. Free on Vercel Hobby + your own Google Cloud project. UI and docs in Spanish. Quick start: paste this repo's URL into your agent and ask it to install it (it follows [AGENTS.md](AGENTS.md)).*
+
+## Instalar en 1 paso
+
+Copia esto en tu agente de IA (Claude Code, Cursor, Codex…):
+
+> Instálame Buzonero Campillero: https://github.com/alerl25/buzonero-campillero — sigue su AGENTS.md y guíame paso a paso.
+
+Tu agente lo clona, lo publica en tu Vercel, genera las claves y se conecta el MCP. A ti solo te pide unos clics en Google Cloud, Vercel y cron-job.org, y te dice exactamente qué poner. Calcula unos 20-30 minutos.
+
+¿Prefieres hacerlo a mano? Tienes la guía completa en **[INSTALAR.md](INSTALAR.md)**.
+
+## El MCP: 28 herramientas para tu agente
+
+| Para… | Herramientas |
+|---|---|
+| Ver todas las cuentas a la vez | `cuentas`, `buscar_en_todas` (bandeja unificada o búsqueda en todas), `paquetes`, `suscripciones`, `basura_parada`, `avisos_pendientes`, `buscar_contacto` |
+| Leer | `buscar`, `leer_hilo`, `descargar_adjunto` |
+| Escribir | `crear_borrador` (nuevo, respuesta o reenvío con adjuntos), `enviar`, `enviar_borrador`, `listar_borradores`, `borrar_borrador` |
+| Ordenar | `modificar_hilos` (archivar, leído, destacar, spam, papelera, etiquetas; por ids o por una búsqueda), `etiquetas`, `crear_etiqueta`, `color_etiqueta` |
+| Seguimiento | `avisame_si_no_contesta`, `quitar_aviso` |
+| Limpiar | `darse_de_baja`, `bloquear_remitente`, `filtros`, `crear_filtro`, `borrar_filtro` |
+| Cuenta | `firma`, `cambiar_firma` |
+
+Algunos ejemplos que puedes pedirle a tu agente:
+- «¿Qué tengo sin leer en todas mis cuentas?»
+- «Responde a Laura desde la cuenta del trabajo diciendo que el jueves me va bien»: deja un borrador.
+- «Date de baja de los boletines que nunca abro.»
+- «¿Qué paquetes tengo de camino?»
+- «Avísame si el proveedor no contesta en 3 días.»
+
+**Seguro por defecto:**
+- Escribe **borradores**. Enviar, darse de baja y bloquear piden `confirmado: true`, así que tu agente tiene que preguntarte primero.
+- El MCP no guarda permisos de Google: pide a tu instalación tokens de una hora con su propia clave.
+
+## La app
 
 **Correo**
 - Varias cuentas en pestañas, con su color y su contador de sin leer.
@@ -42,11 +84,9 @@ Cada persona se instala la suya, gratis, en su propio Vercel y con su propio pro
 - **Entrada** con tu cuenta de Google o con contraseña, y sesión con cookie segura.
 - **Sin dependencias en el servidor** y sin base de datos.
 
-## Instalar
+## Coste
 
-Sigue **[INSTALAR.md](INSTALAR.md)**: Google Cloud, Vercel y el aviso de cada minuto, con un script que genera todas las claves (`node scripts/configurar.mjs`).
-
-Coste: 0 €. Vercel Hobby, Google Cloud sin facturación y cron-job.org son gratuitos para este uso.
+0 €. Vercel Hobby, Google Cloud sin facturación y cron-job.org son gratuitos para este uso.
 
 ## Cómo está hecho
 
@@ -57,7 +97,10 @@ Coste: 0 €. Vercel Hobby, Google Cloud sin facturación y cron-job.org son gra
 | `app/particulas.js` | Fondo de partículas en WebGL |
 | `sw.js` | Service worker: avisos y globo del icono |
 | `api/` | Funciones de Vercel (Node 20, sin dependencias): sesión, acceso con Google, tokens, avisos, almacén cifrado |
-| `scripts/configurar.mjs` | Genera la configuración de una instalación nueva |
+| `mcp/buzonero-mcp.mjs` | El servidor MCP: un solo fichero, sin dependencias, habla MCP por stdio |
+| `AGENTS.md` | Las instrucciones que sigue tu agente para instalártelo |
+| `scripts/configurar.mjs` | Genera la configuración de una instalación nueva (también sin preguntas, para el agente) |
+| `scripts/subir-a-vercel.mjs` | Sube esa configuración a Vercel y despliega |
 
 ## Licencia
 

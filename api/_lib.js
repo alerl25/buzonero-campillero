@@ -95,6 +95,15 @@ export function checkPassword(pw) {
   return crypto.timingSafeEqual(got, want);
 }
 
+// El MCP (un agente en tu ordenador) entra con «Authorization: Bearer <clave>»; aquí solo vive el SHA-256 de la clave (MCP_KEY_HASH)
+export function esMaquina(req) {
+  const h = (req.headers && req.headers.authorization) || '';
+  const want = process.env.MCP_KEY_HASH || '';
+  if (!h.startsWith('Bearer ') || !/^[0-9a-f]{64}$/.test(want)) return false;
+  const got = crypto.createHash('sha256').update(h.slice(7).trim()).digest('hex');
+  return crypto.timingSafeEqual(Buffer.from(got), Buffer.from(want));
+}
+
 export function sameOrigin(req) {
   // Bloquea llamadas de otros sitios: el navegador marca Sec-Fetch-Site en toda petición fetch.
   const site = req.headers['sec-fetch-site'];
