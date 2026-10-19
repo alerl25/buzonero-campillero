@@ -1390,7 +1390,8 @@ async function loadList(append){
     st.resto = false;
     if(gen !== st.gen || k !== st.acc) return;
     var sig = function(a){ return a.map(function(t){ return t.id + ':' + t.hid; }).join(); };
-    if(cache && sig(res.rows) === sig(st.threads.slice(0, res.rows.length))){ st.next = res.next; st.estimate = res.estimate; return; }   // ya estaba al día
+    // ya estaba al día: mismas filas y, si no hay más páginas, también el mismo número (si no, lo borrado al final de la lista, p. ej. un borrador, se quedaba en pantalla)
+    if(cache && sig(res.rows) === sig(st.threads.slice(0, res.rows.length)) && (res.next || st.threads.length === res.rows.length)){ st.next = res.next; st.estimate = res.estimate; return; }
     var sc = $('rows').scrollTop;
     st.threads = append ? st.threads.concat(res.rows) : res.rows; st.next = res.next; st.estimate = res.estimate;
     st.loading = false; drawRows(); if(cache) $('rows').scrollTop = sc;
