@@ -5,6 +5,7 @@ Todas las versiones de Buzonero Campillero. Formato: [Keep a Changelog](https://
 ## [1.5.1] · 2026-10-19
 
 ### App web
+- El ID de la propiedad de Analytics se explica por la dirección del navegador (el número tras «/p»), mucho más fácil de encontrar.
 - Aviso en el paso de la cuenta de servicio: elegir «Service account», no «API key» ni «OAuth client ID».
 - Pasos de Google Analytics más claros: cada botón con su nombre en español y en inglés (como sale en Google Cloud), dónde está la clave, qué hacer si la organización bloquea las claves y el enlace directo a Credenciales.
 

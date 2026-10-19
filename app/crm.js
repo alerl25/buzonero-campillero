@@ -123,7 +123,7 @@ var INTEG = [
       ['Descarga la clave: en Credenciales, sección Cuentas de servicio (Service Accounts), pulsa buzonero@…iam.gserviceaccount.com → pestaña Claves (Keys) → Agregar clave (Add key) → Crear clave nueva (Create new key) → JSON → Crear. Se descarga un fichero .json: es la clave. Copia también ese correo que acaba en iam.gserviceaccount.com.', 'https://console.cloud.google.com/iam-admin/serviceaccounts', 'Abrir Cuentas de servicio'],
       ['Si al crear la clave sale «Service account key creation is disabled», tu organización bloquea las claves: repite los pasos 1 a 4 con un proyecto de una cuenta personal de Gmail. Analytics no necesita que sea la misma cuenta.', '', ''],
       ['Dale acceso en Analytics: Administrar (la rueda, abajo a la izquierda) → columna Propiedad → Gestión del acceso a la propiedad → + (arriba a la derecha) → Añadir usuarios. Pega el correo de la cuenta de servicio, rol Lector, quita «Notificar por correo» y pulsa Añadir.', 'https://analytics.google.com/analytics/web/', 'Abrir Google Analytics'],
-      ['Copia el ID de la propiedad: Administrar → Detalles de la propiedad → arriba a la derecha, ID DE PROPIEDAD (un número de 9 cifras).', '', ''],
+      ['Copia el ID de la propiedad. Lo más fácil: con Analytics abierto, mira la dirección del navegador (…/#/p123456789/…): el número que va tras «/p» es el ID. También sale en gris bajo el nombre de la propiedad en el selector de arriba a la izquierda. No vale el «G-…» (es el ID de medición).', '', ''],
       ['Pega aquí el ID, sube el fichero .json y pulsa Probar y guardar.', '', ''],
     ],
     campos:[['propiedad', 'ID de la propiedad', 'text', '123456789'], ['clave', 'Clave de la cuenta de servicio (el fichero .json)', 'json', '']] },
