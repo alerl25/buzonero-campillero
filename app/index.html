@@ -644,6 +644,11 @@
   .dlg-foot > * { flex-shrink:0; }
   @media (max-width:640px) { .dlg-foot .saved { display:none; } .dlg-foot #discard { width:36px; padding:0; font-size:0; gap:0; justify-content:center; } .dlg-foot #discard i { font-size:18px; } }
   .dlg-foot #discard { height:36px; padding:0 14px; font-size:13.5px; white-space:nowrap; }
+  .lang-row { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 10px 8px; font-size:13px; color:var(--mute); }
+  .lang-pick { display:inline-flex; gap:4px; padding:3px; border-radius:var(--pill); background:var(--surface); }
+  .lang-opt { height:28px; padding:0 11px; border-radius:var(--pill); font-size:13px; color:var(--text); }
+  .lang-opt[aria-pressed="true"] { background:var(--acc); color:var(--acc-ink); }
+  .login .lang-row { justify-content:center; padding:14px 0 0; }
   .saved { font-family:var(--mono); font-size:12px; color:var(--faint); margin-right:6px; white-space:nowrap; }
   .drop { position:absolute; inset:0; border-radius:var(--r-lg); border:2px dashed var(--acc); background:color-mix(in oklab, var(--acc-soft) 80%, transparent); display:grid; place-items:center; font-weight:600; color:var(--acc); z-index:8; pointer-events:none; opacity:0; transition:opacity .15s ease; }
   .drop.on { opacity:1; }
@@ -778,6 +783,7 @@
     <a class="btn primary gbtn" id="gLogin" href="/api/auth/start?r=1"><i class="ph ph-google-logo"></i> Entrar con Google</a>
     <label class="remember"><input type="checkbox" class="cb" id="remember" checked> Recordarme en este dispositivo</label>
     <p class="hint">Entra con una de tus cuentas de Google.</p>
+    <div class="lang-row"><span>Idioma</span><div class="lang-pick" id="langLogin" data-notr></div></div>
     <div id="pwBox" hidden>
       <label for="pw">Contraseña</label>
       <div class="pw"><input id="pw" type="password" autocomplete="current-password"><button class="btn primary" type="submit" id="pwGo">Entrar</button></div>
@@ -931,6 +937,10 @@
 <div class="notif-stack" id="notifs" aria-live="polite"></div>
 <div class="toast" id="toast" role="status" aria-live="polite"><span id="toastMsg"></span><button id="toastUndo"></button><i class="toast-bar" id="toastBar" aria-hidden="true"></i></div>
 
+<script src="/app/i18n.js"></script>
+<script>
+document.getElementById('langLogin').innerHTML = bzLangHTML();
+</script>
 <script>
 "use strict";
 /* =====================================================================
@@ -953,7 +963,7 @@ var st = { acc:null, cat:'ALL', folder:'INBOX', label:null, q:'', filter:'all', 
 var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 function $(id){ return document.getElementById(id); }
 function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
-function fmtN(n){ return Number(n||0).toLocaleString('es-ES'); }
+function fmtN(n){ return Number(n||0).toLocaleString(BZ.loc); }
 function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
 function a(){ return ACC[st.acc]; }
 
@@ -1059,11 +1069,11 @@ function isMe(email){ email = (email||'').toLowerCase(); return KEYS.some(functi
 function initials(n){ var w = (n||'?').replace(/[^\p{L}\p{N} ]/gu,'').trim().split(/\s+/); return ((w[0]||'?')[0] + (w[1] ? w[1][0] : (w[0]||'')[1] || '')).toUpperCase(); }
 function fmtDate(ms, long){
   var d = new Date(+ms), now = new Date();
-  if(long) return d.toLocaleDateString('es-ES', { weekday:'short', day:'numeric', month:'short' }) + ', ' + d.toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' });
-  if(d.toDateString() === now.toDateString()) return d.toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' });
+  if(long) return d.toLocaleDateString(BZ.loc, { weekday:'short', day:'numeric', month:'short' }) + ', ' + d.toLocaleTimeString(BZ.loc, { hour:'2-digit', minute:'2-digit' });
+  if(d.toDateString() === now.toDateString()) return d.toLocaleTimeString(BZ.loc, { hour:'2-digit', minute:'2-digit' });
   var y = new Date(now); y.setDate(now.getDate()-1); if(d.toDateString() === y.toDateString()) return 'Ayer';
-  if(d.getFullYear() === now.getFullYear()) return d.toLocaleDateString('es-ES', { day:'numeric', month:'short' }).replace('.', '');
-  return d.toLocaleDateString('es-ES', { day:'2-digit', month:'2-digit', year:'2-digit' });
+  if(d.getFullYear() === now.getFullYear()) return d.toLocaleDateString(BZ.loc, { day:'numeric', month:'short' }).replace('.', '');
+  return d.toLocaleDateString(BZ.loc, { day:'2-digit', month:'2-digit', year:'2-digit' });
 }
 function unent(x){ var t = document.createElement('textarea'); t.innerHTML = String(x == null ? '' : x); return t.value; }
 function dateHTML(ms, cls){ var t = fmtDate(ms); return '<span class="'+cls+(/^[A-Za-zÁÉÍÓÚáéíóú]/.test(t) ? ' word' : '')+'" title="'+esc(fmtDate(ms, true))+'">'+esc(t)+'</span>'; }
@@ -1128,7 +1138,7 @@ function suggestLocal(q, k){
     if(cls < 0) return;
     out.push({ n: c.n, e: e, s: cls * 100000 - weight(c) * 10 - (c.a[k] ? 5 : 0) - (PH[e] ? 1 : 0) });
   });
-  out.sort(function(x, y){ return x.s - y.s || (x.n || x.e).localeCompare(y.n || y.e, 'es'); });
+  out.sort(function(x, y){ return x.s - y.s || (x.n || x.e).localeCompare(y.n || y.e, BZ.lang); });
   return out.slice(0, 8);
 }
 // Correo gratuito: ahí el logo del dominio no dice nada de la persona
@@ -1220,7 +1230,7 @@ async function loadAccountMeta(k){
   var c = ACC[k];
   try {
     var r = await Promise.all([ gm(k, 'labels'), gm(k, 'labels/INBOX'), gm(k, 'labels/DRAFT'), gm(k, 'settings/sendAs').catch(function(){ return {}; }) ]);
-    c.labels = (r[0].labels || []).filter(function(l){ return l.type === 'user'; }).sort(function(x,y){ return x.name.localeCompare(y.name, 'es'); });
+    c.labels = (r[0].labels || []).filter(function(l){ return l.type === 'user'; }).sort(function(x,y){ return x.name.localeCompare(y.name, BZ.lang); });
     c.unread = r[1].threadsUnread || 0; c.inboxTotal = r[1].threadsTotal || 0; c.drafts = r[2].messagesTotal || 0;
     var sa = (r[3].sendAs || []); var prim = sa.filter(function(s){ return s.isPrimary; })[0] || sa[0] || {};
     c.signature = prim.signature || ''; c.displayName = prim.displayName || ''; c.aliases = sa.map(function(s){ return (s.sendAsEmail||'').toLowerCase(); });
@@ -1540,7 +1550,7 @@ function rowHTML(t){
    los ya leídos, plegados. Lo que abras o cierres a mano se recuerda en este dispositivo. */
 var MESES = {}; try { MESES = JSON.parse(localStorage.getItem('buzonero-meses2') || '{}'); } catch(e){}
 function claveMes(ts){ var d = new Date(ts); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); }
-function nombreMes(ts){ var d = new Date(ts), n = d.toLocaleDateString('es-ES', { month:'long' }); n = n.charAt(0).toUpperCase() + n.slice(1); return d.getFullYear() !== new Date().getFullYear() ? n + ' ' + d.getFullYear() : n; }
+function nombreMes(ts){ var d = new Date(ts), n = d.toLocaleDateString(BZ.loc, { month:'long' }); n = n.charAt(0).toUpperCase() + n.slice(1); return d.getFullYear() !== new Date().getFullYear() ? n + ' ' + d.getFullYear() : n; }
 function filasPorMes(lista){
   // cada correo va a SU mes aunque la lista llegue desordenada (antes, un correo viejo colado entre los de octubre
   // partía el mes en dos y parecía que octubre traía correos antiguos); los meses, del más nuevo al más viejo
@@ -2172,7 +2182,8 @@ function openMenu(btn, kind){
       + '<div class="sep"></div><div class="ttl">Firma</div>' + KEYS.map(function(k){ return '<button data-mi="firma-'+k+'"><i class="ph ph-signature"></i> <span>'+esc(ACC[k].name)+'</span></button>'; }).join('')
       + (KEYS.some(function(k){ return ACC[k].extra; }) ? '<div class="sep"></div><div class="ttl">Quitar cuenta</div>' + KEYS.filter(function(k){ return ACC[k].extra; }).map(function(k){ return '<button data-mi="quitar-'+k+'"><i class="ph ph-minus-circle"></i> <span>'+esc(ACC[k].name)+'</span></button>'; }).join('') : '')
       + '<div class="sep"></div><div class="ttl">Reconectar con Google</div>' + KEYS.map(function(k){ return '<button data-mi="reconectar-'+k+'"><i class="ph ph-arrows-clockwise"></i> <span>'+esc(ACC[k].name)+'</span></button>'; }).join('')
-      + '<div class="sep"></div><button data-mi="logout"><i class="ph ph-sign-out"></i> Cerrar sesión</button>';
+      + '<div class="sep"></div><button data-mi="logout"><i class="ph ph-sign-out"></i> Cerrar sesión</button>'
+      + '<div class="sep"></div><div class="lang-row"><span>Idioma</span><div class="lang-pick" data-notr>' + bzLangHTML() + '</div></div>';
   } else {
     h = '<button data-mi="allread"><i class="ph ph-envelope-simple-open"></i> Marcar como leído lo que ves</button>'
       + (st.folder !== 'SPAM' ? '<button data-mi="spam"><i class="ph ph-warning-octagon"></i> Marcar como spam</button>' : '')
@@ -2201,7 +2212,7 @@ menu.addEventListener('click', async function(e){
     var nl = ($('newLabel') || {}).value; nl = (nl || '').trim(); closeMenu();
     try {
       var elegido = ETQ_COL[+(menu.querySelector('.etq-cols [aria-pressed="true"]') || { dataset:{ pick:colorLibre(ACC[k].labels) } }).dataset.pick] || ETQ_COL[0];
-      if(nl){ var made = await gm(k, 'labels', { method:'POST', json:{ name:nl, labelListVisibility:'labelShow', messageListVisibility:'show', color:{ backgroundColor:elegido[0], textColor:elegido[1] } } }); chosen.push(made.id); ACC[k].labels = (ACC[k].labels||[]).concat([made]).sort(function(x,y){ return x.name.localeCompare(y.name, 'es'); }); }
+      if(nl){ var made = await gm(k, 'labels', { method:'POST', json:{ name:nl, labelListVisibility:'labelShow', messageListVisibility:'show', color:{ backgroundColor:elegido[0], textColor:elegido[1] } } }); chosen.push(made.id); ACC[k].labels = (ACC[k].labels||[]).concat([made]).sort(function(x,y){ return x.name.localeCompare(y.name, BZ.lang); }); }
       await modify(k, ids, chosen, unchosen);
       toast(chosen.length ? 'Etiquetas aplicadas' : 'Etiquetas quitadas'); drawSide(); loadList(false); if(cur && ids.indexOf(cur.id) >= 0) openThread(cur.id);
     } catch(err){ toast('No se pudo etiquetar: ' + err.message); }
@@ -3148,8 +3159,8 @@ function segDe(k, id){ return SEG[k + '|' + id] || null; }
 function venceEn(dias){ var d = new Date(Date.now() + dias * 864e5); if(d.getHours() < 9 || d.getHours() >= 20) d.setHours(9, 0, 0, 0); else d.setSeconds(0, 0); return d.getTime(); }   // «Mañana» a las 23:00 → mañana a las 9:00
 function fmtVence(ts){
   var d = new Date(ts), hoy = new Date(), man = new Date(Date.now() + 864e5);
-  var dia = d.toDateString() === hoy.toDateString() ? 'hoy' : d.toDateString() === man.toDateString() ? 'mañana' : 'el ' + d.toLocaleDateString('es-ES', { weekday:'long', day:'numeric' });
-  return dia + ' a las ' + d.toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' });
+  var dia = d.toDateString() === hoy.toDateString() ? 'hoy' : d.toDateString() === man.toDateString() ? 'mañana' : 'el ' + d.toLocaleDateString(BZ.loc, { weekday:'long', day:'numeric' });
+  return dia + ' a las ' + d.toLocaleTimeString(BZ.loc, { hour:'2-digit', minute:'2-digit' });
 }
 function segPost(cuerpo){ return fetch('/api/seguir', { method:'POST', credentials:'same-origin', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify(cuerpo) }).then(function(r){ return r.ok ? r.json() : {}; }).catch(function(){ return {}; }); }
 // devuelve la hora del aviso (o 0 si no se pudo); «callado» = sin aviso en pantalla (lo pone quien llama)
@@ -3221,7 +3232,7 @@ function pintarDictado(on, interino){ $('micBtn').setAttribute('aria-pressed', !
 function empezarDictado(){
   if(!RECON || dic) return;
   initEditor(); if(document.activeElement !== $('body')) ed.focus();
-  var r = new RECON(); r.lang = 'es-ES'; r.continuous = true; r.interimResults = true;
+  var r = new RECON(); r.lang = BZ.loc; r.continuous = true; r.interimResults = true;
   dic = { r:r, on:true, reintentos:0 };
   r.onresult = function(e){ var inter = ''; for(var i = e.resultIndex; i < e.results.length; i++){ var x = e.results[i]; if(x.isFinal) meterDictado(x[0].transcript); else inter += x[0].transcript; } dic && (dic.reintentos = 0); pintarDictado(true, inter.trim()); };
   r.onerror = function(e){
@@ -3454,7 +3465,7 @@ function textoDe(m){
   [].slice.call(d.querySelectorAll('style, script, head')).forEach(function(x){ x.remove(); });
   return (d.body ? d.body.textContent : '').replace(/[ \t ]+/g, ' ').replace(/\n\s*\n+/g, '\n').trim().slice(0, 12000);
 }
-function fmtFechaCorta(dt, conHora){ var s = dt.toLocaleDateString('es-ES', { weekday:'short', day:'numeric', month:'short' }).replace(/\./g, ''); return conHora ? s + ', ' + dt.toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' }) : s; }
+function fmtFechaCorta(dt, conHora){ var s = dt.toLocaleDateString(BZ.loc, { weekday:'short', day:'numeric', month:'short' }).replace(/\./g, ''); return conHora ? s + ', ' + dt.toLocaleTimeString(BZ.loc, { hour:'2-digit', minute:'2-digit' }) : s; }
 function gcalFecha(dt, soloDia){ var p = function(n){ return String(n).padStart(2, '0'); }; return dt.getFullYear() + p(dt.getMonth() + 1) + p(dt.getDate()) + (soloDia ? '' : 'T' + p(dt.getHours()) + p(dt.getMinutes()) + '00'); }
 function urlCalendario(ev, k){
   var ini = ev.ini, fin = ev.fin || new Date(+ini + (ev.soloDia ? 864e5 : 3600e3));

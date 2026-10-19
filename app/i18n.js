@@ -1,0 +1,447 @@
+/* Buzonero Campillero · idiomas (español por defecto, inglés y francés).
+   El texto original de la app está en español; aquí se guarda cada frase con su traducción y un traductor
+   la cambia en pantalla (texto, title, aria-label, placeholder) al cargar y cada vez que la app pinta algo nuevo.
+   El contenido de los correos (asunto, texto, etiquetas propias) no se toca nunca. Para añadir una frase: una línea en D. */
+(function(){
+"use strict";
+var LANGS = [['es','Español','es-ES'], ['en','English','en-GB'], ['fr','Français','fr-FR']];
+var LANG = 'es';
+try { var g = localStorage.getItem('bz-lang'); if(g === 'en' || g === 'fr' || g === 'es') LANG = g; } catch(e){}
+window.BZ = { lang:LANG, langs:LANGS, loc:(LANGS.filter(function(l){ return l[0] === LANG; })[0] || LANGS[0])[2] };
+document.documentElement.lang = LANG;
+window.bzSetLang = function(l){ try { localStorage.setItem('bz-lang', l); } catch(e){} location.reload(); };
+
+/* [español, inglés, francés] */
+var D = [
+// ---- entrada
+['Todos tus correos en un solo sitio.','All your email in one place.','Tous vos e-mails au même endroit.'],
+['Entrar con Google','Sign in with Google','Se connecter avec Google'],
+['Recordarme en este dispositivo','Remember me on this device','Se souvenir de moi sur cet appareil'],
+['Entra con una de tus cuentas de Google.','Sign in with one of your Google accounts.','Connectez-vous avec l\'un de vos comptes Google.'],
+['Contraseña','Password','Mot de passe'],
+['Entrar','Sign in','Se connecter'],
+['Idioma','Language','Langue'],
+['El acceso tardó demasiado. Vuelve a intentarlo.','Sign-in took too long. Try again.','La connexion a pris trop de temps. Réessayez.'],
+['Google no confirmó el acceso. Vuelve a intentarlo.','Google did not confirm the sign-in. Try again.','Google n\'a pas confirmé la connexion. Réessayez.'],
+['Contraseña incorrecta.','Wrong password.','Mot de passe incorrect.'],
+['No se pudo entrar. Revisa la conexión.','Could not sign in. Check your connection.','Connexion impossible. Vérifiez votre réseau.'],
+['Aún no hay ninguna cuenta de correo conectada. Revisa BZ_CUENTAS en INSTALAR.md.','No email account is connected yet. Check BZ_CUENTAS in INSTALAR.md.','Aucun compte e-mail n\'est encore connecté. Vérifiez BZ_CUENTAS dans INSTALAR.md.'],
+// ---- carpetas y menús
+['Redactar','Compose','Écrire'],
+['Recibidos','Inbox','Boîte de réception'],
+['Destacados','Starred','Suivis'],
+['Importantes','Important','Importants'],
+['Enviados','Sent','Envoyés'],
+['Borradores','Drafts','Brouillons'],
+['Todos','All','Tous'],
+['Todos los correos','All mail','Tous les messages'],
+['Incluye lo archivado.','Includes archived mail.','Inclut les messages archivés.'],
+['Spam','Spam','Spam'],
+['Papelera','Trash','Corbeille'],
+['Categorías','Categories','Catégories'],
+['Social','Social','Réseaux sociaux'],
+['Notificaciones','Notifications','Notifications'],
+['Foros','Forums','Forums'],
+['Promociones','Promotions','Promotions'],
+['Principal','Primary','Principale'],
+['Etiquetas','Labels','Libellés'],
+['Sin etiquetas propias','No labels of your own','Aucun libellé personnel'],
+['Aún no tienes etiquetas','You have no labels yet','Vous n\'avez pas encore de libellés'],
+['Nueva etiqueta','New label','Nouveau libellé'],
+['Nombre de la nueva etiqueta','Name of the new label','Nom du nouveau libellé'],
+['Color de la nueva etiqueta','Colour of the new label','Couleur du nouveau libellé'],
+['Cambiar el color','Change colour','Changer la couleur'],
+['Todas las cuentas','All accounts','Tous les comptes'],
+['Cuenta','Account','Compte'],
+['Cuentas','Accounts','Comptes'],
+['Cuentas de correo','Email accounts','Comptes e-mail'],
+['Añadir cuenta','Add account','Ajouter un compte'],
+['Quitar cuenta','Remove account','Supprimer le compte'],
+['Reconectar con Google','Reconnect with Google','Reconnecter avec Google'],
+['Reconectar','Reconnect','Reconnecter'],
+['Desconectada','Disconnected','Déconnecté'],
+['Cerrar sesión','Sign out','Se déconnecter'],
+['Ajustes','Settings','Paramètres'],
+['Abrir carpetas','Open folders','Ouvrir les dossiers'],
+['Carpetas y etiquetas','Folders and labels','Dossiers et libellés'],
+['Lista de correos','Message list','Liste des messages'],
+['Categorías de Recibidos','Inbox categories','Catégories de la boîte de réception'],
+['Lectura','Reading','Lecture'],
+['Cambiar a modo oscuro','Switch to dark mode','Passer en mode sombre'],
+['Cambiar a modo claro','Switch to light mode','Passer en mode clair'],
+['Los de siempre','The classic ones','Les classiques'],
+['la luna de arriba cambia entre estos dos','the moon at the top switches between these two','la lune en haut bascule entre ces deux modes'],
+['Claros','Light','Clairs'],
+['Oscuros','Dark','Sombres'],
+['Marcar como leído lo que ves','Mark what you see as read','Marquer comme lu ce que vous voyez'],
+['Recargar','Reload','Recharger'],
+['Cargar más','Load more','Charger plus'],
+['Reintentar','Retry','Réessayer'],
+['Ocultar','Hide','Masquer'],
+['Cerrar aviso','Dismiss notice','Fermer l\'avis'],
+['Buscar en el correo','Search mail','Rechercher dans les e-mails'],
+['Buscar en el correo (admite from:, has:attachment, is:unread)','Search mail (supports from:, has:attachment, is:unread)','Rechercher dans les e-mails (accepte from:, has:attachment, is:unread)'],
+['Borrar búsqueda','Clear search','Effacer la recherche'],
+['Resultados de búsqueda','Search results','Résultats de la recherche'],
+['Sin leer','Unread','Non lus'],
+['Con adjuntos','With attachments','Avec pièces jointes'],
+['Filtro','Filter','Filtre'],
+['Seleccionar todo','Select all','Tout sélectionner'],
+['Actualizar','Refresh','Actualiser'],
+['Más acciones','More actions','Plus d\'actions'],
+['Volver a la lista','Back to the list','Retour à la liste'],
+['Ver detalles','Show details','Afficher les détails'],
+['Más opciones del mensaje','More message options','Plus d\'options du message'],
+['Contenido del mensaje','Message content','Contenu du message'],
+['Cerrar','Close','Fermer'],
+['Abrir','Open','Ouvrir'],
+['Ahora no','Not now','Pas maintenant'],
+['Cancelar','Cancel','Annuler'],
+['Aplicar','Apply','Appliquer'],
+['Copiar','Copy','Copier'],
+['Eliminar','Delete','Supprimer'],
+['Descargar','Download','Télécharger'],
+['Temas','Themes','Thèmes'],
+// ---- acciones sobre correos
+['Archivar','Archive','Archiver'],
+['Restaurar','Restore','Restaurer'],
+['Enviar a la papelera','Move to trash','Mettre à la corbeille'],
+['Marcar como spam','Report spam','Signaler comme spam'],
+['No es spam','Not spam','Pas du spam'],
+['Marcar como leído','Mark as read','Marquer comme lu'],
+['Marcar como no leído','Mark as unread','Marquer comme non lu'],
+['Marcar como no leído desde aquí','Mark as unread from here','Marquer comme non lu à partir d\'ici'],
+['Destacar','Star','Suivre'],
+['Etiquetar','Label','Libeller'],
+['Etiquetar como','Label as','Libeller comme'],
+['Bloquear','Block','Bloquer'],
+['Bloquear remitente','Block sender','Bloquer l\'expéditeur'],
+['Cancelar suscripción','Unsubscribe','Se désabonner'],
+['Ver original','Show original','Afficher l\'original'],
+['Editar en Google','Edit in Google','Modifier dans Google'],
+['Editar en Google Docs','Edit in Google Docs','Modifier dans Google Docs'],
+['Abrir en otra pestaña','Open in a new tab','Ouvrir dans un nouvel onglet'],
+['Responder','Reply','Répondre'],
+['Responder a todos','Reply all','Répondre à tous'],
+['Reenviar','Forward','Transférer'],
+['Responder a','Reply to','Répondre à'],
+['Fecha','Date','Date'],
+['Borrar','Delete','Supprimer'],
+['Borrar borrador','Delete draft','Supprimer le brouillon'],
+['Borrar este borrador','Delete this draft','Supprimer ce brouillon'],
+['Borrador','Draft','Brouillon'],
+['Escribe tu respuesta','Write your reply','Écrivez votre réponse'],
+['Respuesta minimizada','Minimised reply','Réponse réduite'],
+['· Seguir aquí','· Continue here','· Continuer ici'],
+['· Seguir escribiendo','· Keep writing','· Continuer à écrire'],
+['Avísame si no contesta','Remind me if no reply','Me prévenir sans réponse'],
+['Si no contesta, te aviso','If there is no reply, I\'ll remind you','Sans réponse, je vous préviens'],
+['Quitar el aviso','Remove the reminder','Retirer le rappel'],
+['No avisar','Don\'t remind','Ne pas prévenir'],
+['Mañana','Tomorrow','Demain'],
+['En 3 días','In 3 days','Dans 3 jours'],
+['Ver menos','Show less','Voir moins'],
+['Ver más','Show more','Voir plus'],
+['(mensaje sin texto)','(message without text)','(message sans texte)'],
+['Elige un correo de la lista para leerlo aquí.','Choose an email from the list to read it here.','Choisissez un e-mail dans la liste pour le lire ici.'],
+['Este tipo de archivo no se puede ver aquí.','This type of file can\'t be previewed here.','Ce type de fichier ne peut pas être affiché ici.'],
+['Descárgalo para abrirlo con su programa.','Download it to open it with its own app.','Téléchargez-le pour l\'ouvrir avec son application.'],
+['Puedes descargarlo con el botón de arriba.','You can download it with the button above.','Vous pouvez le télécharger avec le bouton ci-dessus.'],
+['Hojas de cálculo','Spreadsheets','Feuilles de calcul'],
+['Esta cuenta se ha desconectado de Google.','This account has been disconnected from Google.','Ce compte a été déconnecté de Google.'],
+['se ha desconectado de Google.','has been disconnected from Google.','a été déconnecté de Google.'],
+['No se pudo cargar','Could not load','Chargement impossible'],
+['No se pudo abrir','Could not open','Ouverture impossible'],
+['No se pudo buscar','Could not search','Recherche impossible'],
+['No se pudo revisar','Could not check','Vérification impossible'],
+['Mensaje nuevo','New message','Nouveau message'],
+['Suelta aquí para adjuntar','Drop here to attach','Déposez ici pour joindre'],
+['De','From','De'],
+['Para','To','À'],
+['CC','Cc','Cc'],
+['CCO','Bcc','Cci'],
+['Asunto','Subject','Objet'],
+['Enviar','Send','Envoyer'],
+['Listo','Done','Terminé'],
+['Te escucho…','Listening…','Je vous écoute…'],
+['Dictar por voz','Dictate by voice','Dicter à la voix'],
+['Abrir en ventana','Open in a window','Ouvrir dans une fenêtre'],
+['Minimizar','Minimise','Réduire'],
+['Cerrar (queda en Borradores)','Close (stays in Drafts)','Fermer (reste dans les brouillons)'],
+['Cuerpo del mensaje','Message body','Corps du message'],
+['Escribe tu mensaje','Write your message','Écrivez votre message'],
+['Texto que se verá','Text to display','Texte affiché'],
+['Dirección (https://...)','Address (https://...)','Adresse (https://...)'],
+['Insertar enlace','Insert link','Insérer un lien'],
+['Insertar emoji','Insert emoji','Insérer un emoji'],
+['Adjuntar archivo','Attach a file','Joindre un fichier'],
+['Adjuntar archivos','Attach files','Joindre des fichiers'],
+['Incluir firma','Include signature','Inclure la signature'],
+['Opciones de formato','Formatting options','Options de mise en forme'],
+['Formato del texto','Text formatting','Mise en forme du texte'],
+['Deshacer','Undo','Annuler'],
+['Deshacer (Ctrl+Z)','Undo (Ctrl+Z)','Annuler (Ctrl+Z)'],
+['Rehacer','Redo','Rétablir'],
+['Rehacer (Ctrl+Y)','Redo (Ctrl+Y)','Rétablir (Ctrl+Y)'],
+['Tipo de letra','Font','Police'],
+['Tamaño','Size','Taille'],
+['Tamaño del texto','Text size','Taille du texte'],
+['Negrita','Bold','Gras'],
+['Negrita (Ctrl+B)','Bold (Ctrl+B)','Gras (Ctrl+B)'],
+['Cursiva','Italic','Italique'],
+['Cursiva (Ctrl+I)','Italic (Ctrl+I)','Italique (Ctrl+I)'],
+['Subrayado','Underline','Souligné'],
+['Subrayado (Ctrl+U)','Underline (Ctrl+U)','Souligné (Ctrl+U)'],
+['Color del texto','Text colour','Couleur du texte'],
+['Alinear','Align','Aligner'],
+['Lista numerada','Numbered list','Liste numérotée'],
+['Lista con viñetas','Bulleted list','Liste à puces'],
+['Reducir sangría','Decrease indent','Réduire le retrait'],
+['Aumentar sangría','Increase indent','Augmenter le retrait'],
+['Cita','Quote','Citation'],
+['Quitar formato','Clear formatting','Effacer la mise en forme'],
+['Enlace','Link','Lien'],
+['Imagen por enlace (logo)','Image from link (logo)','Image par lien (logo)'],
+['Ancho fijo','Fixed width','Chasse fixe'],
+['Ancha','Wide','Large'],
+['Estrecha','Narrow','Étroite'],
+['Pequeño','Small','Petit'],
+['Normal','Normal','Normal'],
+['Grande','Large','Grand'],
+['Enorme','Huge','Énorme'],
+['Izquierda','Left','Gauche'],
+['Centro','Centre','Centre'],
+['Derecha','Right','Droite'],
+['Justificado','Justified','Justifié'],
+// ---- firma
+['Firma','Signature','Signature'],
+['Se guarda en Gmail de','It is saved in the Gmail of','Elle est enregistrée dans le Gmail de'],
+[': la verás también allí y se añade sola a lo que envíes desde esa cuenta.',': you will see it there too, and it is added automatically to what you send from that account.',' : vous la verrez aussi là-bas et elle s\'ajoute toute seule à ce que vous envoyez depuis ce compte.'],
+['Sin firma','No signature','Sans signature'],
+['Guardar firma','Save signature','Enregistrer la signature'],
+['Formato de la firma','Signature formatting','Mise en forme de la signature'],
+['Texto de la firma','Signature text','Texte de la signature'],
+['Tu nombre · Tu empresa · 600 000 000','Your name · Your company · 600 000 000','Votre nom · Votre entreprise · 600 000 000'],
+['Se añadirá tu firma de Gmail ·','Your Gmail signature will be added ·','Votre signature Gmail sera ajoutée ·'],
+['Cambiar','Change','Modifier'],
+['Esta cuenta no tiene firma.','This account has no signature.','Ce compte n\'a pas de signature.'],
+['Crear firma','Create signature','Créer une signature'],
+['Los adjuntos pasan de 25 MB: los marcados irán como enlace de Drive, igual que en Gmail.','The attachments exceed 25 MB: the marked ones will go as a Drive link, like in Gmail.','Les pièces jointes dépassent 25 Mo : celles marquées partiront sous forme de lien Drive, comme dans Gmail.'],
+['· irá como enlace de Drive','· will go as a Drive link','· partira sous forme de lien Drive'],
+// ---- avisos y ajustes
+['Avisos en este dispositivo','Alerts on this device','Alertes sur cet appareil'],
+['Avisos de correo nuevo','New mail alerts','Alertes de nouveaux e-mails'],
+['Te llegan al móvil aunque Buzonero esté cerrado.','They reach your phone even when Buzonero is closed.','Elles arrivent sur votre téléphone même si Buzonero est fermé.'],
+['Activar','Turn on','Activer'],
+['Activar avisos de correo nuevo','Turn on new mail alerts','Activer les alertes de nouveaux e-mails'],
+['Desactivar avisos','Turn off alerts','Désactiver les alertes'],
+['Avisos activados · Probar','Alerts on · Test','Alertes activées · Tester'],
+['Este iPhone necesita iOS 16.4 o posterior','This iPhone needs iOS 16.4 or later','Cet iPhone nécessite iOS 16.4 ou version ultérieure'],
+['Bloqueados: actívalos en Ajustes del iPhone','Blocked: turn them on in iPhone Settings','Bloquées : activez-les dans les Réglages de l\'iPhone'],
+['Añade Buzonero a la pantalla de inicio','Add Buzonero to the home screen','Ajoutez Buzonero à l\'écran d\'accueil'],
+['Instala Buzonero para tener avisos','Install Buzonero to get alerts','Installez Buzonero pour recevoir des alertes'],
+['Pulsa Compartir','Tap Share','Appuyez sur Partager'],
+['→ «Añadir a pantalla de inicio» y ábrelo desde el icono del buzón.','→ “Add to Home Screen” and open it from the mailbox icon.','→ « Sur l\'écran d\'accueil » puis ouvrez-le depuis l\'icône de la boîte aux lettres.'],
+['Hacer una prueba','Send a test','Faire un essai'],
+// ---- nuevo correo / paquetes / boletines
+['Nada de camino','Nothing on its way','Rien en route'],
+['Cuando una tienda o un transportista te escriba, el paquete aparecerá aquí.','When a shop or carrier writes to you, the parcel will appear here.','Quand une boutique ou un transporteur vous écrira, le colis apparaîtra ici.'],
+['Entrega:','Delivery:','Livraison :'],
+['Seguir el envío','Track shipment','Suivre l\'envoi'],
+['Número de seguimiento:','Tracking number:','Numéro de suivi :'],
+['correos parados esta semana','emails stopped this week','e-mails bloqués cette semaine'],
+['Por cuenta','By account','Par compte'],
+['Los que más insisten','The most persistent','Les plus insistants'],
+['Sin boletines','No newsletters','Aucune newsletter'],
+['No te queda ninguna suscripción mandando a Recibidos.','No subscription is sending to your inbox any more.','Aucun abonnement n\'envoie plus dans votre boîte de réception.'],
+['elegidos','selected','sélectionnés'],
+['Darse de baja','Unsubscribe','Se désabonner'],
+['Quitar selección','Clear selection','Effacer la sélection'],
+['Elegir los que no abres','Choose the ones you never open','Choisir ceux que vous n\'ouvrez pas'],
+['baja por filtro','filtered out','désabonné par filtre'],
+['Baja','Out','Désabonné'],
+['Quién te manda boletines a Recibidos en los últimos 3 meses','Who sends newsletters to your inbox in the last 3 months','Qui vous envoie des newsletters dans les 3 derniers mois'],
+['Este remitente no deja darse de baja desde aquí: se filtra','This sender doesn\'t allow unsubscribing from here: it will be filtered','Cet expéditeur ne permet pas de se désabonner d\'ici : il sera filtré'],
+['Devolución','Return','Retour'],
+['Necesita tu atención','Needs your attention','Requiert votre attention'],
+// ---- estados vacíos
+['Nada importante','Nothing important','Rien d\'important'],
+['Gmail marca aquí lo que cree que te importa.','Gmail puts here what it thinks matters to you.','Gmail place ici ce qu\'il juge important pour vous.'],
+['Sin novedades sociales','No social updates','Aucune nouveauté sociale'],
+['Aquí llegan avisos de redes sociales.','Social network alerts arrive here.','Les alertes des réseaux sociaux arrivent ici.'],
+['Sin notificaciones','No notifications','Aucune notification'],
+['Aquí van confirmaciones, recibos y avisos.','Confirmations, receipts and alerts go here.','Les confirmations, reçus et alertes arrivent ici.'],
+['Sin foros','No forums','Aucun forum'],
+['Aquí llegan listas de correo y grupos.','Mailing lists and groups arrive here.','Les listes de diffusion et les groupes arrivent ici.'],
+['Sin promociones','No promotions','Aucune promotion'],
+['Aquí llegan ofertas y boletines.','Offers and newsletters arrive here.','Les offres et newsletters arrivent ici.'],
+['Principal al día','Primary is clear','Principale à jour'],
+['No te queda nada por aquí.','Nothing left here.','Il ne reste rien ici.'],
+['Bandeja al día','Inbox zero','Boîte de réception à jour'],
+['Nada destacado','Nothing starred','Rien de suivi'],
+['Marca con la estrella lo que quieras tener a mano.','Star what you want within reach.','Ajoutez une étoile à ce que vous voulez garder sous la main.'],
+['Lo que marques con la estrella se queda aquí.','What you star stays here.','Ce que vous suivez reste ici.'],
+['Sin enviados','Nothing sent','Aucun envoi'],
+['Lo que mandes desde esta cuenta aparecerá aquí.','What you send from this account will appear here.','Ce que vous envoyez depuis ce compte apparaîtra ici.'],
+['Elige un correo para ver lo que mandaste.','Choose an email to see what you sent.','Choisissez un e-mail pour voir ce que vous avez envoyé.'],
+['Sin borradores','No drafts','Aucun brouillon'],
+['Los mensajes a medias se guardan solos.','Half-written messages are saved automatically.','Les messages à moitié écrits s\'enregistrent tout seuls.'],
+['Abre uno para seguir escribiéndolo.','Open one to keep writing it.','Ouvrez-en un pour continuer à l\'écrire.'],
+['Sin correos','No emails','Aucun e-mail'],
+['Esta cuenta está vacía.','This account is empty.','Ce compte est vide.'],
+['Sin spam','No spam','Aucun spam'],
+['Gmail lo filtra antes de que llegue.','Gmail filters it before it arrives.','Gmail le filtre avant son arrivée.'],
+['Gmail borra el spam solo a los 30 días.','Gmail deletes spam by itself after 30 days.','Gmail supprime le spam tout seul au bout de 30 jours.'],
+['Papelera vacía','Trash is empty','Corbeille vide'],
+['Lo que borres se queda aquí 30 días.','What you delete stays here for 30 days.','Ce que vous supprimez reste ici 30 jours.'],
+['Lo que lleva aquí más de 30 días se borra solo.','What has been here for over 30 days is deleted automatically.','Ce qui est ici depuis plus de 30 jours est supprimé automatiquement.'],
+['Etiqueta vacía','Empty label','Libellé vide'],
+['Ningún correo lleva esta etiqueta.','No email has this label.','Aucun e-mail n\'a ce libellé.'],
+['Sin resultados','No results','Aucun résultat'],
+['Prueba con otra palabra, un remitente o has:attachment.','Try another word, a sender or has:attachment.','Essayez un autre mot, un expéditeur ou has:attachment.'],
+['Todo leído.','All read.','Tout est lu.'],
+['Todo','All','Tout'],
+['leído.','read.','lu.'],
+// ---- mensajes breves (toasts)
+['Color cambiado','Colour changed','Couleur modifiée'],
+['No se pudo cambiar el color:','Could not change the colour:','Impossible de changer la couleur :'],
+['No se pudo descargar:','Could not download:','Téléchargement impossible :'],
+['Abierto en','Opened in','Ouvert dans'],
+['No se pudo abrir en','Could not open in','Impossible d\'ouvrir dans'],
+['No se pudieron eliminar:','Could not delete:','Suppression impossible :'],
+['No se pudo:','Failed:','Échec :'],
+['No se pudo destacar:','Could not star:','Impossible de suivre :'],
+['Selecciona un correo primero','Select an email first','Sélectionnez d\'abord un e-mail'],
+['No se pudo etiquetar:','Could not label:','Impossible de libeller :'],
+['No hay nada sin leer aquí','Nothing unread here','Rien de non lu ici'],
+['No se pudo abrir el original','Could not open the original','Impossible d\'ouvrir l\'original'],
+['Avisos desactivados en este dispositivo','Alerts turned off on this device','Alertes désactivées sur cet appareil'],
+['No se pudo quitar la cuenta','Could not remove the account','Impossible de supprimer le compte'],
+['No se pudo guardar la firma:','Could not save the signature:','Impossible d\'enregistrer la signature :'],
+['Guardado en Borradores','Saved in Drafts','Enregistré dans les brouillons'],
+['Borrador guardado','Draft saved','Brouillon enregistré'],
+['Mensaje eliminado','Message deleted','Message supprimé'],
+['No se pudo eliminar el borrador','Could not delete the draft','Impossible de supprimer le brouillon'],
+['Borrador descartado','Draft discarded','Brouillon abandonné'],
+['Borrador eliminado','Draft deleted','Brouillon supprimé'],
+['borradores eliminados','drafts deleted','brouillons supprimés'],
+['Falta el destinatario','Recipient is missing','Destinataire manquant'],
+['Revisa las direcciones: alguna no es válida','Check the addresses: one is not valid','Vérifiez les adresses : l\'une n\'est pas valide'],
+['Se envía desde','It is sent from','Envoi depuis'],
+['Subiendo','Uploading','Envoi en cours'],
+['Enviado desde','Sent from','Envoyé depuis'],
+['No se envió:','Not sent:','Non envoyé :'],
+['Ese borrador ya no existe: actualizo la lista','That draft no longer exists: refreshing the list','Ce brouillon n\'existe plus : j\'actualise la liste'],
+['No se pudo abrir el borrador:','Could not open the draft:','Impossible d\'ouvrir le brouillon :'],
+['Cancelando la suscripción...','Unsubscribing...','Désabonnement en cours...'],
+['Suscripción cancelada. Puede tardar unos días en dejar de llegar.','Unsubscribed. It may take a few days to stop arriving.','Désabonné. Cela peut prendre quelques jours.'],
+['No se pudo desde aquí: abro su página de baja','Not possible from here: opening its unsubscribe page','Impossible d\'ici : j\'ouvre sa page de désabonnement'],
+['Te dejo el mensaje de baja listo: pulsa Enviar para confirmarlo','The unsubscribe message is ready: press Send to confirm','Le message de désabonnement est prêt : appuyez sur Envoyer pour confirmer'],
+['Este correo no trae enlace de baja','This email has no unsubscribe link','Cet e-mail n\'a pas de lien de désabonnement'],
+['No se encontró el remitente','Sender not found','Expéditeur introuvable'],
+['Ese eres tú: no se bloquea','That is you: not blocked','C\'est vous : pas de blocage'],
+['Bloqueado:','Blocked:','Bloqué :'],
+['No había nada más en Recibidos','Nothing else was in Inbox','Il n\'y avait plus rien dans la boîte de réception'],
+['No se pudo limpiar Recibidos:','Could not clean the inbox:','Impossible de nettoyer la boîte de réception :'],
+['No se encontró el borrador','Draft not found','Brouillon introuvable'],
+['No se pudo borrar el borrador:','Could not delete the draft:','Impossible de supprimer le brouillon :'],
+['Preparando el reenvío...','Preparing the forward...','Préparation du transfert...'],
+['Escribe algo antes de enviar','Write something before sending','Écrivez quelque chose avant d\'envoyer'],
+['La respuesta se envía en 10 s','The reply is sent in 10 s','La réponse part dans 10 s'],
+['Primero activa los avisos','Turn on alerts first','Activez d\'abord les alertes'],
+['No se pudo mandar el aviso de prueba','Could not send the test alert','Impossible d\'envoyer l\'alerte de test'],
+['Aviso de prueba enviado: te llegará en unos segundos','Test alert sent: it will arrive in a few seconds','Alerte de test envoyée : elle arrivera dans quelques secondes'],
+['No se pudo guardar el aviso','Could not save the reminder','Impossible d\'enregistrer le rappel'],
+['Te aviso','I\'ll remind you','Je vous préviens'],
+['Aviso quitado','Reminder removed','Rappel retiré'],
+['El dictado no tiene permiso aquí: usa el micrófono del teclado','Dictation has no permission here: use the keyboard microphone','La dictée n\'est pas autorisée ici : utilisez le micro du clavier'],
+['No encuentro el micrófono','I can\'t find the microphone','Je ne trouve pas le microphone'],
+['El dictado necesita conexión','Dictation needs a connection','La dictée nécessite une connexion'],
+['No se pudo empezar a dictar','Could not start dictation','Impossible de démarrer la dictée'],
+['Número de seguimiento copiado','Tracking number copied','Numéro de suivi copié'],
+['Has elegido otra cuenta. Elige la que querías reconectar.','You chose a different account. Choose the one you wanted to reconnect.','Vous avez choisi un autre compte. Choisissez celui que vous vouliez reconnecter.'],
+['Reconexión cancelada.','Reconnection cancelled.','Reconnexion annulée.'],
+['La reconexión tardó demasiado. Vuelve a intentarlo.','Reconnection took too long. Try again.','La reconnexion a pris trop de temps. Réessayez.'],
+['Google no confirmó la reconexión.','Google did not confirm the reconnection.','Google n\'a pas confirmé la reconnexion.'],
+['Tu sesión caducó: entra y vuelve a reconectar.','Your session expired: sign in and reconnect again.','Votre session a expiré : reconnectez-vous puis reconnectez le compte.'],
+['Faltan permisos: marca todas las casillas al añadir la cuenta.','Missing permissions: tick every box when adding the account.','Autorisations manquantes : cochez toutes les cases lors de l\'ajout du compte.'],
+['Has cancelado al añadir la cuenta.','You cancelled while adding the account.','Vous avez annulé l\'ajout du compte.'],
+['Tardó demasiado. Vuelve a intentarlo.','It took too long. Try again.','Cela a pris trop de temps. Réessayez.'],
+['Google no confirmó la cuenta.','Google did not confirm the account.','Google n\'a pas confirmé le compte.'],
+['Tu sesión caducó: entra y vuelve a añadirla.','Your session expired: sign in and add it again.','Votre session a expiré : reconnectez-vous et ajoutez-le à nouveau.'],
+// ---- confirmaciones
+['¿Enviar sin asunto?','Send without a subject?','Envoyer sans objet ?'],
+['¿Mandar también a la papelera lo que ya te han enviado y sigue en Recibidos?','Also move to trash what they already sent you and is still in your inbox?','Mettre aussi à la corbeille ce qu\'ils vous ont déjà envoyé et qui reste dans la boîte de réception ?'],
+['Nombre para la pestaña de la cuenta nueva (por ejemplo, «Trabajo»):','Name for the new account tab (for example, “Work”):','Nom de l\'onglet du nouveau compte (par exemple « Travail ») :'],
+['Fecha:','Date:','Date :'],
+['Mensaje reenviado','Forwarded message','Message transféré'],
+['Añadir al calendario','Add to calendar','Ajouter à l\'agenda'],
+['Imagen','Image','Image'],
+// ---- Gmail semantics
+['Nuevo correo de','New email from','Nouvel e-mail de'],
+['Hoy','Today','Aujourd\'hui'],
+['Ayer','Yesterday','Hier'],
+['hoy','today','aujourd\'hui'],
+['mañana','tomorrow','demain']
+];
+
+var E = {}, F = {}, P = [];
+D.forEach(function(r){ E[r[0]] = r[1]; F[r[0]] = r[2]; });
+var T = LANG === 'en' ? E : LANG === 'fr' ? F : null;
+if(T) Object.keys(T).forEach(function(k){ if(k.length >= 7 && /[a-záéíóú]/i.test(k)) P.push(k); });
+P.sort(function(a, b){ return b.length - a.length; });
+
+function tr(s){
+  if(!T || !s) return s;
+  var core = s.trim(); if(!core) return s;
+  var lead = s.slice(0, s.indexOf(core)), tail = s.slice(s.indexOf(core) + core.length);
+  var hit = T[core];
+  if(hit !== undefined) return lead + hit + tail;
+  // frase con algo detrás (p. ej. «No se pudo abrir: <motivo>», «Abierto en Docs»): se traduce el comienzo
+  for(var i = 0; i < P.length; i++){
+    var k = P[i];
+    if(core.length > k.length && core.indexOf(k) === 0){ var nx = core.charAt(k.length); if(nx === ' ' || nx === ':' || nx === '.' || nx === '…' || nx === ',' || nx === '»'){ return lead + T[k] + core.slice(k.length) + tail; } }
+  }
+  // «N borradores eliminados», «2 borradores»
+  var m = /^(\d+)\s+(.+)$/.exec(core);
+  if(m && T[m[2]]) return lead + m[1] + ' ' + T[m[2]] + tail;
+  return s;
+}
+window.bzTr = tr;
+
+var SKIP = '.msg-body, .frame-wrap, .editor, .snip, .subj, .from, .rcpt, .lchip, #labels, .sig-box, .nf-body, [data-notr], iframe, script, style';
+function skip(el){ return !el || (el.closest && el.closest(SKIP)); }
+var ATTRS = ['title', 'aria-label', 'placeholder', 'data-ph', 'alt'];
+function doNode(n){
+  if(n.nodeType === 3){
+    if(skip(n.parentElement)) return;
+    var v = n.nodeValue; if(n.__bz === v) return;
+    var t = tr(v); if(t !== v){ n.nodeValue = t; n.__bz = t; }
+  } else if(n.nodeType === 1){
+    if(n.matches && n.matches('script, style, iframe')) return;
+    if(!skip(n)){ ATTRS.forEach(function(a){ var v = n.getAttribute(a); if(v){ var t = tr(v); if(t !== v) n.setAttribute(a, t); } }); }
+    for(var c = n.firstChild; c; c = c.nextSibling) doNode(c);
+  }
+}
+if(T){
+  var go = function(){
+    doNode(document.body);
+    new MutationObserver(function(ms){
+      ms.forEach(function(m){
+        if(m.type === 'characterData'){ doNode(m.target); }
+        else if(m.type === 'attributes'){ if(!skip(m.target)){ var v = m.target.getAttribute(m.attributeName); if(v){ var t = tr(v); if(t !== v) m.target.setAttribute(m.attributeName, t); } } }
+        else { m.addedNodes.forEach(doNode); }
+      });
+    }).observe(document.body, { childList:true, subtree:true, characterData:true, attributes:true, attributeFilter:ATTRS });
+  };
+  if(document.body) go(); else document.addEventListener('DOMContentLoaded', go);
+  // los cuadros nativos (confirm/prompt/alert) también salen en el idioma elegido
+  ['confirm', 'prompt', 'alert'].forEach(function(f){ var o = window[f].bind(window); window[f] = function(m, d){ return f === 'prompt' ? o(tr(String(m)), d) : o(tr(String(m))); }; });
+}
+
+/* selector de idioma: se pinta donde haya un <div data-lang-pick> (entrada y ajustes) */
+window.bzLangHTML = function(){
+  return LANGS.map(function(l){ return '<button type="button" class="lang-opt" data-notr data-setlang="' + l[0] + '" aria-pressed="' + (l[0] === LANG) + '">' + l[1] + '</button>'; }).join('');
+};
+document.addEventListener('click', function(e){ var b = e.target.closest && e.target.closest('[data-setlang]'); if(b){ e.preventDefault(); if(b.dataset.setlang !== LANG) window.bzSetLang(b.dataset.setlang); } });
+})();
