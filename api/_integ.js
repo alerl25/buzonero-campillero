@@ -83,3 +83,16 @@ export function estadoPublico(integ) {
   if (i.nx) out.nx = { espacio: i.nx.espacio, usuario: i.nx.usuario, caduca: i.nx.caduca, conectado: i.nx.conectado };
   return out;
 }
+
+// Lo que hay en Nexudus de un correo: su ficha, sus facturas (sin anuladas ni abonos) y sus reservas. Solo lectura.
+// OJO: «Coworker_Email» filtra; «Coworker_Email_Exact» NO (devuelve los 40.000). Comprobado el 19-oct-2026 con un valor imposible.
+export async function nexudusCliente(token, email) {
+  const H = { Authorization: 'Bearer ' + token, Accept: 'application/json' };
+  const g = async (ruta, q) => { const r = await fetch('https://spaces.nexudus.com/api' + ruta + '?' + new URLSearchParams(q), { headers: H }); if (!r.ok) throw new Error('nexudus ' + r.status); return r.json(); };
+  const c = ((await g('/spaces/coworkers', { Coworker_Email: email, size: 5 })).Records || []).find((x) => String(x.Email || '').toLowerCase() === email);
+  if (!c) return null;
+  const [fs, rs] = await Promise.all([g('/billing/coworkerinvoices', { CoworkerInvoice_Coworker: c.Id, size: 25 }), g('/spaces/bookings', { Booking_Coworker: c.Id, size: 25 })]);
+  const facturas = (fs.Records || []).filter((f) => !f.Void && !f.CreditNote).map((f) => ({ numero: f.InvoiceNumber, total: f.TotalAmount, pagada: !!f.Paid, fecha: f.CreatedOn })).sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
+  const reservas = (rs.Records || []).map((b) => ({ desde: b.FromTime, hasta: b.ToTime, sala: b.ResourceName, tentativa: !!b.Tentative })).sort((a, b) => String(b.desde).localeCompare(String(a.desde)));
+  return { id: c.Id, nombre: c.FullName, facturas, reservas };
+}

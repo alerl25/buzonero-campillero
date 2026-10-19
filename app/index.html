@@ -655,6 +655,14 @@
   .cv-card-top time { color:var(--faint); font-size:11.5px; flex:none; }
   .cv-card-as { font-size:12.5px; font-weight:600; color:var(--acc-text, var(--acc)); }
   .cv-card-tx { font-size:12.5px; color:var(--mute); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .cv-chips { display:flex; flex-wrap:wrap; gap:4px; }
+  .cv-chip { font-size:11px; line-height:1; padding:4px 7px; border-radius:var(--pill); background:var(--surface-2, var(--surface)); color:var(--mute); white-space:nowrap; }
+  .cv-chip.te { background:var(--acc); color:#fff; font-weight:600; }
+  .cv-chip.bien { background:rgba(31,157,85,.14); color:#1f7a45; }
+  .cv-chip.mal { background:rgba(214,120,0,.15); color:#9a5600; }
+  .cv-nx { border:1px solid var(--line); border-radius:var(--r-sm); padding:10px 12px; display:flex; flex-direction:column; gap:6px; font-size:13px; }
+  .cv-nx-f { display:grid; grid-template-columns:minmax(0,1.4fr) auto auto auto; gap:8px; align-items:center; }
+  .cv-nx-f > span:first-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .cv-card-meta { font-size:11.5px; color:var(--faint); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .cv-av { flex:none; width:26px; height:26px; border-radius:50%; background:var(--acc-soft); color:var(--acc); display:inline-grid; place-items:center; font:700 10.5px/1 inherit; }
   .cv-av.grande { width:44px; height:44px; font-size:15px; }

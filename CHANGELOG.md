@@ -2,6 +2,17 @@
 
 Todas las versiones de Buzonero Campillero. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [1.7] · 2026-10-19
+
+### App web
+- **Estado real de cada lead en el tablero:** «Te toca» si el último correo con esa persona es suyo, o «Esperando · N d» si es tuyo (mira toda la correspondencia con su dirección, no solo el hilo del formulario).
+- **Nexudus en el tablero y en la ficha:** facturas (pagadas o pendientes) y reservas de cada lead, por su correo. Con reserva o factura después de su consulta pasa solo a «Reserva», y con la factura pagada a «Ganado» (nunca hacia atrás).
+- **«No es lead»** en la ficha: lo quita del tablero (propuestas de colaboración, proveedores…), con su etiqueta propia.
+
+### Servidor
+- `nexudusCliente` en `api/_integ.js` (solo lectura; `Coworker_Email` filtra y `Coworker_Email_Exact` no, comprobado con un valor imposible).
+- Etiquetas creadas a la vez por dos peticiones: si Gmail da 409, se usa la que ya existe.
+
 ## [1.6] · 2026-10-19
 
 ### App web

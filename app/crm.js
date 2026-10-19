@@ -77,11 +77,26 @@ function pintarTablero(c){
   return '<div class="cv-board">' + cols + '</div>'
     + (CV.bots ? '<p class="cv-nota"><i class="ph ph-robot"></i> <span>Posibles bots archivados:</span> ' + CV.bots + '</p>' : '');
 }
+// las pastillas de una tarjeta: de quién es el turno y lo que dice Nexudus
+function diasDesde(t){ return Math.max(0, Math.round((Date.now() - t) / 86400000)); }
+function pastillas(x){
+  var h = '';
+  if(x.turno === 'tuyo') h += '<span class="cv-chip te">Te toca</span>';
+  else if(x.ultimo) h += '<span class="cv-chip">Esperando · ' + diasDesde(x.ultimo) + ' d</span>';
+  var n = x.nexudus;
+  if(n){
+    var prox = (n.reservas || []).filter(function(b){ return Date.parse(b.desde) > Date.now(); })[0];
+    if((n.facturas || []).some(function(f){ return !f.pagada; })) h += '<span class="cv-chip mal">Factura pendiente</span>';
+    else if((n.facturas || []).length) h += '<span class="cv-chip bien">Pagado</span>';
+    if(prox) h += '<span class="cv-chip"><span>Reserva</span> ' + esc(fecha(Date.parse(prox.desde))) + '</span>';
+  }
+  return h ? '<span class="cv-chips">' + h + '</span>' : '';
+}
 function tarjeta(x){
   var i = CV.leads.indexOf(x);
   return '<button type="button" class="cv-card" draggable="true" data-lead="' + i + '"><span class="cv-card-top"><span class="cv-av">' + esc(iniciales(x)) + '</span><b data-notr>' + esc(nombreDe(x)) + '</b><time>' + esc(fecha(x.fecha)) + '</time></span>'
     + '<span class="cv-card-as" data-notr>' + esc(x.asunto || '') + '</span><span class="cv-card-tx" data-notr>' + esc((x.mensaje || '').slice(0, 140)) + '</span>'
-    + '<span class="cv-card-meta" data-notr>' + esc(x.email || '') + (x.telefono ? ' · ' + esc(x.telefono) : '') + '</span></button>';
+    + pastillas(x) + '<span class="cv-card-meta" data-notr>' + esc(x.email || '') + (x.telefono ? ' · ' + esc(x.telefono) : '') + '</span></button>';
 }
 
 /* ---------- Clientes ---------- */
@@ -236,13 +251,19 @@ function pintarFicha(c){
     + '<dl class="cv-dl">' + (x.email ? '<dt>Correo</dt><dd data-notr>' + esc(x.email) + '</dd>' : '') + (x.telefono ? '<dt>Teléfono</dt><dd data-notr>' + esc(x.telefono) + '</dd>' : '')
     + (x.origen ? '<dt>Origen</dt><dd>' + esc({ formulario:'Formulario de la web', correo:'Correo', 'a mano':'Añadido a mano' }[x.origen] || x.origen) + '</dd>' : '')
     + ((x.fecha || x.ultimo) ? '<dt>Último contacto</dt><dd>' + esc(fecha(x.fecha || x.ultimo)) + '</dd>' : '') + '</dl>'
+    + (x.lead ? pastillas(x) : '')
     + (x.asunto || x.mensaje ? '<div class="cv-msg"><b data-notr>' + esc(x.asunto || '') + '</b><p data-notr>' + esc(x.mensaje || '') + '</p></div>' : '')
-    + '<div class="cv-ficha-acc"><button class="btn" type="button" data-cv="abrir-correo"><i class="ph ph-envelope-open"></i> Abrir el correo</button>' + (x.email ? '<button class="btn primary" type="button" data-cv="escribir"><i class="ph ph-pencil-simple-line"></i> Escribir</button>' : '') + '</div></aside>';
+    + (x.nexudus ? '<div class="cv-nx"><b>En Nexudus</b>'
+        + (x.nexudus.facturas || []).map(function(f){ return '<div class="cv-nx-f"><span data-notr>' + esc(f.numero) + '</span><span>' + esc(fecha(Date.parse(f.fecha))) + '</span><span data-notr>' + esc(Number(f.total || 0).toLocaleString(BZ.loc, { style:'currency', currency:'EUR' })) + '</span><span class="cv-chip ' + (f.pagada ? 'bien' : 'mal') + '">' + (f.pagada ? 'Pagada' : 'Pendiente') + '</span></div>'; }).join('')
+        + (x.nexudus.reservas || []).map(function(b){ return '<div class="cv-nx-f"><span data-notr>' + esc(String(b.sala || '').replace(/^\[[^\]]*\]\s*/, '')) + '</span><span>' + esc(fecha(Date.parse(b.desde))) + '</span><span></span><span class="cv-chip">' + (b.tentativa ? 'Provisional' : 'Reserva') + '</span></div>'; }).join('')
+        + '</div>' : '')
+    + '<div class="cv-ficha-acc">' + (x.lead ? '<button class="btn" type="button" data-cv="nolead" title="Lo quita del tablero (propuestas de colaboración, proveedores…)"><i class="ph ph-prohibit"></i> No es lead</button>' : '') + '<button class="btn" type="button" data-cv="abrir-correo"><i class="ph ph-envelope-open"></i> Abrir el correo</button>' + (x.email ? '<button class="btn primary" type="button" data-cv="escribir"><i class="ph ph-pencil-simple-line"></i> Escribir</button>' : '') + '</div></aside>';
 }
 
 /* ---------- acciones ---------- */
 async function moverLead(l, etapa){
   var c = crmActual(); if(!c || !etapa || l.etapa === etapa) return;
+  // «No es lead» no es una etapa: la tarjeta sale del tablero
   var antes = l.etapa; l.etapa = etapa; pintar();
   try { var r = await fetch('/api/crm', { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ accion:'mover', id:c.id, k:l.k, ids:l.ids, etapa:etapa }) }); if(!r.ok) throw 0; toast('Movido a ' + etapa); }
   catch(e){ l.etapa = antes; pintar(); toast('No se pudo cambiar la etapa'); }
@@ -268,6 +289,7 @@ vista.addEventListener('click', function(e){
   if(t.dataset.cvEd){ crmEd = JSON.parse(JSON.stringify(CRMS[t.dataset.cvEd])); crmEd.deteccion = crmEd.deteccion || { formularios:[] }; crmEd.deteccion.formularios = crmEd.deteccion.formularios || []; $('crmDlg').showModal(); pintarCrmForm(); return; }
   if(cv === 'cerrar-ficha'){ CV.sel = null; pintar(); return; }
   if(cv === 'abrir-correo' && CV.sel){ abrirCorreo(CV.sel); return; }
+  if(cv === 'nolead' && CV.sel && CV.sel.lead){ var l0 = CV.sel; CV.sel = null; moverLead(l0, 'No es lead'); return; }
   if(cv === 'escribir' && CV.sel){ openCompose({ k:CV.sel.k, to:CV.sel.email }); return; }
   if(t.dataset.int){ CV.wiz = t.dataset.int; CV.wizDatos = {}; CV.wizError = ''; pintar(); vista.querySelector('.cv-body').scrollTop = 0; return; }
   if(t.hasAttribute('data-wiz-volver')){ CV.wiz = null; pintar(); return; }

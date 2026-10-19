@@ -2,9 +2,9 @@
 // Una sola función para todo el CRM (el plan gratis de Vercel admite 12 funciones): ?r= elige la parte.
 // GET → la lista · POST { accion: 'guardar' | 'borrar' | 'importar' }
 import { validSession, sameOrigin, noStore, esMaquina, allAccounts, accessToken, readCrm, updateCrm } from './_lib.js';
-import { limpiarCrm, detector } from './_crm.js';
+import { limpiarCrm, detector, ETIQUETA_NOLEAD } from './_crm.js';
 import { esPropaganda } from './vigia.js';
-import { conectarGA, conectarWA, conectarNX, estadoPublico } from './_integ.js';
+import { conectarGA, conectarWA, conectarNX, estadoPublico, nexudusCliente } from './_integ.js';
 
 export default async function handler(req, res) {
   noStore(res);
@@ -15,16 +15,40 @@ export default async function handler(req, res) {
     const r = String((req.query && req.query.r) || '');
     if (req.method === 'GET' && (r === 'leads' || r === 'clientes')) {
       // el tablero (leads por etapa) o los clientes de un CRM, de todas sus cuentas
-      const c = (await readCrm()).crms[String(req.query.id || '')];
+      const dcrm = await readCrm(), c = dcrm.crms[String(req.query.id || '')];
       if (!c) return res.status(404).json({ error: 'crm' });
-      const todas = await allAccounts(), out = { ok: true, leads: [], clientes: [], bots: 0, fallos: [] };
+      const todas = await allAccounts(), out = { ok: true, leads: [], clientes: [], bots: 0, fallos: [] }, dets = {};
       for (const k of c.cuentas) {
         try {
           const tk = await accessToken(k); if (!tk) { out.fallos.push(k); continue; }
-          const d = detector(tk, c, todas, k, esPropaganda);
+          const d = dets[k] = detector(tk, c, todas, k, esPropaganda);
           if (r === 'leads') { const p = await d.pipeline(); out.leads.push(...p.leads); out.bots += p.bots; }
           else out.clientes.push(...await d.clientes());
         } catch (e) { out.fallos.push(k); }
+      }
+      if (r === 'leads') {
+        // cada lead: de quién es el turno y qué hay en Nexudus; con reserva o factura pasa solo a «Reserva», y pagada a «Ganado» (nunca hacia atrás)
+        const nx = ((dcrm.integ || {})[c.id] || {}).nx, nxOk = nx && nx.token && nx.caduca > Date.now();
+        const pos = (n) => c.etapas.findIndex((e) => e.toLowerCase() === n);
+        const iRes = pos('reserva'), iGan = pos('ganado');
+        let i = 0;
+        await Promise.all(Array.from({ length: 3 }, async () => {
+          while (i < out.leads.length) {
+            const l = out.leads[i++], d = dets[l.k];
+            try { if (d && l.email) { const cv = await d.conversacion(l.email); if (cv) { l.turno = cv.turno; l.ultimo = cv.ultimo; } } } catch (e) {}
+            if (!l.turno) l.turno = 'tuyo';
+            if (!nxOk || !l.email) continue;
+            try {
+              const n = await nexudusCliente(nx.token, l.email); if (!n) continue;
+              const desde = (l.fecha || 0) - 7 * 86400000;   // solo lo que viene después de su consulta
+              const fs = n.facturas.filter((f) => Date.parse(f.fecha) >= desde), rs = n.reservas.filter((b) => Date.parse(b.desde) >= desde);
+              l.nexudus = { facturas: n.facturas.slice(0, 8), reservas: n.reservas.slice(0, 8) };
+              const cur = c.etapas.indexOf(l.etapa);
+              const obj = fs.some((f) => f.pagada) && iGan >= 0 ? iGan : ((fs.length || rs.length) && iRes >= 0 ? iRes : -1);
+              if (obj > cur && d) { await d.mover(l.ids, c.etapas[obj]); l.etapa = c.etapas[obj]; l.auto = 'Nexudus'; }
+            } catch (e) {}
+          }
+        }));
       }
       return res.status(200).json(out);
     }
@@ -62,7 +86,7 @@ export default async function handler(req, res) {
       const c = (await readCrm()).crms[id], k = String(b.k || '');
       if (!c || !c.cuentas.includes(k)) return res.status(404).json({ error: 'crm' });
       const etapa = String(b.etapa || c.etapas[0]);
-      if (!c.etapas.includes(etapa)) return res.status(400).json({ error: 'etapa' });
+      if (!c.etapas.includes(etapa) && etapa !== ETIQUETA_NOLEAD) return res.status(400).json({ error: 'etapa' });
       const tk = await accessToken(k); if (!tk) return res.status(409).json({ error: 'reconectar' });
       const d = detector(tk, c, todas, k, esPropaganda);
       if (b.accion === 'anadir') {

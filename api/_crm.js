@@ -5,6 +5,7 @@ import crypto from 'node:crypto';
 
 export const PREFIJO = 'Leads';
 export const ETIQUETA_BOT = 'Posible bot';
+export const ETIQUETA_NOLEAD = 'No es lead';   // lo que se aparta a mano del tablero (propuestas de colaboración, proveedores…)
 export const ETAPAS_DEF = ['Nuevo', 'Respondido', 'Propuesta', 'Reserva', 'Ganado', 'Perdido'];
 export const PALABRAS_DEF = ['presupuesto', 'precio', 'tarifa', 'información', 'reserva', 'disponibilidad', 'alquiler', 'contratar', 'visita', 'quote', 'pricing', 'booking', 'availability'];
 export const etiquetaEtapa = (nombre) => PREFIJO + '/' + nombre;
@@ -126,7 +127,9 @@ export function detector(tk, crm, todas, k, esPropaganda) {
   async function idEtiqueta(nombre) {
     const ls = await etiquetas(), ya = ls.find((l) => l.name === nombre); if (ya) return ya.id;
     const n = await G('labels', { method: 'POST', body: JSON.stringify({ name: nombre, labelListVisibility: 'labelHide', messageListVisibility: 'hide' }) }).then((r) => r.json()).catch(() => ({}));
-    if (!n.id) return null; ls.push(n); return n.id;
+    // si otra petición la creó a la vez (Gmail da 409), se vuelve a leer la lista y se usa esa
+    if (!n.id) { etqs = null; const otra = (await etiquetas()).find((l) => l.name === nombre); return otra ? otra.id : null; }
+    ls.push(n); return n.id;
   }
   const idsLeads = async () => new Set((await etiquetas()).filter((l) => l.name.startsWith(PREFIJO + '/')).map((l) => l.id));
   // ¿ha tratado antes con esta persona en otro hilo? (recibido o enviado)
@@ -243,9 +246,16 @@ export function detector(tk, crm, todas, k, esPropaganda) {
       }
       return { leads: Object.values(por), bots };
     },
+    // de quién es el turno con esa persona: el último correo entre los dos, en cualquier hilo
+    async conversacion(email) {
+      const j = await J('messages?maxResults=1&q=' + encodeURIComponent('{from:' + email + ' to:' + email + '} -in:drafts'));
+      const m0 = (j.messages || [])[0]; if (!m0) return null;
+      const m = await J('messages/' + m0.id + '?format=metadata&metadataHeaders=From');
+      return { turno: correoDe(cab(m, 'from')) === yo ? 'suyo' : 'tuyo', ultimo: +m.internalDate };
+    },
     // cambia de etapa unos mensajes: quita las demás etapas del CRM (y «Posible bot») y pone la nueva
     async mover(ids, etapa) {
-      const ls = await etiquetas(), nombres = crm.etapas.concat([ETIQUETA_BOT]).map(etiquetaEtapa);
+      const ls = await etiquetas(), nombres = crm.etapas.concat([ETIQUETA_BOT, ETIQUETA_NOLEAD]).map(etiquetaEtapa);
       const quitar = ls.filter((l) => nombres.includes(l.name) && l.name !== etiquetaEtapa(etapa)).map((l) => l.id);
       const lid = await idEtiqueta(etiquetaEtapa(etapa)); if (!lid) throw new Error('etiqueta');
       await etiquetar(ids, [lid], quitar);
