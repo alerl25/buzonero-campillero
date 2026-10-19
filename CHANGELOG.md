@@ -2,6 +2,12 @@
 
 Todas las versiones de Buzonero Campillero. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [1.9.1] · 2026-10-19
+
+### App web
+- **«Reconectar todas las cuentas»** (Ajustes → Reconectar con Google): pasa por todas seguidas, sin volver a la app entre una y otra (Google pide confirmar cada una).
+- **Calendario:** si la Google Calendar API no está activada en el proyecto, lo dice tal cual y avisa de que no hace falta reconectar (antes parecía que la cuenta no estaba conectada).
+
 ## [1.9] · 2026-10-19
 
 ### MCP para agentes de IA (37 herramientas)

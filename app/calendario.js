@@ -85,7 +85,8 @@ async function cargarCalendario(forzar){
       });
     } catch(err){
       var m = String(err.message || err);
-      CAL.errores[k] = (err.status === 403 || /insufficient|scope|permission|accessNotConfigured|has not been used|disabled/i.test(m)) ? 'permiso' : m;
+      // «la API no está activada en el proyecto» no se arregla reconectando: se dice tal cual
+      CAL.errores[k] = /accessNotConfigured|has not been used|is disabled/i.test(m) ? 'api' : ((err.status === 403 || /insufficient|scope|permission/i.test(m)) ? 'permiso' : m);
     }
   });
   if(gen !== CAL.gen) return;
@@ -102,7 +103,7 @@ function calPanel(){
   KEYS.forEach(function(k){
     var cs = CAL.cals[k] || [], on = cs.filter(function(c){ return calActivo(k, c); }).length;
     h += '<label class="cal-chk cal-cta" style="--tc:' + esc(ACC[k].color || 'var(--acc)') + '"><input type="checkbox" data-cal-cuenta="' + esc(k) + '"' + (cs.length && on === cs.length ? ' checked' : '') + (on && on < cs.length ? ' data-parcial="1"' : '') + (CAL.errores[k] || !cs.length ? ' disabled' : '') + '><span>' + esc(ACC[k].name) + '</span></label>';
-    if(CAL.errores[k]) h += '<div class="cal-mas">' + (CAL.errores[k] === 'permiso' ? 'Sin permiso de Calendario' : 'No se pudo cargar') + '</div>';
+    if(CAL.errores[k]) h += '<div class="cal-mas">' + (CAL.errores[k] === 'api' ? 'Falta activar la API de Calendar' : CAL.errores[k] === 'permiso' ? 'Sin permiso de Calendario' : 'No se pudo cargar') + '</div>';
     else if(!cs.length && CAL.cargando) h += '<div class="cal-mas">Cargando…</div>';
     cs.forEach(function(c){ h += '<label class="cal-chk sub" style="--tc:' + esc(c.backgroundColor || 'var(--acc)') + '"><input type="checkbox" data-cal-cal="' + esc(k + '|' + c.id) + '"' + (calActivo(k, c) ? ' checked' : '') + '><span title="' + esc(c.summaryOverride || c.summary) + '">' + esc(c.summaryOverride || c.summary) + '</span></label>'; });
   });
@@ -120,7 +121,7 @@ function pintarCalendario(){
     + '<span class="cal-mes">' + esc(CAL.mes.toLocaleDateString('es-ES', { month:'long', year:'numeric' })) + '</span>'
     + '<button type="button" class="icon-btn" data-cal-nav="1" aria-label="Mes siguiente"><i class="ph ph-caret-right"></i></button></span>'
     + '<button type="button" class="cal-chip" data-cal-hoy="1">Hoy</button><span class="cal-nav"><button type="button" class="cal-chip acc" data-cal-nuevo="1"><i class="ph ph-plus"></i> Nuevo evento</button></span></div>';
-  KEYS.forEach(function(k){ if(CAL.errores[k]) h += '<div class="cal-aviso">' + esc(ACC[k].name) + ': ' + (CAL.errores[k] === 'permiso' ? 'esta cuenta aún no da permiso de Calendario. Reconéctala (engranaje → Reconectar) y comprueba que «Google Calendar API» está activada en tu proyecto de Google Cloud.' : esc(CAL.errores[k])) + '</div>'; });
+  KEYS.forEach(function(k){ if(CAL.errores[k]) h += '<div class="cal-aviso">' + esc(ACC[k].name) + ': ' + (CAL.errores[k] === 'api' ? 'Falta activar la «Google Calendar API» en el proyecto de Google Cloud de Buzonero (APIs y servicios → Biblioteca → Google Calendar API → Habilitar). No hace falta reconectar la cuenta.' : CAL.errores[k] === 'permiso' ? 'esta cuenta aún no da permiso de Calendario. Reconéctala (engranaje → Reconectar) y comprueba que «Google Calendar API» está activada en tu proyecto de Google Cloud.' : esc(CAL.errores[k])) + '</div>'; });
   h += '<div class="cal-grid">' + CAL_DIAS.map(function(d){ return '<div class="cal-dow">' + d + '</div>'; }).join('');
   for(var i = 0; i < 42; i++){
     var d = new Date(r[0]); d.setDate(d.getDate() + i); var iso = calIso(d), evs = porDia[iso] || [];

@@ -1,6 +1,7 @@
 // Empieza un acceso con Google. Dos fines:
 // - entrar: identidad (openid, email y perfil, para la foto) para abrir sesión en la web;
-// - reconectar: vuelve a dar a la app los permisos de correo de UNA cuenta (exige sesión abierta);
+// - reconectar: vuelve a dar a la app los permisos de correo de UNA cuenta (exige sesión abierta); con «cola», al terminar
+//   sigue sola con las siguientes («Reconectar todas las cuentas»);
 // - anadir: conecta una cuenta nueva que se elige en Google (exige sesión abierta).
 import crypto from 'node:crypto';
 import { noStore, validSession, ACCOUNTS, allAccounts, appUrl } from '../_lib.js';
@@ -33,9 +34,10 @@ export default async function handler(req, res) {
   const todas = fin === 'reconectar' ? await allAccounts() : ACCOUNTS;
   if (fin === 'reconectar' && (!validSession(req) || !todas[acc])) return go('/app?reconectar=sesion');
   if (fin === 'anadir' && !validSession(req)) return go('/app?anadir=sesion');
+  const cola = fin === 'reconectar' ? [...new Set(String(q.cola || '').split(',').filter((k) => todas[k] && k !== acc))].slice(0, 12) : [];
   const n = crypto.randomBytes(16).toString('base64url');
   const r = String(q.r || '1') !== '0';
-  res.setHeader('Set-Cookie', `bz_state=${packState({ n, r, fin, acc, nombre })}; Path=/api/auth; HttpOnly; Secure; SameSite=Lax; Max-Age=600`);
+  res.setHeader('Set-Cookie', `bz_state=${packState({ n, r, fin, acc, nombre, cola })}; Path=/api/auth; HttpOnly; Secure; SameSite=Lax; Max-Age=600`);
   const params = { client_id: process.env.GOOGLE_CLIENT_ID, redirect_uri: redirectUri(req), response_type: 'code', state: n };
   if (fin === 'entrar') Object.assign(params, { scope: 'openid email profile', prompt: 'select_account' });
   else if (fin === 'anadir') Object.assign(params, { scope: MAIL_SCOPES.join(' '), access_type: 'offline', prompt: 'consent select_account' });

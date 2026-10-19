@@ -52,5 +52,13 @@ export default async function handler(req, res) {
   if (missing.length) return fail('faltan_permisos');
   if (!j.refresh_token) return fail('sin_permiso_offline');
   try { await saveReconnected(st.acc, j.refresh_token, p.picture); } catch { return fail('guardar'); }
+  // «Reconectar todas»: si quedan cuentas en la cola, directamente a por la siguiente
+  if (Array.isArray(st.cola) && st.cola.length) {
+    const [sig, ...resto] = st.cola;
+    res.statusCode = 302;
+    res.setHeader('Set-Cookie', 'bz_state=; Path=/api/auth; HttpOnly; Secure; SameSite=Lax; Max-Age=0');
+    res.setHeader('Location', '/api/auth/start?fin=reconectar&acc=' + encodeURIComponent(sig) + (resto.length ? '&cola=' + encodeURIComponent(resto.join(',')) : ''));
+    return res.end();
+  }
   return back(res, 'reconectada=' + encodeURIComponent(st.acc));
 }

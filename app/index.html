@@ -2331,7 +2331,7 @@ function openMenu(btn, kind){
       + '<button data-mi="sonido"><i class="ph ' + (sonidoActivo() ? 'ph-speaker-high' : 'ph-speaker-slash') + '"></i> <span>Sonido al llegar correo: ' + (sonidoActivo() ? 'activado' : 'desactivado') + '</span></button>'
       + '<div class="sep"></div><div class="ttl">Firma</div>' + KEYS.map(function(k){ return '<button data-mi="firma-'+k+'"><i class="ph ph-signature"></i> <span>'+esc(ACC[k].name)+'</span></button>'; }).join('')
       + (KEYS.some(function(k){ return ACC[k].extra; }) ? '<div class="sep"></div><div class="ttl">Quitar cuenta</div>' + KEYS.filter(function(k){ return ACC[k].extra; }).map(function(k){ return '<button data-mi="quitar-'+k+'"><i class="ph ph-minus-circle"></i> <span>'+esc(ACC[k].name)+'</span></button>'; }).join('') : '')
-      + '<div class="sep"></div><div class="ttl">Reconectar con Google</div>' + KEYS.map(function(k){ return '<button data-mi="reconectar-'+k+'"><i class="ph ph-arrows-clockwise"></i> <span>'+esc(ACC[k].name)+'</span></button>'; }).join('')
+      + '<div class="sep"></div><div class="ttl">Reconectar con Google</div>' + (KEYS.length > 1 ? '<button data-mi="reconectar-todas"><i class="ph ph-arrows-clockwise"></i> <span>Reconectar todas las cuentas</span></button>' : '') + KEYS.map(function(k){ return '<button data-mi="reconectar-'+k+'"><i class="ph ph-arrows-clockwise"></i> <span>'+esc(ACC[k].name)+'</span></button>'; }).join('')
       + '<div class="sep"></div><button data-mi="logout"><i class="ph ph-sign-out"></i> Cerrar sesión</button>'
       + '<div class="sep"></div><div class="lang-row"><span>Idioma</span><div class="lang-pick" data-notr>' + bzLangHTML() + '</div></div>';
   } else {
@@ -2386,6 +2386,7 @@ menu.addEventListener('click', async function(e){
     try { Object.keys(localStorage).forEach(function(x){ if(/^buzonero-/.test(x) && !/^buzonero-(tema|paleta|recordar)$/.test(x)) localStorage.removeItem(x); }); } catch(e){}
     showLogin(); return; }
   if(mi.indexOf('goto-') === 0){ setAcc(mi.slice(5)); return; }
+  if(mi === 'reconectar-todas'){ location.href = '/api/auth/start?fin=reconectar&acc=' + encodeURIComponent(KEYS[0]) + '&cola=' + encodeURIComponent(KEYS.slice(1).join(',')); return; }
   if(mi.indexOf('reconectar-') === 0){ location.href = '/api/auth/start?fin=reconectar&acc=' + mi.slice(11); return; }
   if(mi === 'sonido'){ var on = !sonidoActivo(); try { localStorage.setItem('buzonero-sonido', on ? 'si' : 'no'); } catch(e){} closeMenu(); if(on) sonarAviso(); toast(on ? 'Sonará al llegar un correo' : 'Sin sonido al llegar correo'); return; }
   if(mi === 'av-alta'){ closeMenu(); avisosActivar(); return; }
