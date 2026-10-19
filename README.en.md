@@ -50,12 +50,14 @@ Your agent clones the repo, deploys it to your Vercel, generates all the keys an
 
 The manual guide is in [INSTALAR.md](INSTALAR.md) (Spanish).
 
-## The MCP server: 33 tools
+## The MCP server: 37 tools
 
 <p align="center"><img src="docs/mcp-demo.png" alt="An agent searching every account and leaving a draft" width="88%"></p>
 
 | For… | Tools |
 |---|---|
+| **CRM** | `crm`, `leads` (stage, whose turn it is and Nexudus data for each lead), `mover_lead` (change stage), `anadir_al_crm` (add a thread to the CRM) |
+| **Google Calendar** | `calendarios` (calendars), `eventos` (events), `crear_evento`, `modificar_evento`, `borrar_evento` |
 | **All accounts at once** | `cuentas` (accounts), `buscar_en_todas` (unified inbox or search across all), `paquetes` (parcels), `suscripciones` (newsletters), `basura_parada` (filtered junk), `avisos_pendientes` (pending follow-ups), `buscar_contacto` (contacts) |
 | **Read** | `buscar` (search one account), `leer_hilo` (read thread), `descargar_adjunto` (download attachment) |
 | **Write** | `crear_borrador` (draft: new, reply or forward with attachments), `enviar` (send), `enviar_borrador`, `listar_borradores`, `borrar_borrador` |

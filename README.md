@@ -21,7 +21,7 @@
 
 <p align="center">
   <a href="#instalar-en-1-paso">Instalar</a> ·
-  <a href="#el-mcp-28-herramientas-para-tu-agente">El MCP</a> ·
+  <a href="#el-mcp-37-herramientas-para-tu-agente">El MCP</a> ·
   <a href="#la-app">La app</a> ·
   <a href="#cómo-funciona">Cómo funciona</a> ·
   <a href="#preguntas-frecuentes">Preguntas</a> ·
@@ -49,12 +49,13 @@ Tu agente lo clona, lo publica en tu Vercel, genera las claves y se conecta el M
 
 ¿Prefieres hacerlo a mano? Tienes la guía completa en **[INSTALAR.md](INSTALAR.md)**.
 
-## El MCP: 33 herramientas para tu agente
+## El MCP: 37 herramientas para tu agente
 
 <p align="center"><img src="docs/mcp-demo.png" alt="Un agente buscando en todas las cuentas y dejando un borrador" width="88%"></p>
 
 | Para… | Herramientas |
 |---|---|
+| **CRM** | `crm`, `leads` (etapa, de quién es el turno y Nexudus de cada lead), `mover_lead`, `anadir_al_crm` |
 | **Calendario de Google** | `calendarios`, `eventos`, `crear_evento`, `modificar_evento`, `borrar_evento` |
 | **Ver todas las cuentas a la vez** | `cuentas`, `buscar_en_todas` (bandeja unificada o búsqueda en todas), `paquetes`, `suscripciones`, `basura_parada`, `avisos_pendientes`, `buscar_contacto` |
 | **Leer** | `buscar`, `leer_hilo`, `descargar_adjunto` |

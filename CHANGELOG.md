@@ -2,6 +2,15 @@
 
 Todas las versiones de Buzonero Campillero. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [1.9] · 2026-10-19
+
+### MCP para agentes de IA (37 herramientas)
+- **CRM en el MCP:** `crm` (tus CRM), `leads` (cada lead con su etapa, de quién es el turno, su mensaje y sus facturas y reservas de Nexudus; filtra por etapa o «solo los que te toca contestar»), `mover_lead` (cambiar de etapa o «No es lead») y `anadir_al_crm` (meter un hilo en el CRM). Así tu agente puede preparar borradores para los leads que esperan respuesta; nunca se envían solos.
+
+### Documentación
+- README (español e inglés) y AGENTS con las 37 herramientas, la fila del CRM y la del calendario en inglés; el enlace al apartado del MCP vuelve a funcionar.
+- `scripts/conectar_cuenta.py` y `scripts/iconos.mjs` pasan al repositorio.
+
 ## [1.8.1] · 2026-10-19
 
 ### Documentación

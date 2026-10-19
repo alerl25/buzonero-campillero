@@ -284,8 +284,30 @@ const TOOLS = [
   T('eventos', 'Eventos de un calendario de Google, ordenados por hora. Por defecto: calendario principal, desde ahora y los próximos 14 días. Fechas en ISO (2026-10-24 o 2026-10-24T10:00).', { cuenta: CUENTA, calendario: { type: 'string', description: 'Id del calendario (de «calendarios»). Por defecto «primary».' }, desde: { type: 'string' }, hasta: { type: 'string' }, texto: { type: 'string', description: 'Buscar en título, descripción y lugar.' }, max: { type: 'number', description: '1-100, por defecto 25.' } }, ['cuenta']),
   T('crear_evento', 'Crea un evento en un calendario de Google. Para uno de todo el día pasa `todo_el_dia: true` y solo fechas. Si lleva `asistentes` (se les enviará la invitación) exige `confirmado: true`.', { cuenta: CUENTA, calendario: { type: 'string' }, titulo: { type: 'string' }, inicio: { type: 'string', description: 'ISO, p. ej. 2026-10-24T10:00 (hora local de la zona) o 2026-10-24 si es de todo el día.' }, fin: { type: 'string' }, todo_el_dia: { type: 'boolean' }, zona: { type: 'string', description: 'Zona horaria IANA; por defecto Europe/Madrid.' }, lugar: { type: 'string' }, descripcion: { type: 'string' }, asistentes: { type: 'array', items: { type: 'string' }, description: 'Correos a invitar.' }, confirmado: { type: 'boolean' } }, ['cuenta', 'titulo', 'inicio']),
   T('modificar_evento', 'Cambia campos de un evento (título, horas, lugar, descripción). Solo se tocan los campos que pases.', { cuenta: CUENTA, calendario: { type: 'string' }, evento_id: { type: 'string' }, titulo: { type: 'string' }, inicio: { type: 'string' }, fin: { type: 'string' }, todo_el_dia: { type: 'boolean' }, zona: { type: 'string' }, lugar: { type: 'string' }, descripcion: { type: 'string' } }, ['cuenta', 'evento_id']),
+  T('crm', 'Tus CRM (uno por negocio): nombre, id, cuentas de correo, etapas y si detecta leads solo.'),
+  T('leads', 'Los leads del tablero de un CRM con su etapa, de quién es el turno («tuyo» = te toca contestar; «suyo» = esperas su respuesta, con días), su mensaje y, si Nexudus está conectado, sus facturas y reservas. Sirve para preparar borradores a los que te toca contestar (nunca se envían solos).', { crm: { type: 'string', description: 'Nombre o id; por defecto el primero.' }, etapa: { type: 'string', description: 'Solo esta etapa.' }, solo_te_toca: { type: 'boolean', description: 'Solo los que esperan tu respuesta.' } }),
+  T('mover_lead', 'Cambia de etapa un lead (por los ids de sus mensajes, que da «leads»). La etapa tiene que ser una del CRM, o «No es lead» para quitarlo del tablero.', { crm: { type: 'string' }, cuenta: CUENTA, mensajes: { type: 'array', items: { type: 'string' } }, etapa: { type: 'string' } }, ['cuenta', 'mensajes', 'etapa']),
+  T('anadir_al_crm', 'Mete en el CRM la conversación de un hilo (para leads que no llegaron por el formulario): marca el primer correo de la otra persona con la etapa indicada (por defecto la primera).', { crm: { type: 'string', description: 'Opcional: si no, el CRM de esa cuenta.' }, cuenta: CUENTA, hilo_id: { type: 'string' }, etapa: { type: 'string' } }, ['cuenta', 'hilo_id']),
   T('borrar_evento', 'Borra un evento de un calendario de Google. Exige `confirmado: true`; sin él solo dice qué borraría.', { cuenta: CUENTA, calendario: { type: 'string' }, evento_id: { type: 'string' }, confirmado: { type: 'boolean' } }, ['cuenta', 'evento_id', 'confirmado']),
 ];
+
+// ---------- CRM: la lista de CRM y cuál usar ----------
+async function crmLista() {
+  const r = await servidor('/api/crm'); const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error('Tu Buzonero no devolvió los CRM (' + r.status + ').');
+  return j;
+}
+async function crmElegir(crm, k) {
+  const ls = Object.values((await crmLista()).crms || {});
+  if (!ls.length) throw new Error('No hay ningún CRM: créalo en la app (barra lateral → CRM → Ajustes).');
+  if (crm) {
+    const v = String(crm).toLowerCase();
+    const c = ls.find((x) => x.id === crm || x.nombre.toLowerCase() === v) || ls.find((x) => x.nombre.toLowerCase().includes(v));
+    if (!c) throw new Error('No hay ningún CRM «' + crm + '». Hay: ' + ls.map((x) => x.nombre).join(', '));
+    return c;
+  }
+  return (k && ls.find((x) => x.cuentas.includes(k))) || ls[0];
+}
 
 // ---------- calendario de Google ----------
 const CAL = (k, ruta, opt) => api(k, 'https://www.googleapis.com/calendar/v3/' + ruta, opt);
@@ -411,6 +433,32 @@ const HANDLERS = {
     const r = await servidor('/api/seguir'); const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error('Tu Buzonero no devolvió los avisos (' + r.status + ').');
     return Object.values(j.seg || {}).sort((a, b) => a.vence - b.vence).map((s) => ({ cuenta: s.k, nombre_cuenta: (ACC[s.k] || {}).name, hilo_id: s.hilo, asunto: s.asunto, para: s.para, avisa: fecha(s.vence) }));
+  },
+  // ---------- CRM ----------
+  async crm() {
+    const j = await crmLista();
+    return Object.values(j.crms || {}).map((c) => ({ id: c.id, nombre: c.nombre, cuentas: c.cuentas.map((k) => (ACC[k] || {}).name || k), etapas: c.etapas, detecta_leads: !!(c.deteccion || {}).activa }));
+  },
+  async leads({ crm, etapa, solo_te_toca }) {
+    const c = await crmElegir(crm);
+    const r = await servidor('/api/crm?r=leads&id=' + encodeURIComponent(c.id)); const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.ok) throw new Error('Tu Buzonero no devolvió los leads (' + r.status + ').');
+    return (j.leads || []).filter((l) => (!etapa || l.etapa.toLowerCase() === String(etapa).toLowerCase()) && (!solo_te_toca || l.turno === 'tuyo'))
+      .sort((a, b) => b.fecha - a.fecha)
+      .map((l) => ({ nombre: l.nombre, correo: l.email, telefono: l.telefono || undefined, etapa: l.etapa, turno: l.turno, dias_desde_ultimo: l.ultimo ? Math.round((Date.now() - l.ultimo) / 86400000) : undefined, asunto: l.asunto, mensaje: String(l.mensaje || '').slice(0, 400), origen: l.origen, cuenta: l.k, hilo_id: l.hilo, mensajes: l.ids,
+        nexudus: l.nexudus ? { facturas: l.nexudus.facturas.map((f) => f.numero + ' · ' + f.total + ' € · ' + (f.pagada ? 'pagada' : 'pendiente')), reservas: l.nexudus.reservas.map((b) => b.sala + ' · ' + fecha(Date.parse(b.desde))) } : undefined }));
+  },
+  async mover_lead({ crm, cuenta, mensajes, etapa }) {
+    const k = accKey(cuenta), c = await crmElegir(crm, k);
+    const r = await servidor('/api/crm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accion: 'mover', id: c.id, k, ids: mensajes, etapa }) });
+    if (!r.ok) throw new Error('Tu Buzonero no movió el lead (' + r.status + '). Etapas de «' + c.nombre + '»: ' + c.etapas.join(', ') + ' o «No es lead».');
+    return { movido: true, etapa };
+  },
+  async anadir_al_crm({ crm, cuenta, hilo_id, etapa }) {
+    const k = accKey(cuenta), c = await crmElegir(crm, k);
+    const r = await servidor('/api/crm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accion: 'anadir', id: c.id, k, hilo: hilo_id, etapa: etapa || c.etapas[0] }) });
+    if (!r.ok) throw new Error('Tu Buzonero no lo añadió al CRM (' + r.status + ').');
+    return { anadido: true, crm: c.nombre, etapa: etapa || c.etapas[0] };
   },
   async quitar_aviso({ cuenta, hilo_id }) {
     const k = accKey(cuenta);

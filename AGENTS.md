@@ -151,10 +151,11 @@ Recuérdale tres normas del MCP:
 - enviar, darse de baja y bloquear piden su confirmación;
 - su correo no sale de su Google, su Vercel y su ordenador.
 
-## Lo que hace el MCP (33 herramientas)
+## Lo que hace el MCP (37 herramientas)
 
 | Grupo | Herramientas |
 |---|---|
+| CRM | `crm`, `leads` (etapa, turno y Nexudus de cada lead), `mover_lead`, `anadir_al_crm` |
 | Calendario de Google | `calendarios`, `eventos`, `crear_evento`, `modificar_evento`, `borrar_evento` |
 | Varias cuentas a la vez | `cuentas`, `buscar_en_todas` (bandeja unificada o búsqueda en todas), `paquetes`, `suscripciones`, `basura_parada`, `avisos_pendientes`, `buscar_contacto` |
 | Leer y buscar | `buscar`, `leer_hilo`, `descargar_adjunto` |
@@ -167,7 +168,7 @@ Recuérdale tres normas del MCP:
 ## Si vas a tocar el código (no para instalar)
 
 - **Sin compilación ni dependencias.**
-  - `app/index.html` es la app entera.
+  - `app/index.html` es la app; la pestaña CRM está en `app/crm.js` y el calendario en `app/calendario.js`.
   - `app/tema.css` se genera en parte con `python scripts/temas.py app`.
   - `api/` son funciones de Vercel en Node 20.
   - `mcp/buzonero-mcp.mjs` es el MCP.
