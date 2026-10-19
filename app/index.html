@@ -2207,7 +2207,7 @@ function syncFrom(){ var k = $('from').value; $('fromOrb').innerHTML = accOrb(k)
 function openCompose(o){
   o = o || {};
   if(dlg.open) minimizar();   // si ya había uno abierto, se minimiza (como Gmail), no se pierde
-  comp = { k:o.k || st.acc, draftId:o.draftId || null, threadId:o.threadId || null, inReplyTo:o.inReplyTo || '', refs:o.refs || '', files:(o.files||[]).slice(), dirty:false, sending:false, cita:o.cita || null, seguir:o.seguir || 0 };
+  comp = { k:o.k || st.acc, draftId:o.draftId || null, hiloBorrador:o.hiloBorrador || null, threadId:o.threadId || null, inReplyTo:o.inReplyTo || '', refs:o.refs || '', files:(o.files||[]).slice(), dirty:false, sending:false, cita:o.cita || null, seguir:o.seguir || 0 };
   pararDictado(); cerrarSegPop(); pintarSegBtn();
   $('from').innerHTML = KEYS.map(function(k){ return '<option value="'+k+'"'+(k===comp.k?' selected':'')+'>'+esc(ACC[k].name)+'</option>'; }).join('');
   syncFrom();
@@ -2407,10 +2407,10 @@ async function guardarBorrador(c, o){
   try {
     var small = o.files.filter(function(f){ return !f.willDrive; }).reduce(function(s,f){ return s + f.size; }, 0) < 8 * 1048576;
     var raw = toB64u(btoa(await buildRaw(o, small)));
-    var msg = { raw:raw }; if(o.threadId) msg.threadId = o.threadId;
+    var msg = { raw:raw }; if(o.threadId) msg.threadId = o.threadId; else if(c.hiloBorrador) msg.threadId = c.hiloBorrador;   // un borrador suelto se actualiza en SU hilo: sin esto Gmail lo pasaba a un hilo nuevo y la fila de la lista dejaba de encontrarlo
     var nuevo = !c.draftId;
     if(c.draftId){ await gm(o.k, 'drafts/' + c.draftId, { method:'PUT', json:{ id:c.draftId, message:msg } }); }
-    else { var d = await gm(o.k, 'drafts', { method:'POST', json:{ message:msg } }); c.draftId = d.id; }
+    else { var d = await gm(o.k, 'drafts', { method:'POST', json:{ message:msg } }); c.draftId = d.id; if(d.message && d.message.threadId) c.hiloBorrador = d.message.threadId; }
     if(c === comp && dlg.open) $('saved').textContent = 'Borrador guardado';
     if(o.threadId) olvidarHilo(o.k, o.threadId);
     refrescarBorradores(o.k);
@@ -2504,7 +2504,7 @@ async function eliminarMinimizado(id){
 async function reabrir(id){
   var i = BANDEJA.findIndex(function(x){ return x.id === id; }); if(i < 0) return;
   var it = BANDEJA.splice(i, 1)[0]; drawBandeja();
-  var o = Object.assign({}, it.o, { draftId:it.c.draftId, files:it.c.files, cita:it.c.cita, focusBody:true });
+  var o = Object.assign({}, it.o, { draftId:it.c.draftId, hiloBorrador:it.c.hiloBorrador, files:it.c.files, cita:it.c.cita, focusBody:true });
   // una respuesta vuelve a su sitio: dentro de su hilo (ordenador); si estabas en otro correo o cuenta, te lleva a él
   if(o.threadId && innerWidth > 900){
     if(dlg.open) minimizar();
@@ -2651,14 +2651,14 @@ function setRcpt(id, s){ var inp = $(id); [].slice.call(inp.parentNode.querySele
 async function openDraftFromThread(threadId, enLinea){
   try {
     var k = st.acc, ds = await gm(k, 'drafts?maxResults=100'), d = (ds.drafts||[]).filter(function(x){ return x.message && x.message.threadId === threadId; })[0];
-    if(!d){ toast('No se encontró el borrador'); return; }
+    if(!d){ toast('Ese borrador ya no existe: actualizo la lista'); loadList(false); return; }
     var full = await gm(k, 'drafts/' + d.id + '?format=full'), m = parseMsg(full.message);
     var files = []; for(var i=0;i<m.atts.length;i++){ var x = m.atts[i]; if(x.inline) continue; try { var dd = x.data ? { data:x.data } : await gm(k, 'messages/' + m.id + '/attachments/' + x.id); var bytes = b64uToBytes(dd.data); files.push({ name:x.name, size:bytes.length, type:x.mime, bytes:bytes }); } catch(e){} }
     var bodyTxt = (m.text || '').replace(/\n\n-- \n[\s\S]*$/, '');
     var dHtml = null; if(m.html){ var tmp = document.createElement('div'); tmp.innerHTML = DOMPurify.sanitize(m.html); [].slice.call(tmp.querySelectorAll('.gmail_signature, .gmail_quote')).forEach(function(x){ x.remove(); }); var inner = tmp.querySelector('div[dir="ltr"]'); dHtml = (inner || tmp).innerHTML; }
     var enHilo = cur && cur.id === threadId, cita = enHilo ? replyFields(false).cita : null;
     if(enHilo) bodyTxt = bodyTxt.replace(/\n\nEl [\s\S]*escribió:[\s\S]*$/, '');
-    openCompose({ k:k, draftId:d.id, cita:cita, enLinea: !!(enLinea && enHilo), focusBody: !!enHilo, to:m.to, cc:m.cc, subject:m.subj, body:bodyTxt, html:dHtml, files:files, threadId: full.message.threadId !== full.message.id ? full.message.threadId : null, inReplyTo:hdr(full.message.payload, 'In-Reply-To'), refs:hdr(full.message.payload, 'References') });
+    openCompose({ k:k, draftId:d.id, hiloBorrador:full.message.threadId, cita:cita, enLinea: !!(enLinea && enHilo), focusBody: !!enHilo, to:m.to, cc:m.cc, subject:m.subj, body:bodyTxt, html:dHtml, files:files, threadId: full.message.threadId !== full.message.id ? full.message.threadId : null, inReplyTo:hdr(full.message.payload, 'In-Reply-To'), refs:hdr(full.message.payload, 'References') });
   } catch(e){ toast('No se pudo abrir el borrador: ' + e.message); }
 }
 
