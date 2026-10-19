@@ -268,6 +268,41 @@ export async function updateSeg(fn) {
   return seg;
 }
 
+// ---------------- envíos pendientes («Enviar» pulsado: si la app se cierra, lo envía el vigía) ----------------
+// Fichero aparte (buzonero-envios.enc), cifrado igual que los demás. Solo cuenta, id del borrador, cuándo y el asunto: nunca el correo.
+const ENV_NAME = 'buzonero-envios.enc';
+let envFileId = null;
+export async function readEnv() {
+  const H = { Authorization: 'Bearer ' + await anchorToken() };
+  if (!envFileId) {
+    const q = encodeURIComponent("name='" + ENV_NAME + "' and trashed=false");
+    const l = await (await fetch('https://www.googleapis.com/drive/v3/files?q=' + q + '&fields=files(id)&orderBy=modifiedTime%20desc', { headers: H })).json();
+    if (!Array.isArray(l.files)) throw new Error('drive');
+    envFileId = (l.files[0] || {}).id || null;
+  }
+  if (!envFileId) return {};
+  const r = await fetch('https://www.googleapis.com/drive/v3/files/' + envFileId + '?alt=media', { headers: H });
+  if (r.status === 404) { envFileId = null; return {}; }
+  if (!r.ok) throw new Error('drive ' + r.status);
+  return unseal((await r.text()).trim()) || {};
+}
+export async function updateEnv(fn) {
+  const env = await readEnv();
+  if ((await fn(env)) === false) return env;
+  const t = await anchorToken(), body = seal(env);
+  if (envFileId) {
+    const r = await fetch('https://www.googleapis.com/upload/drive/v3/files/' + envFileId + '?uploadType=media', { method: 'PATCH', headers: { Authorization: 'Bearer ' + t, 'Content-Type': 'text/plain' }, body });
+    if (!r.ok) throw new Error('envios ' + r.status);
+  } else {
+    const b = 'bz' + crypto.randomBytes(6).toString('hex');
+    const mp = '--' + b + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + JSON.stringify({ name: ENV_NAME, mimeType: 'text/plain' }) + '\r\n--' + b + '\r\nContent-Type: text/plain\r\n\r\n' + body + '\r\n--' + b + '--';
+    const r = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', { method: 'POST', headers: { Authorization: 'Bearer ' + t, 'Content-Type': 'multipart/related; boundary=' + b }, body: mp });
+    const j = await r.json().catch(() => ({})); if (!j.id) throw new Error('envios'); envFileId = j.id;
+  }
+  return env;
+}
+
+
 // ---------------- avisos al móvil (Web Push, sin librerías) ----------------
 // RFC 8291 (cifrado aes128gcm) + RFC 8292 (VAPID). Claves en VAPID_PUBLIC (punto P-256 sin comprimir, base64url)
 // y VAPID_PRIVATE (d, base64url). Vale para el iPhone (web.push.apple.com), Chrome y Firefox.

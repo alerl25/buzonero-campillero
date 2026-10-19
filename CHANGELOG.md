@@ -2,6 +2,15 @@
 
 Todas las versiones de Buzonero Campillero. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [1.2] · 2026-10-19
+
+### App web
+- **Enviar en 5 s** (antes 10) para echarse atrás.
+- **Enviar aunque cierres la app:** al pulsar Enviar, el correo final se guarda como borrador en Gmail y se apunta en el servidor. Si cierras la app o apagas el ordenador antes de que salga, lo envía el vigía en el siguiente minuto y te avisa al móvil («Enviado · …»). Gmail no deja enviar dos veces el mismo borrador, así que nunca sale repetido. Los adjuntos de más de 25 MB (que van por Drive) siguen necesitando la app abierta.
+
+### Servidor
+- `api/envio.js` y un fichero cifrado propio en Drive (`buzonero-envios.enc`) con los envíos pendientes; el vigía los manda con `drafts/send`.
+
 ## [1.1] · 2026-10-19
 
 ### App web

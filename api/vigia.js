@@ -3,7 +3,7 @@
 // y, si lo hay, manda el aviso a los móviles suscritos. No guarda correos: solo el punto del historial de cada cuenta.
 // También vigila los «Avísame si no contesta» (su propio fichero, readSeg): al vencer, si nadie ha respondido, avisa y devuelve el hilo a Recibidos.
 import crypto from 'node:crypto';
-import { allAccounts, accessToken, readStore, updateStore, readSeg, updateSeg, pushTodos, noStore } from './_lib.js';
+import { allAccounts, accessToken, readStore, updateStore, readSeg, updateSeg, readEnv, updateEnv, pushTodos, noStore } from './_lib.js';
 
 const MAX_POR_CUENTA = 4;   // si entran más de golpe, el resto va en un aviso de resumen
 const ETIQUETA_SEG = 'Sin respuesta';
@@ -31,7 +31,9 @@ export default async function handler(req, res) {
   if (st0._fallo) return res.status(503).json({ error: 'almacen' });
   const hayMoviles = Object.keys(st0.push || {}).length > 0;
   const vencidos = Object.values(await readSeg().catch(() => ({}))).filter((s) => s && s.vence <= Date.now());
-  if (!hayMoviles && !vencidos.length) return res.status(200).json({ ok: true, sinMoviles: true });
+  // envíos pulsados en la app que la app no llegó a mandar (se cerró o se apagó): 20 s de margen sobre su hora
+  const pendEnv = Object.values(await readEnv().catch(() => ({}))).filter((e) => e && e.tras + 20000 <= Date.now());
+  if (!hayMoviles && !vencidos.length && !pendEnv.length) return res.status(200).json({ ok: true, sinMoviles: true });
   const todas = await allAccounts(), nuevosH = {}, avisos = [], hist = st0.hist || {};
   const tokens = {};
   const tok = async (k) => { if (!(k in tokens)) tokens[k] = await accessToken(k).catch(() => null); return tokens[k]; };
@@ -91,6 +93,21 @@ export default async function handler(req, res) {
     } catch (e) {}
   }
 
+  const envHechos = [];
+  for (const e of pendEnv.slice(0, 10)) {
+    const acc = todas[e.k]; if (!acc) { envHechos.push(e); continue; }
+    try {
+      const tk = await tok(e.k); if (!tk) continue;   // cuenta caída: se reintenta en la siguiente pasada
+      const r = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/drafts/send', { method: 'POST', headers: { Authorization: 'Bearer ' + tk, 'Content-Type': 'application/json' }, body: JSON.stringify({ id: e.draft }) });
+      if (r.status === 404 || r.status === 400) { envHechos.push(e); continue; }   // ya lo envió la app, o el borrador ya no existe
+      if (!r.ok) continue;
+      const m = await r.json().catch(() => ({}));
+      envHechos.push(e);
+      if (e.segVence && m.threadId) await updateSeg((seg) => { seg[e.k + '|' + m.threadId] = { k: e.k, hilo: m.threadId, vence: e.segVence, desde: Date.now(), asunto: e.asunto, para: e.para, puesto: Date.now() }; }).catch(() => {});
+      avisos.push({ title: 'Enviado · ' + acc.name, body: (e.asunto || '(sin asunto)') + (e.para ? '\nA ' + e.para : ''), tag: 'env-' + e.k + '-' + e.draft, url: '/app?acc=' + encodeURIComponent(e.k) + (m.threadId ? '&hilo=' + encodeURIComponent(m.threadId) : '') });
+    } catch (err) {}
+  }
+  if (envHechos.length) await updateEnv((env) => { envHechos.forEach((e) => { const c = e.k + '|' + e.draft, x = env[c]; if (x && x.puesto === e.puesto) delete env[c]; }); }).catch(() => {});
   if (Object.keys(nuevosH).length) await updateStore((n) => { Object.assign(n.hist, nuevosH); });
   // se borran solo los que se han mirado y no se han vuelto a poner mientras tanto
   if (segHechos.length) await updateSeg((seg) => { segHechos.forEach((s) => { const c = s.k + '|' + s.hilo, a = seg[c]; if (a && a.puesto === s.puesto) delete seg[c]; }); }).catch(() => {});
@@ -104,5 +121,5 @@ export default async function handler(req, res) {
   }
   const enviados = [];
   if (hayMoviles) for (const a of avisos) enviados.push(await pushTodos(a));
-  return res.status(200).json({ ok: true, avisos: avisos.length, entregas: enviados.flat().filter((c) => c >= 200 && c < 300).length, puntos: Object.keys(nuevosH).length, seguimientos: segHechos.length });
+  return res.status(200).json({ ok: true, avisos: avisos.length, entregas: enviados.flat().filter((c) => c >= 200 && c < 300).length, puntos: Object.keys(nuevosH).length, seguimientos: segHechos.length, enviosServidor: envHechos.length });
 }

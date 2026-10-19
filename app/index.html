@@ -957,7 +957,7 @@ var CATS = [['CATEGORY_SOCIAL','Social','ph-users'],['CATEGORY_UPDATES','Notific
 var TABS = [['ALL','Todo','ph-tray'],['CATEGORY_PERSONAL','Principal','ph-envelope-simple'],['CATEGORY_PROMOTIONS','Promociones','ph-tag'],['CATEGORY_SOCIAL','Social','ph-users'],['CATEGORY_UPDATES','Notificaciones','ph-info']];
 var EMPTY = { IMPORTANT:['Nada importante','Gmail marca aquí lo que cree que te importa.'], CATEGORY_SOCIAL:['Sin novedades sociales','Aquí llegan avisos de redes sociales.'], CATEGORY_UPDATES:['Sin notificaciones','Aquí van confirmaciones, recibos y avisos.'], CATEGORY_FORUMS:['Sin foros','Aquí llegan listas de correo y grupos.'], CATEGORY_PROMOTIONS:['Sin promociones','Aquí llegan ofertas y boletines.'], CATEGORY_PERSONAL:['Principal al día','No te queda nada por aquí.'], INBOX:['Bandeja al día','No te queda nada por aquí.'], STARRED:['Nada destacado','Marca con la estrella lo que quieras tener a mano.'], SENT:['Sin enviados','Lo que mandes desde esta cuenta aparecerá aquí.'], DRAFT:['Sin borradores','Los mensajes a medias se guardan solos.'], ALL:['Sin correos','Esta cuenta está vacía.'], SPAM:['Sin spam','Gmail lo filtra antes de que llegue.'], TRASH:['Papelera vacía','Lo que borres se queda aquí 30 días.'], LABEL:['Etiqueta vacía','Ningún correo lleva esta etiqueta.'], SEARCH:['Sin resultados','Prueba con otra palabra, un remitente o has:attachment.'] };
 var DIRECT_MAX = 25 * 1024 * 1024; // como Gmail: por encima, a Drive
-var UNDO_MS = 5000, UNDO_ENVIO_MS = 10000;   // enviar: 10 s para echarse atrás
+var UNDO_MS = 5000, UNDO_ENVIO_MS = 5000;   // enviar: 5 s para echarse atrás (Alejandro, 19-oct-2026)
 
 var st = { acc:null, cat:'ALL', folder:'INBOX', label:null, q:'', filter:'all', threads:[], next:null, sel:null, checked:{}, loading:false, listErr:null, gen:0 };
 var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1014,7 +1014,7 @@ async function api(k, url, opt){
     if(r.status === 429) CUOTA_HASTA = Date.now() + 60000;   // Google pide calma: lo de fondo se para un minuto
     if((r.status === 429 || r.status >= 500) && attempt < 2){ await sleep(600 * (attempt + 1)); continue; }
     if(r.status === 403 && attempt < 2){ var ej = await r.clone().json().catch(function(){ return {}; }); var why = JSON.stringify(ej); if(/rate ?limit|RATE_LIMIT|quota/i.test(why)){ CUOTA_HASTA = Date.now() + 60000; await sleep(1500 * (attempt + 1)); continue; } }
-    if(!r.ok){ var e = await r.json().catch(function(){ return {}; }); throw new Error((e.error && e.error.message) || ('Error ' + r.status)); }
+    if(!r.ok){ var e = await r.json().catch(function(){ return {}; }); var er = new Error((e.error && e.error.message) || ('Error ' + r.status)); er.status = r.status; throw er; }
     if(r.status === 204) return {};
     return r.json();
   }
@@ -2617,7 +2617,8 @@ $('send').addEventListener('click', function(){
   snapshot.esperar = function(){ return (cc.guardando || Promise.resolve()).catch(function(){}).then(function(){ if(cc.draftId) snapshot.draftId = cc.draftId; }); };
   if(window.__particulas) window.__particulas.vuelo(sr, null, 'envio');
   var cancelled = false;
-  toast('Se envía desde ' + ACC[o.k].name + ' en 10 s', function(){ cancelled = true; openCompose(Object.assign({}, snapshot, { files:snapshot.files })); }, function(){ if(!cancelled) reallySend(snapshot); }, UNDO_ENVIO_MS);
+  snapshot.tras = Date.now() + UNDO_ENVIO_MS; snapshot.prep = prepararEnvio(snapshot);
+  toast('Se envía desde ' + ACC[o.k].name + ' en ' + Math.round(UNDO_ENVIO_MS / 1000) + ' s', function(){ cancelled = true; snapshot.prep.then(function(){ quitarEnvioServidor(snapshot); openCompose(Object.assign({}, snapshot, { files:snapshot.files })); }); }, function(){ if(!cancelled) reallySend(snapshot); }, UNDO_ENVIO_MS);
 });
 // vuelve a leer UN hilo y pone su fila al día en la lista (tras enviar o borrar un borrador); devuelve true si el hilo sigue existiendo
 async function actualizarFilaHilo(k, tid){
@@ -2632,8 +2633,29 @@ async function actualizarFilaHilo(k, tid){
     return true;
   } catch(e){ st.threads = st.threads.filter(function(x){ return x.id !== tid; }); if(st.acc === k) drawRows(); return false; }
 }
+/* Enviar sin miedo a cerrar: al pulsar Enviar se deja el borrador final en Gmail y se apunta en el servidor cuándo enviarlo.
+   Si la app sigue abierta, lo envía ella al acabar la cuenta atrás; si se cierra o se apaga el ordenador, lo envía el vigía (cada minuto).
+   Con archivos que van por Drive no se puede (se suben desde aquí): esos solo salen con la app abierta. */
+function envioPost(cuerpo){ return fetch('/api/envio', { method:'POST', credentials:'same-origin', keepalive:true, headers:{ 'Content-Type':'application/json' }, body:JSON.stringify(cuerpo) }).then(function(r){ return r.ok ? r.json() : {}; }).catch(function(){ return {}; }); }
+function quitarEnvioServidor(o){ if(o && o.enServidor){ o.enServidor = false; envioPost({ accion:'quitar', k:o.k, draft:o.draftId }); } }
+async function prepararEnvio(o){
+  try {
+    if(o.esperar){ await o.esperar(); delete o.esperar; }
+    if((o.files || []).some(function(f){ return f.willDrive; })) return o;
+    o.links = [];
+    var raw = toB64u(btoa(await buildRaw(o, true)));
+    var msg = { raw:raw }; if(o.threadId) msg.threadId = o.threadId;
+    if(o.draftId){ await gm(o.k, 'drafts/' + o.draftId, { method:'PUT', json:{ id:o.draftId, message:msg } }); }
+    else { var d = await gm(o.k, 'drafts', { method:'POST', json:{ message:msg } }); o.draftId = d.id; }
+    o.listo = true;
+    var j = await envioPost({ accion:'poner', k:o.k, draft:o.draftId, tras:o.tras, asunto:o.subject || '', para:splitAddrs(o.to || o.cc || o.bcc).map(shortName).join(', '), segVence:o.seguir ? venceEn(o.seguir) : 0 });
+    o.enServidor = !!j.ok;
+  } catch(e){ o.listo = false; }
+  return o;
+}
 async function reallySend(o){
   try {
+    if(o.prep) await o.prep;
     if(o.esperar){ await o.esperar(); delete o.esperar; }
     var links = [];
     var big = o.files.filter(function(f){ return f.willDrive; });
@@ -2641,8 +2663,15 @@ async function reallySend(o){
     o.links = links;
     var raw = toB64u(btoa(await buildRaw(o, true)));
     var msg = { raw:raw }; if(o.threadId) msg.threadId = o.threadId;
-    var enviado = await gm(o.k, 'messages/send', { method:'POST', json:msg });
-    if(o.draftId){ try { await gm(o.k, 'drafts/' + o.draftId, { method:'DELETE' }); } catch(e){} }
+    var enviado;
+    if(o.listo){   // el borrador final ya está en Gmail y apuntado en el servidor: se envía ese borrador (Gmail no deja enviarlo dos veces)
+      try { enviado = await gm(o.k, 'drafts/send', { method:'POST', json:{ id:o.draftId } }); }
+      catch(e){ if(e.status === 404 || e.status === 400){ enviado = {}; } else throw e; }   // ya lo envió el vigía
+      quitarEnvioServidor(o);
+    } else {
+      enviado = await gm(o.k, 'messages/send', { method:'POST', json:msg });
+      if(o.draftId){ try { await gm(o.k, 'drafts/' + o.draftId, { method:'DELETE' }); } catch(e){} }
+    }
     // «Avísame si no contesta» marcado al escribir: se apunta el hilo que acaba de salir
     var aviso = o.seguir && enviado && enviado.threadId ? await ponerSeg(o.k, enviado.threadId, o.seguir, { asunto:o.subject || '', para:splitAddrs(o.to || o.cc || o.bcc).map(shortName).join(', '), desde:Date.now() }, true) : 0;
     toast('Enviado desde ' + ACC[o.k].name + (aviso ? '. Te aviso ' + fmtVence(aviso) + ' si no contesta' : o.seguir ? ', pero no se pudo poner el aviso' : ''));
@@ -2842,7 +2871,8 @@ async function doAct(kind, el){
     if(rb && window.__particulas) window.__particulas.vuelo(rb.getBoundingClientRect(), null, 'envio');
     $('replyText').value = ''; $('replyText').classList.remove('has');
     var cancelled = false;
-    toast('La respuesta se envía en 10 s', function(){ cancelled = true; $('replyText').value = txt; $('replyText').classList.add('has'); $('replyText').focus(); }, function(){ if(!cancelled) reallySend(o); }, UNDO_ENVIO_MS);
+    o.tras = Date.now() + UNDO_ENVIO_MS; o.prep = prepararEnvio(o);
+    toast('La respuesta se envía en ' + Math.round(UNDO_ENVIO_MS / 1000) + ' s', function(){ cancelled = true; o.prep.then(function(){ quitarEnvioServidor(o); if(o.draftId) gm(o.k, 'drafts/' + o.draftId, { method:'DELETE' }).catch(function(){}); }); $('replyText').value = txt; $('replyText').classList.add('has'); $('replyText').focus(); }, function(){ if(!cancelled) reallySend(o); }, UNDO_ENVIO_MS);
   }
 }
 
