@@ -37,7 +37,7 @@ export async function conectarGA(d) {
   const ga = { propiedad, sa: { client_email: sa.client_email, private_key: sa.private_key } };
   const j = await informeGA(ga, { dateRanges: [{ startDate: '7daysAgo', endDate: 'today' }], metrics: [{ name: 'activeUsers' }] });
   const usuarios = Number((((j.rows || [])[0] || {}).metricValues || [{}])[0].value || 0);
-  return { guardar: { ...ga, conectado: new Date().toISOString() }, estado: { cuenta: sa.client_email, propiedad, resumen: usuarios + ' usuarios en los últimos 7 días' } };
+  return { guardar: { ...ga, conectado: new Date().toISOString() }, estado: { cuenta: sa.client_email, propiedad, resumen: usuarios + ' usuarios en los últimos 7 días', sinDatos: usuarios === 0 } };
 }
 
 // ---------- WhatsApp (Cloud API de Meta), uno o varios números ----------

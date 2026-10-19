@@ -117,20 +117,24 @@ function pintarClientes(c){
 var INTEG = [
   { id:'ga', nombre:'Google Analytics', icono:'ph-chart-line-up', que:'Visitas de tu web, de dónde vienen y qué páginas traen clientes.',
     pasos:[
-      ['Abre Google Cloud con la cuenta de Google que quieras (no tiene que ser la de tu correo). Arriba, en el selector de proyecto, elige uno o crea uno nuevo (New project).', 'https://console.cloud.google.com/projectcreate', 'Abrir Google Cloud'],
-      ['Activa la API: menú APIs y servicios → Biblioteca (Library) → busca «Google Analytics Data API» → Habilitar (Enable).', 'https://console.cloud.google.com/apis/library/analyticsdata.googleapis.com', 'Abrir la API'],
+      ['Abre Google Cloud con la cuenta de Google que quieras (no tiene que ser la de tu correo). Arriba a la izquierda, en el selector de proyecto, elige uno o crea uno nuevo (New project). Fíjate en su nombre: todos los pasos de Google Cloud se hacen en ESE proyecto, míralo arriba cada vez.', 'https://console.cloud.google.com/projectcreate', 'Abrir Google Cloud'],
+      ['Activa la API «Google Analytics Data API»: comprueba arriba que está elegido tu proyecto y pulsa Habilitar (Enable). Si pone Administrar (Manage), ya estaba activada.', 'https://console.cloud.google.com/apis/library/analyticsdata.googleapis.com', 'Abrir la API'],
       ['Crea la cuenta de servicio: Credenciales (Credentials) → + Crear credenciales (Create credentials). De las 4 opciones, elige Cuenta de servicio (Service account); NO «API key» ni «OAuth client ID», que no sirven para Analytics. Nombre: buzonero → Crear y continuar (Create and continue) → en Permisos no toques nada: Continuar (Continue) → Listo (Done).', 'https://console.cloud.google.com/apis/credentials', 'Abrir Credenciales'],
-      ['Descarga la clave: en Credenciales, sección Cuentas de servicio (Service Accounts), pulsa buzonero@…iam.gserviceaccount.com → pestaña Claves (Keys) → Agregar clave (Add key) → Crear clave nueva (Create new key) → JSON → Crear. Se descarga un fichero .json: es la clave. Copia también ese correo que acaba en iam.gserviceaccount.com.', 'https://console.cloud.google.com/iam-admin/serviceaccounts', 'Abrir Cuentas de servicio'],
+      ['Descarga la clave: en Credenciales, abajo del todo, sección Cuentas de servicio (Service Accounts), pulsa el correo buzonero@…iam.gserviceaccount.com → pestaña Claves (Keys) → Agregar clave (Add key) → Crear clave nueva (Create new key) → JSON → Crear (Create). Se descarga un fichero .json en Descargas: es la clave, no la compartas. Copia también ese correo.', 'https://console.cloud.google.com/iam-admin/serviceaccounts', 'Abrir Cuentas de servicio'],
       ['Si al crear la clave sale «Service account key creation is disabled», tu organización bloquea las claves: repite los pasos 1 a 4 con un proyecto de una cuenta personal de Gmail. Analytics no necesita que sea la misma cuenta.', '', ''],
-      ['Dale acceso en Analytics: Administrar (la rueda, abajo a la izquierda) → columna Propiedad → Gestión del acceso a la propiedad → + (arriba a la derecha) → Añadir usuarios. Pega el correo de la cuenta de servicio, rol Lector, quita «Notificar por correo» y pulsa Añadir.', 'https://analytics.google.com/analytics/web/', 'Abrir Google Analytics'],
-      ['Copia el ID de la propiedad. Lo más fácil: con Analytics abierto, mira la dirección del navegador (…/#/p123456789/…): el número que va tras «/p» es el ID. También sale en gris bajo el nombre de la propiedad en el selector de arriba a la izquierda. No vale el «G-…» (es el ID de medición).', '', ''],
-      ['Pega aquí el ID, sube el fichero .json y pulsa Probar y guardar.', '', ''],
+      ['Busca la propiedad buena (puede haber varias): en Analytics, Administrar (la rueda, abajo a la izquierda) → Flujos de datos (Data streams). La buena es la que NO dice «No data received in past 48 hours». Si tienes varias propiedades, cámbialas en el selector de arriba a la izquierda y mira cada una. Si ninguna recibe datos, las visitas de tu web van a otra cuenta de Analytics: pregunta a quien montó la web.', 'https://analytics.google.com/analytics/web/', 'Abrir Google Analytics'],
+      ['Dale acceso: Administrar → Gestión del acceso a la cuenta (así vale para todas sus propiedades; o Gestión del acceso a la propiedad, solo para una) → + (arriba a la derecha) → Añadir usuarios. Pega el correo de la cuenta de servicio, quita «Notificar a los usuarios nuevos por correo», rol Lector → Añadir.', '', ''],
+      ['Copia el ID de esa propiedad. Lo más fácil: con ella abierta en Analytics, mira la dirección del navegador (…/#/a230301515p317267533/…): el ID es el número que va tras la «p» (aquí 317267533), no el de la «a». También sale en gris bajo el nombre de la propiedad en el selector de arriba a la izquierda. No vale el «G-…» (es el ID de medición).', '', ''],
+      ['Pega aquí el ID, sube el fichero .json y pulsa Probar y guardar. Si dice «0 usuarios», esa propiedad no recibe visitas: vuelve al paso 6 y prueba con otra.', '', ''],
     ],
     campos:[['propiedad', 'ID de la propiedad', 'text', '123456789'], ['clave', 'Clave de la cuenta de servicio (el fichero .json)', 'json', '']] },
   { id:'gbp', nombre:'Google Business', icono:'ph-storefront', que:'Reseñas de Google (leer y contestar), llamadas y clics de tu ficha.',
     pasos:[
-      ['Google tiene que aprobar el acceso a su API: rellena la solicitud con la cuenta que gestiona tu ficha. Suele tardar unos días.', 'https://developers.google.com/my-business/content/prereqs', 'Pedir el acceso'],
-      ['Cuando llegue el correo de aprobación, activa en tu proyecto de Google Cloud la «My Business Account Management API» y la «My Business Business Information API».', 'https://console.cloud.google.com/apis/library/mybusinessaccountmanagement.googleapis.com', 'Activar las API'],
+      ['Antes de pedirlo: tu ficha de Google tiene que estar verificada y activa desde hace más de 60 días, con la web del negocio puesta en la ficha.', '', ''],
+      ['Copia el número de tu proyecto de Google Cloud (el mismo de Analytics sirve): Panel (Dashboard) → tarjeta Información del proyecto (Project info) → Número del proyecto (Project number), solo cifras. No es el ID con letras.', 'https://console.cloud.google.com/home/dashboard', 'Abrir el panel del proyecto'],
+      ['Rellena la solicitud con un correo que sea propietario o administrador de la ficha: en el desplegable elige «Application for Basic API Access», pega el número del proyecto y completa el resto.', 'https://support.google.com/business/contact/api_default', 'Abrir la solicitud'],
+      ['Espera el correo de Google (suele tardar unos días). Para saber si ya está aprobado sin esperar al correo: en Cuotas del proyecto, las API de Business Profile pasan de 0 a 300 consultas por minuto.', 'https://console.cloud.google.com/iam-admin/quotas', 'Abrir Cuotas'],
+      ['Cuando esté aprobado, activa en ese mismo proyecto la «My Business Account Management API» y la «My Business Business Information API».', 'https://console.cloud.google.com/apis/library/mybusinessaccountmanagement.googleapis.com', 'Activar las API'],
       ['Vuelve aquí y conecta: entrarás con la cuenta de la ficha solo para leer reseñas y estadísticas; no se añade como correo.', '', ''],
     ],
     espera:'Disponible cuando Google apruebe el acceso' },
@@ -193,6 +197,7 @@ async function probarInteg(){
   if(!j.ok){ CV.wizError = j.mensaje || 'No se pudo conectar'; pintar(); return; }
   var nom = (INTEG.filter(function(x){ return x.id === CV.wiz; })[0] || {}).nombre || '';
   toast('Conectado: ' + nom + (j.estado && j.estado.resumen ? ' · ' + j.estado.resumen : ''));
+  if(j.estado && j.estado.sinDatos) setTimeout(function(){ alert('Esa propiedad no ha tenido visitas en 7 días: seguramente no es la de tu web. Mira el paso 6 y prueba con otra.'); }, 400);
   CV.wiz = null; CV.wizDatos = {}; await crmCargar().catch(function(){}); pintar();
 }
 async function quitarInteg(svc, num){

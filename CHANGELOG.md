@@ -2,6 +2,12 @@
 
 Todas las versiones de Buzonero Campillero. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [1.5.2] · 2026-10-19
+
+### App web
+- **Google Analytics, pasos reescritos con lo que costó en la primera conexión real:** trabajar siempre en el mismo proyecto de Google Cloud, dónde está la clave (pulsar el correo de la cuenta de servicio → Keys), cómo elegir la propiedad buena (Flujos de datos: la que no dice «No data received»), dar acceso a nivel de cuenta, el ID tras la «p» de la dirección (no el de la «a») y qué hacer si sale «0 usuarios» (ahora la app avisa).
+- **Google Business:** requisitos (ficha verificada con más de 60 días y web), dónde está el número del proyecto, la solicitud («Application for Basic API Access») y cómo saber si ya está aprobado (cuota de 0 a 300).
+
 ## [1.5.1] · 2026-10-19
 
 ### App web
