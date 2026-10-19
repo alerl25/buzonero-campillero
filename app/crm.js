@@ -3,7 +3,7 @@
    Usa lo del script principal (ACC, KEYS, st, gm, esc, toast, setAcc, openThread, openCompose, CRMS, crmCargar, crmDeK…). */
 (function(){
 'use strict';
-var CV = { id:null, tab:'tablero', leads:null, clientes:null, bots:0, sel:null, q:'', cargando:{} };
+var CV = { id:null, tab:'tablero', leads:null, clientes:null, bots:0, sel:null, q:'', cargando:{}, wiz:null, wizDatos:{}, wizError:'', wizProbando:false };
 var shell = document.querySelector('.shell');
 var vista = document.createElement('section');
 vista.className = 'crm-view'; vista.id = 'crmView'; vista.hidden = true; vista.setAttribute('aria-label', 'CRM');
@@ -112,19 +112,92 @@ function pintarClientes(c){
     + '</div>';
 }
 
-/* ---------- Integraciones ---------- */
+/* ---------- Integraciones: cada una con sus pasos, la página exacta de cada paso y «Probar y guardar» ----------
+   Ninguna mete otra cuenta de Google en Buzonero: Analytics va con la clave de una cuenta de servicio. */
 var INTEG = [
-  { id:'ga', nombre:'Google Analytics', icono:'ph-chart-line-up', que:'Visitas de tu web, de dónde vienen y qué páginas traen clientes.', pasos:'Falta activar la API de Google Analytics en tu proyecto de Google Cloud. Después, «Conectar» te pedirá entrar con la cuenta de Google que ve tu Analytics.', enlace:'https://console.cloud.google.com/apis/library/analyticsdata.googleapis.com' },
-  { id:'gbp', nombre:'Google Business', icono:'ph-storefront', que:'Reseñas de Google (leer y contestar), llamadas y clics de tu ficha.', pasos:'Google pide solicitar el acceso a la API de Business Profile (un formulario; tarda unos días). Hasta que lo apruebe, no se puede conectar.', enlace:'https://developers.google.com/my-business/content/prereqs' },
-  { id:'wa', nombre:'WhatsApp Business', icono:'ph-whatsapp-logo', que:'Los WhatsApp de tus números en una bandeja, como leads. Puedes conectar varios números.', pasos:'Se conecta con la API de WhatsApp de Meta (gratis al contestar en 24 h): crea una app de empresa en Meta for Developers, añade WhatsApp y pega aquí el identificador del número y el token.', enlace:'https://developers.facebook.com/apps' },
-  { id:'nx', nombre:'Nexudus', icono:'ph-buildings', que:'Solo lectura: facturas pagadas o pendientes y reservas de cada cliente. Nunca cambia nada en Nexudus.', pasos:'Se conecta con un usuario de Nexudus con acceso a la API, de solo lectura.', enlace:'' },
+  { id:'ga', nombre:'Google Analytics', icono:'ph-chart-line-up', que:'Visitas de tu web, de dónde vienen y qué páginas traen clientes.',
+    pasos:[
+      ['Abre Google Cloud con la cuenta de Google que quieras (no tiene que ser la de tu correo) y elige o crea un proyecto.', 'https://console.cloud.google.com/projectcreate', 'Abrir Google Cloud'],
+      ['Activa en ese proyecto la «Google Analytics Data API».', 'https://console.cloud.google.com/apis/library/analyticsdata.googleapis.com', 'Activar la API'],
+      ['Crea una cuenta de servicio: ponle un nombre (por ejemplo, buzonero) y pulsa Hecho. No hace falta darle ningún rol.', 'https://console.cloud.google.com/iam-admin/serviceaccounts/create', 'Crear la cuenta de servicio'],
+      ['Entra en esa cuenta de servicio → pestaña Claves → Añadir clave → Crear clave nueva → JSON. Se descarga un fichero: esa es la clave.', 'https://console.cloud.google.com/iam-admin/serviceaccounts', 'Abrir las cuentas de servicio'],
+      ['En Google Analytics: Administrar → Gestión del acceso a la propiedad → + → Añadir usuarios. Pega el correo de la cuenta de servicio (acaba en iam.gserviceaccount.com) con el rol Lector.', 'https://analytics.google.com/analytics/web/', 'Abrir Google Analytics'],
+      ['Copia el ID de la propiedad: Administrar → Detalles de la propiedad (un número como 123456789).', '', ''],
+    ],
+    campos:[['propiedad', 'ID de la propiedad', 'text', '123456789'], ['clave', 'Clave de la cuenta de servicio (el fichero .json)', 'json', '']] },
+  { id:'gbp', nombre:'Google Business', icono:'ph-storefront', que:'Reseñas de Google (leer y contestar), llamadas y clics de tu ficha.',
+    pasos:[
+      ['Google tiene que aprobar el acceso a su API: rellena la solicitud con la cuenta que gestiona tu ficha. Suele tardar unos días.', 'https://developers.google.com/my-business/content/prereqs', 'Pedir el acceso'],
+      ['Cuando llegue el correo de aprobación, activa en tu proyecto de Google Cloud la «My Business Account Management API» y la «My Business Business Information API».', 'https://console.cloud.google.com/apis/library/mybusinessaccountmanagement.googleapis.com', 'Activar las API'],
+      ['Vuelve aquí y conecta: entrarás con la cuenta de la ficha solo para leer reseñas y estadísticas; no se añade como correo.', '', ''],
+    ],
+    espera:'Disponible cuando Google apruebe el acceso' },
+  { id:'wa', nombre:'WhatsApp Business', icono:'ph-whatsapp-logo', que:'Los WhatsApp de tus números en una bandeja, como leads. Puedes conectar varios números.',
+    pasos:[
+      ['Entra en Meta for Developers con la cuenta de Facebook que administra tu Meta Business → Crear app → caso de uso «Conectarte con clientes por WhatsApp» → elige tu cuenta comercial.', 'https://developers.facebook.com/apps/creation/', 'Abrir Meta for Developers'],
+      ['En la app: WhatsApp → Configuración de la API. Meta te da un número de prueba gratis. Para usar un número tuyo, «Añadir número de teléfono»: que no sea el del WhatsApp del móvil, o dejará de funcionar en la app.', '', ''],
+      ['Copia el «Identificador del número de teléfono» (no el número en sí).', '', ''],
+      ['Crea un token que no caduque: Meta Business → Usuarios del sistema → Añadir (Administrador) → Asignar activos: tu app → Generar token con los permisos whatsapp_business_messaging y whatsapp_business_management.', 'https://business.facebook.com/settings/system-users', 'Abrir usuarios del sistema'],
+      ['Pega aquí un nombre para este número (Ventas, Eventos…), el identificador y el token. Para otro número, repite desde el paso 2.', '', ''],
+    ],
+    campos:[['nombre', 'Nombre del número', 'text', 'Ventas'], ['numeroId', 'Identificador del número de teléfono', 'text', '123456789012345'], ['token', 'Token', 'password', '']] },
+  { id:'nx', nombre:'Nexudus', icono:'ph-buildings', que:'Solo lectura: facturas pagadas o pendientes y reservas de cada cliente. Nunca cambia nada en Nexudus.',
+    pasos:[
+      ['Usa un usuario de Nexudus que pueda ver facturas y reservas (mejor uno creado solo para esto). Buzonero solo lee: nunca cambia nada.', '', ''],
+      ['La dirección de tu espacio es la de tu panel, algo como tuespacio.spaces.nexudus.com.', '', ''],
+      ['Escribe el correo y la contraseña de ese usuario. Si tiene verificación en dos pasos, añade el código de 6 cifras de tu app.', '', ''],
+      ['La contraseña no se guarda: Buzonero guarda un pase de solo lectura que dura unas semanas y te avisa para renovarlo.', '', ''],
+    ],
+    campos:[['espacio', 'Dirección de tu espacio', 'text', 'tuespacio.spaces.nexudus.com'], ['usuario', 'Correo del usuario', 'text', ''], ['clave', 'Contraseña', 'password', ''], ['codigo', 'Código de 6 cifras (si te lo pide)', 'text', '123456']] },
 ];
+function integDe(c){ return ((window.CRM_INTEG || {})[c.id]) || {}; }
+function estadoInteg(c, x){
+  var e = integDe(c)[x.id];
+  if(!e || (Array.isArray(e) && !e.length)) return '';
+  if(x.id === 'ga') return '<div class="cv-int-ok"><i class="ph-fill ph-check-circle"></i><span><span>Propiedad</span> <span data-notr>' + esc(e.propiedad) + '</span></span><button type="button" class="btn sm" data-int-quitar="ga">Quitar</button></div>';
+  if(x.id === 'nx') return '<div class="cv-int-ok"><i class="ph-fill ph-check-circle"></i><span data-notr>' + esc(e.espacio) + '</span><small><span>Caduca el</span> ' + esc(new Date(e.caduca).toLocaleDateString(BZ.loc)) + '</small><button type="button" class="btn sm" data-int-quitar="nx">Quitar</button></div>';
+  if(x.id === 'wa') return e.map(function(n){ return '<div class="cv-int-ok"><i class="ph-fill ph-check-circle"></i><span data-notr>' + esc(n.nombre) + ' · ' + esc(n.numero || n.id) + '</span><button type="button" class="btn sm" data-int-quitar="wa" data-num="' + esc(n.id) + '">Quitar</button></div>'; }).join('');
+  return '';
+}
 function pintarIntegraciones(c){
+  if(CV.wiz) return pintarAsistente(c, INTEG.filter(function(x){ return x.id === CV.wiz; })[0]);
   return '<p class="cv-intro">Conecta otras herramientas a este CRM. Cada una se conecta por separado y se puede quitar cuando quieras.</p><div class="cv-integ">'
-    + INTEG.map(function(x){ return '<div class="cv-int"><div class="cv-int-h"><i class="ph ' + x.icono + '"></i><b>' + x.nombre + '</b><span class="cv-est">Sin conectar</span></div><p>' + x.que + '</p>'
-      + '<button type="button" class="btn primary" data-int="' + x.id + '"><i class="ph ph-plug"></i> Conectar</button>'
-      + (CV.int === x.id ? '<div class="cv-int-pasos"><p>' + x.pasos + '</p>' + (x.enlace ? '<a class="btn sm" href="' + x.enlace + '" target="_blank" rel="noopener">Abrir la página <i class="ph ph-arrow-square-out"></i></a>' : '') + '</div>' : '') + '</div>'; }).join('')
+    + INTEG.map(function(x){ var ok = estadoInteg(c, x);
+        return '<div class="cv-int"><div class="cv-int-h"><i class="ph ' + x.icono + '"></i><b>' + x.nombre + '</b><span class="cv-est' + (ok ? ' on' : '') + '">' + (ok ? 'Conectado' : 'Sin conectar') + '</span></div><p>' + x.que + '</p>' + ok
+          + '<button type="button" class="btn ' + (ok ? '' : 'primary') + '" data-int="' + x.id + '"><i class="ph ph-plug"></i> <span>' + (ok ? (x.id === 'wa' ? 'Añadir otro número' : 'Volver a conectar') : 'Conectar') + '</span></button></div>'; }).join('')
     + '</div>';
+}
+function pintarAsistente(c, x){
+  var campos = (x.campos || []).map(function(f){
+    var v = esc((CV.wizDatos || {})[f[0]] || '');
+    if(f[2] === 'json') return '<label class="crm-lb">' + f[1] + '<input type="file" accept=".json,application/json" data-wiz-fich="' + f[0] + '"><textarea rows="4" data-wiz="' + f[0] + '" placeholder="O pega aquí el contenido del fichero">' + v + '</textarea></label>';
+    return '<label class="crm-lb">' + f[1] + '<input type="' + f[2] + '" data-wiz="' + f[0] + '" value="' + v + '" placeholder="' + esc(f[3]) + '" autocomplete="off"></label>';
+  }).join('');
+  return '<div class="cv-wiz"><button type="button" class="btn sm" data-wiz-volver><i class="ph ph-arrow-left"></i> <span>Volver a integraciones</span></button>'
+    + '<h3><i class="ph ' + x.icono + '"></i> <span>' + x.nombre + '</span></h3><ol class="cv-pasos">'
+    + x.pasos.map(function(p){ return '<li><span>' + p[0] + '</span>' + (p[1] ? '<a class="btn sm" href="' + p[1] + '" target="_blank" rel="noopener"><span>' + p[2] + '</span> <i class="ph ph-arrow-square-out"></i></a>' : '') + '</li>'; }).join('') + '</ol>'
+    + (x.campos ? '<div class="cv-wiz-form">' + campos + (CV.wizError ? '<p class="cv-wiz-err" data-notr>' + esc(CV.wizError) + '</p>' : '') + '<button type="button" class="btn primary" data-wiz-probar' + (CV.wizProbando ? ' disabled' : '') + '><i class="ph ph-plug"></i> <span>' + (CV.wizProbando ? 'Probando…' : 'Probar y guardar') + '</span></button></div>'
+       : '<div class="cv-wiz-form"><button type="button" class="btn" disabled><span>' + x.espera + '</span></button></div>')
+    + '</div>';
+}
+async function probarInteg(){
+  var c = crmActual(); if(!c) return;
+  [].slice.call(vista.querySelectorAll('[data-wiz]')).forEach(function(el){ CV.wizDatos[el.dataset.wiz] = el.value; });
+  CV.wizProbando = true; CV.wizError = ''; pintar();
+  var j = {};
+  try { var r = await fetch('/api/crm', { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ accion:'integrar', id:c.id, svc:CV.wiz, datos:CV.wizDatos }) }); j = await r.json().catch(function(){ return {}; }); }
+  catch(e){ j = { mensaje:'No se pudo contactar con Buzonero' }; }
+  CV.wizProbando = false;
+  if(!j.ok){ CV.wizError = j.mensaje || 'No se pudo conectar'; pintar(); return; }
+  var nom = (INTEG.filter(function(x){ return x.id === CV.wiz; })[0] || {}).nombre || '';
+  toast('Conectado: ' + nom + (j.estado && j.estado.resumen ? ' · ' + j.estado.resumen : ''));
+  CV.wiz = null; CV.wizDatos = {}; await crmCargar().catch(function(){}); pintar();
+}
+async function quitarInteg(svc, num){
+  var c = crmActual(); if(!c || !confirm('¿Quitar esta integración? Se borran su clave y su token de Buzonero.')) return;
+  var r = await fetch('/api/crm', { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ accion:'desintegrar', id:c.id, svc:svc, numero:num || '' }) }).catch(function(){ return { ok:false }; });
+  if(!r.ok){ toast('No se pudo quitar'); return; }
+  await crmCargar().catch(function(){}); pintar(); toast('Integración quitada');
 }
 
 /* ---------- Ajustes ---------- */
@@ -168,7 +241,7 @@ function cambiarEtapa(x, etapa){
 
 vista.addEventListener('click', function(e){
   var t = e.target.closest('button, a'); if(!t) return;
-  if(t.dataset.cvtab){ CV.tab = t.dataset.cvtab; CV.sel = null; CV.int = null; pintar(); cargar(); return; }
+  if(t.dataset.cvtab){ CV.tab = t.dataset.cvtab; CV.sel = null; CV.wiz = null; pintar(); cargar(); return; }
   var cv = t.dataset.cv;
   if(cv === 'recargar'){ CV.leads = CV.clientes = null; cargar(true); return; }
   if(cv === 'crear'){ crmEd = { id:'', nombre:'', cuentas:crmDeK(st.acc, '') ? [] : [st.acc], etapas:CRM_ETAPAS.slice(), deteccion:{ activa:true, directo:false, palabras:[], frasesBot:[], formularios:[{ de:'', asunto:'' }] } }; $('crmDlg').showModal(); pintarCrmForm(); return; }
@@ -176,17 +249,22 @@ vista.addEventListener('click', function(e){
   if(cv === 'cerrar-ficha'){ CV.sel = null; pintar(); return; }
   if(cv === 'abrir-correo' && CV.sel){ abrirCorreo(CV.sel); return; }
   if(cv === 'escribir' && CV.sel){ openCompose({ k:CV.sel.k, to:CV.sel.email }); return; }
-  if(t.dataset.int){ CV.int = CV.int === t.dataset.int ? null : t.dataset.int; pintar(); return; }
+  if(t.dataset.int){ CV.wiz = t.dataset.int; CV.wizDatos = {}; CV.wizError = ''; pintar(); vista.querySelector('.cv-body').scrollTop = 0; return; }
+  if(t.hasAttribute('data-wiz-volver')){ CV.wiz = null; pintar(); return; }
+  if(t.hasAttribute('data-wiz-probar')){ probarInteg(); return; }
+  if(t.dataset.intQuitar){ quitarInteg(t.dataset.intQuitar, t.dataset.num); return; }
   if(t.dataset.lead){ CV.sel = CV.leads[+t.dataset.lead]; CV.sel.lead = true; pintar(); return; }
   if(t.dataset.cliAbrir){ CV.sel = CV.clientesVista[+t.dataset.cliAbrir]; pintar(); return; }
 });
 vista.addEventListener('change', function(e){
   var t = e.target;
+  // la clave .json de Google: se lee en el navegador y se pega en su caja
+  if(t.dataset.wizFich && t.files && t.files[0]){ var fr = new FileReader(), campo = t.dataset.wizFich; fr.onload = function(){ var ta = vista.querySelector('[data-wiz="' + campo + '"]'); if(ta) ta.value = String(fr.result || ''); CV.wizDatos[campo] = String(fr.result || ''); }; fr.readAsText(t.files[0]); return; }
   if(t.id === 'cvSel'){ CV.id = t.value; CV.leads = CV.clientes = null; CV.sel = null; pintar(); cargar(); return; }
   if(t.dataset.cliEtapa){ cambiarEtapa(CV.clientesVista[+t.dataset.cliEtapa], t.value); return; }
   if(t.hasAttribute('data-ficha-etapa') && CV.sel){ cambiarEtapa(CV.sel, t.value); return; }
 });
-vista.addEventListener('input', function(e){ if(e.target.id === 'cvQ'){ CV.q = e.target.value; var pos = e.target.selectionStart; CV.clientesVista = []; pintar(); var q = $('cvQ'); if(q){ q.focus(); try { q.setSelectionRange(pos, pos); } catch(err){} } } });
+vista.addEventListener('input', function(e){ if(e.target.dataset && e.target.dataset.wiz){ CV.wizDatos[e.target.dataset.wiz] = e.target.value; return; } if(e.target.id === 'cvQ'){ CV.q = e.target.value; var pos = e.target.selectionStart; CV.clientesVista = []; pintar(); var q = $('cvQ'); if(q){ q.focus(); try { q.setSelectionRange(pos, pos); } catch(err){} } } });
 // arrastrar tarjetas entre etapas (ordenador)
 vista.addEventListener('dragstart', function(e){ var t = e.target.closest && e.target.closest('[data-lead]'); if(!t) return; e.dataTransfer.setData('text/plain', t.dataset.lead); e.dataTransfer.effectAllowed = 'move'; t.classList.add('arr'); });
 vista.addEventListener('dragend', function(e){ var t = e.target.closest && e.target.closest('[data-lead]'); if(t) t.classList.remove('arr'); [].slice.call(vista.querySelectorAll('.cv-col.sobre')).forEach(function(x){ x.classList.remove('sobre'); }); });

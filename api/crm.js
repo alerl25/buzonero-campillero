@@ -4,6 +4,7 @@
 import { validSession, sameOrigin, noStore, esMaquina, allAccounts, accessToken, readCrm, updateCrm } from './_lib.js';
 import { limpiarCrm, detector } from './_crm.js';
 import { esPropaganda } from './vigia.js';
+import { conectarGA, conectarWA, conectarNX, estadoPublico } from './_integ.js';
 
 export default async function handler(req, res) {
   noStore(res);
@@ -27,7 +28,12 @@ export default async function handler(req, res) {
       }
       return res.status(200).json(out);
     }
-    if (req.method === 'GET') return res.status(200).json({ ok: true, crms: (await readCrm()).crms });
+    if (req.method === 'GET') {
+      // la lista de CRM y, de cada uno, qué integraciones tiene (sin claves ni tokens)
+      const d = await readCrm(), integ = {};
+      Object.keys(d.integ || {}).forEach((x) => { integ[x] = estadoPublico(d.integ[x]); });
+      return res.status(200).json({ ok: true, crms: d.crms, integ });
+    }
     if (req.method !== 'POST') return res.status(405).json({ error: 'metodo' });
     const b = req.body || {}, todas = await allAccounts();
     if (b.accion === 'guardar') {
@@ -48,7 +54,7 @@ export default async function handler(req, res) {
     if (!/^c[0-9a-f]{8}$/.test(id)) return res.status(400).json({ error: 'crm' });
     if (b.accion === 'borrar') {
       // las etiquetas de Gmail se quedan: borrar el CRM no toca el correo
-      await updateCrm((d) => { if (!d.crms[id]) return false; delete d.crms[id]; });
+      await updateCrm((d) => { if (!d.crms[id]) return false; delete d.crms[id]; if (d.integ) delete d.integ[id]; });
       return res.status(200).json({ ok: true });
     }
     if (b.accion === 'mover' || b.accion === 'anadir') {
@@ -67,6 +73,25 @@ export default async function handler(req, res) {
       if (!ids.length) return res.status(400).json({ error: 'ids' });
       await d.mover(ids, etapa);
       return res.status(200).json({ ok: true });
+    }
+    if (b.accion === 'integrar' || b.accion === 'desintegrar') {
+      // conectar (se prueba antes de guardar) o quitar una integración: ga, wa (varios números) o nx
+      const svc = String(b.svc || '');
+      if (!['ga', 'wa', 'nx'].includes(svc)) return res.status(400).json({ error: 'svc' });
+      if (!(await readCrm()).crms[id]) return res.status(404).json({ error: 'crm' });
+      if (b.accion === 'desintegrar') {
+        const num = String(b.numero || '');
+        await updateCrm((d) => { const x = (d.integ || {})[id]; if (!x) return false; if (svc === 'wa' && num) x.wa = (x.wa || []).filter((n) => n.id !== num); else delete x[svc]; });
+        return res.status(200).json({ ok: true });
+      }
+      let r2;
+      try { r2 = await ({ ga: conectarGA, wa: conectarWA, nx: conectarNX })[svc](b.datos || {}); }
+      catch (e) { return res.status(400).json({ error: 'integ', mensaje: String(e.message || e).slice(0, 300), pide: e.pide || null }); }
+      await updateCrm((d) => {
+        d.integ = d.integ || {}; const x = d.integ[id] = d.integ[id] || {};
+        if (svc === 'wa') { x.wa = (x.wa || []).filter((n) => n.id !== r2.guardar.id); x.wa.push(r2.guardar); } else x[svc] = r2.guardar;
+      });
+      return res.status(200).json({ ok: true, estado: r2.estado });
     }
     if (b.accion === 'importar') {
       const c = (await readCrm()).crms[id];

@@ -2,6 +2,18 @@
 
 Todas las versiones de Buzonero Campillero. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [1.5] · 2026-10-19
+
+### App web
+- **Integraciones paso a paso:** cada una (Google Analytics, Google Business, WhatsApp, Nexudus) abre un asistente con los pasos numerados, un botón a la página exacta de cada paso, los campos para pegar la clave y **Probar y guardar**: se prueba de verdad antes de guardarse y, si falla, dice por qué.
+- **Google Analytics sin meter otra cuenta de Google:** con la clave de una cuenta de servicio (fichero .json) y el ID de la propiedad.
+- **WhatsApp con varios números:** cada uno con su nombre, identificador y token; se pueden añadir y quitar.
+- **Nexudus de solo lectura:** con usuario, contraseña y, si lo pide, el código de 6 cifras; la contraseña no se guarda, solo un pase de solo lectura que caduca.
+- Google Business explica cómo pedir el acceso a Google; se conecta cuando lo aprueben.
+
+### Servidor
+- `api/_integ.js`: prueba y guarda cada integración, cifrada en `buzonero-crm.enc` (campo `integ`). La app solo recibe el estado, nunca claves ni tokens.
+
 ## [1.4] · 2026-10-19
 
 ### App web

@@ -683,6 +683,24 @@
   .cv-int-pasos { background:var(--surface); border-radius:var(--r-sm); padding:12px; display:flex; flex-direction:column; gap:10px; }
   .cv-int-pasos .btn { align-self:flex-start; }
   .cv-int-pasos a.btn { color:var(--text); text-decoration:none; }
+  .cv-est.on { background:var(--acc-soft); color:var(--acc); }
+  .cv-int-ok { display:flex; align-items:center; gap:8px; font-size:13.5px; }
+  .cv-int-ok i { color:#1f9d55; }
+  .cv-int-ok > span { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; }
+  .cv-int-ok small { color:var(--mute); }
+  .cv-wiz { max-width:720px; display:flex; flex-direction:column; gap:14px; }
+  .cv-wiz > .btn { align-self:flex-start; }
+  .cv-wiz h3 { margin:4px 0 0; display:flex; align-items:center; gap:8px; font-size:18px; }
+  .cv-wiz h3 i { color:var(--acc); }
+  .cv-pasos { margin:0; padding:0; list-style:none; counter-reset:paso; display:flex; flex-direction:column; gap:10px; }
+  .cv-pasos li { counter-increment:paso; position:relative; padding:12px 14px 12px 50px; border:1px solid var(--line); border-radius:var(--r); display:flex; flex-direction:column; gap:8px; font-size:14px; }
+  .cv-pasos li::before { content:counter(paso); position:absolute; left:14px; top:11px; width:24px; height:24px; border-radius:50%; background:var(--acc); color:#fff; font-weight:700; font-size:12px; line-height:24px; text-align:center; }
+  .cv-pasos li .btn { align-self:flex-start; color:var(--text); text-decoration:none; }
+  .cv-wiz-form { display:flex; flex-direction:column; gap:12px; background:var(--surface); border-radius:var(--r); padding:16px; }
+  .cv-wiz-form .btn { align-self:flex-start; }
+  .cv-wiz-form input[type=password] { font:inherit; font-weight:400; font-size:14px; border:1px solid var(--line-strong); border-radius:var(--r-sm); padding:8px 10px; background:var(--bg); color:var(--text); }
+  .cv-wiz-form textarea { font-family:var(--mono, monospace); font-size:12px; }
+  .cv-wiz-err { margin:0; color:var(--danger, #c62828); font-size:13.5px; }
   .cv-aj { max-width:640px; display:flex; flex-direction:column; gap:8px; }
   .cv-aj-pie { margin-top:8px; }
   .cv-ficha { position:absolute; top:0; right:0; bottom:0; width:min(380px, 100%); background:var(--bg); border-left:1px solid var(--line); box-shadow:var(--shadow-lg); padding:18px; overflow:auto; display:flex; flex-direction:column; gap:14px; z-index:3; }
@@ -3164,7 +3182,7 @@ $('temasX').addEventListener('click', function(){ $('temasDlg').close(); });
 var CRMS = null, crmEd = null;
 var CRM_ETAPAS = ['Nuevo', 'Respondido', 'Propuesta', 'Reserva', 'Ganado', 'Perdido'];
 var CRM_PALABRAS = ['presupuesto', 'precio', 'tarifa', 'información', 'reserva', 'disponibilidad', 'alquiler', 'contratar', 'visita', 'quote', 'pricing', 'booking', 'availability'];
-async function crmCargar(){ var r = await fetch('/api/crm', { cache:'no-store' }); if(!r.ok) throw new Error('crm ' + r.status); CRMS = (await r.json()).crms || {}; return CRMS; }
+async function crmCargar(){ var r = await fetch('/api/crm', { cache:'no-store' }); if(!r.ok) throw new Error('crm ' + r.status); var j = await r.json(); CRMS = j.crms || {}; window.CRM_INTEG = j.integ || {}; return CRMS; }
 function abrirCrm(){
   crmEd = null; $('crmPad').innerHTML = '<p class="sig-help">Cargando…</p>';
   if(!$('crmDlg').open) $('crmDlg').showModal();
