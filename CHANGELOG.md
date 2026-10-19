@@ -2,6 +2,15 @@
 
 Todas las versiones de Buzonero Campillero. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [1.6] · 2026-10-19
+
+### App web
+- **Ocultar integraciones por CRM:** cada integración sin conectar tiene «Ocultar», y las ocultas salen abajo para volver a mostrarlas. Útil cuando una depende de otra persona (la central, la agencia de la web).
+- **WhatsApp, pasos reescritos tras una conexión real:** elegir antes el número (uno nuevo se conecta gratis; el del móvil sin perder la app exige negocio verificado y ser proveedor de tecnología, y si se da de alta aquí deja de funcionar en el móvil), aceptar condiciones, no usar el número de prueba +1 555, verificación del negocio con los datos fiscales y token permanente.
+- **Google Business:** quién puede pedirlo (propietario o administrador de la ficha), número del proyecto frente a su nombre e ID, y qué contestar en la solicitud.
+- **Google Analytics:** cómo saber qué propiedad recibe las visitas (el ID de medición G-… de la web) y a quién pedir acceso si es de otra cuenta.
+- **Nexudus acepta un token ya hecho:** si tienes el de otra herramienta, lo pegas y no hace falta usuario, contraseña ni código.
+
 ## [1.5.2] · 2026-10-19
 
 ### App web

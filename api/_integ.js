@@ -55,6 +55,13 @@ export async function conectarWA(d) {
 export async function conectarNX(d) {
   const espacio = String(d.espacio || '').trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
   if (!/^[a-z0-9-]+\.spaces\.nexudus\.com$/i.test(espacio)) throw new Error('La dirección de tu espacio es como «tuespacio.spaces.nexudus.com».');
+  // pase ya hecho (p. ej. el que usa el MCP o un script con la verificación en dos pasos ya pasada): se prueba y se guarda tal cual
+  if (d.token) {
+    const p = await fetch('https://spaces.nexudus.com/api/spaces/bookings?size=1', { headers: { Authorization: 'Bearer ' + String(d.token), Accept: 'application/json' } });
+    if (!p.ok) throw new Error('Nexudus no acepta ese pase (' + p.status + ').');
+    const caduca = Number(d.caduca) > Date.now() ? Number(d.caduca) : Date.now() + 20 * 86400 * 1000;
+    return { guardar: { espacio, usuario: String(d.usuario || ''), token: String(d.token), caduca, conectado: new Date().toISOString() }, estado: { espacio, usuario: String(d.usuario || ''), caduca } };
+  }
   const body = new URLSearchParams({ grant_type: 'password', username: String(d.usuario || ''), password: String(d.clave || '') });
   if (d.codigo) body.set('totp', String(d.codigo).replace(/\D/g, ''));
   const r = await fetch('https://' + espacio + '/api/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });

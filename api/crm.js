@@ -74,6 +74,13 @@ export default async function handler(req, res) {
       await d.mover(ids, etapa);
       return res.status(200).json({ ok: true });
     }
+    if (b.accion === 'ocultar') {
+      // qué integraciones no quiere ver este CRM (no toca sus claves)
+      const svc = String(b.svc || '');
+      if (!['ga', 'gbp', 'wa', 'nx'].includes(svc)) return res.status(400).json({ error: 'svc' });
+      await updateCrm((d) => { const c = d.crms[id]; if (!c) return false; const o = new Set(c.integOcultas || []); b.ocultar ? o.add(svc) : o.delete(svc); c.integOcultas = [...o]; });
+      return res.status(200).json({ ok: true });
+    }
     if (b.accion === 'integrar' || b.accion === 'desintegrar') {
       // conectar (se prueba antes de guardar) o quitar una integración: ga, wa (varios números) o nx
       const svc = String(b.svc || '');

@@ -122,7 +122,7 @@ var INTEG = [
       ['Crea la cuenta de servicio: Credenciales (Credentials) → + Crear credenciales (Create credentials). De las 4 opciones, elige Cuenta de servicio (Service account); NO «API key» ni «OAuth client ID», que no sirven para Analytics. Nombre: buzonero → Crear y continuar (Create and continue) → en Permisos no toques nada: Continuar (Continue) → Listo (Done).', 'https://console.cloud.google.com/apis/credentials', 'Abrir Credenciales'],
       ['Descarga la clave: en Credenciales, abajo del todo, sección Cuentas de servicio (Service Accounts), pulsa el correo buzonero@…iam.gserviceaccount.com → pestaña Claves (Keys) → Agregar clave (Add key) → Crear clave nueva (Create new key) → JSON → Crear (Create). Se descarga un fichero .json en Descargas: es la clave, no la compartas. Copia también ese correo.', 'https://console.cloud.google.com/iam-admin/serviceaccounts', 'Abrir Cuentas de servicio'],
       ['Si al crear la clave sale «Service account key creation is disabled», tu organización bloquea las claves: repite los pasos 1 a 4 con un proyecto de una cuenta personal de Gmail. Analytics no necesita que sea la misma cuenta.', '', ''],
-      ['Busca la propiedad buena (puede haber varias): en Analytics, Administrar (la rueda, abajo a la izquierda) → Flujos de datos (Data streams). La buena es la que NO dice «No data received in past 48 hours». Si tienes varias propiedades, cámbialas en el selector de arriba a la izquierda y mira cada una. Si ninguna recibe datos, las visitas de tu web van a otra cuenta de Analytics: pregunta a quien montó la web.', 'https://analytics.google.com/analytics/web/', 'Abrir Google Analytics'],
+      ['Busca la propiedad buena (puede haber varias): en Analytics, Administrar (la rueda, abajo a la izquierda) → Flujos de datos (Data streams). La buena es la que NO dice «No data received in past 48 hours» y cuyo ID de medición (pulsa el flujo; empieza por G-) es el mismo que lleva tu web (búscalo en el código de la página: «G-…»). Si ninguna coincide, las visitas van a otra cuenta de Analytics: pide a quien la tenga (la central, la agencia de la web) que dé acceso de Lector al correo de la cuenta de servicio.', 'https://analytics.google.com/analytics/web/', 'Abrir Google Analytics'],
       ['Dale acceso: Administrar → Gestión del acceso a la cuenta (así vale para todas sus propiedades; o Gestión del acceso a la propiedad, solo para una) → + (arriba a la derecha) → Añadir usuarios. Pega el correo de la cuenta de servicio, quita «Notificar a los usuarios nuevos por correo», rol Lector → Añadir.', '', ''],
       ['Copia el ID de esa propiedad. Lo más fácil: con ella abierta en Analytics, mira la dirección del navegador (…/#/a230301515p317267533/…): el ID es el número que va tras la «p» (aquí 317267533), no el de la «a». También sale en gris bajo el nombre de la propiedad en el selector de arriba a la izquierda. No vale el «G-…» (es el ID de medición).', '', ''],
       ['Pega aquí el ID, sube el fichero .json y pulsa Probar y guardar. Si dice «0 usuarios», esa propiedad no recibe visitas: vuelve al paso 6 y prueba con otra.', '', ''],
@@ -130,9 +130,9 @@ var INTEG = [
     campos:[['propiedad', 'ID de la propiedad', 'text', '123456789'], ['clave', 'Clave de la cuenta de servicio (el fichero .json)', 'json', '']] },
   { id:'gbp', nombre:'Google Business', icono:'ph-storefront', que:'Reseñas de Google (leer y contestar), llamadas y clics de tu ficha.',
     pasos:[
-      ['Antes de pedirlo: tu ficha de Google tiene que estar verificada y activa desde hace más de 60 días, con la web del negocio puesta en la ficha.', '', ''],
-      ['Copia el número de tu proyecto de Google Cloud (el mismo de Analytics sirve): Panel (Dashboard) → tarjeta Información del proyecto (Project info) → Número del proyecto (Project number), solo cifras. No es el ID con letras.', 'https://console.cloud.google.com/home/dashboard', 'Abrir el panel del proyecto'],
-      ['Rellena la solicitud con un correo que sea propietario o administrador de la ficha: en el desplegable elige «Application for Basic API Access», pega el número del proyecto y completa el resto.', 'https://support.google.com/business/contact/api_default', 'Abrir la solicitud'],
+      ['Antes de pedirlo: tu ficha de Google tiene que estar verificada y activa desde hace más de 60 días, con la web del negocio puesta. Y hazlo con una cuenta propietaria o administradora de la ficha (en la ficha: Configuración → Personas y acceso). Si la ficha la lleva otra persona o la central, tiene que hacerlo ella.', '', ''],
+      ['Copia el número de tu proyecto de Google Cloud (vale el mismo de Analytics): Panel (Dashboard) → tarjeta Información del proyecto (Project info) → Número del proyecto (Project number), solo cifras. El nombre del proyecto (por ejemplo, «Claude») y su ID con letras son el mismo proyecto, pero lo que se pide es el número.', 'https://console.cloud.google.com/home/dashboard', 'Abrir el panel del proyecto'],
+      ['Rellena la solicitud: número del proyecto, web del negocio (la misma de la ficha), «¿Cómo te enteraste?»: «Documentación oficial para desarrolladores de Google Business Profile», y «Motivo principal»: «Gestionar nuestra propia ficha desde una herramienta interna: leer y responder reseñas y ver sus estadísticas». Después, Continuar.', 'https://support.google.com/business/contact/api_default', 'Abrir la solicitud'],
       ['Espera el correo de Google (suele tardar unos días). Para saber si ya está aprobado sin esperar al correo: en Cuotas del proyecto, las API de Business Profile pasan de 0 a 300 consultas por minuto.', 'https://console.cloud.google.com/iam-admin/quotas', 'Abrir Cuotas'],
       ['Cuando esté aprobado, activa en ese mismo proyecto la «My Business Account Management API» y la «My Business Business Information API».', 'https://console.cloud.google.com/apis/library/mybusinessaccountmanagement.googleapis.com', 'Activar las API'],
       ['Vuelve aquí y conecta: entrarás con la cuenta de la ficha solo para leer reseñas y estadísticas; no se añade como correo.', '', ''],
@@ -140,21 +140,25 @@ var INTEG = [
     espera:'Disponible cuando Google apruebe el acceso' },
   { id:'wa', nombre:'WhatsApp Business', icono:'ph-whatsapp-logo', que:'Los WhatsApp de tus números en una bandeja, como leads. Puedes conectar varios números.',
     pasos:[
-      ['Entra en Meta for Developers con la cuenta de Facebook que administra tu Meta Business → Crear app → caso de uso «Conectarte con clientes por WhatsApp» → elige tu cuenta comercial.', 'https://developers.facebook.com/apps/creation/', 'Abrir Meta for Developers'],
-      ['En la app: WhatsApp → Configuración de la API. Meta te da un número de prueba gratis. Para usar un número tuyo, «Añadir número de teléfono»: que no sea el del WhatsApp del móvil, o dejará de funcionar en la app.', '', ''],
-      ['Copia el «Identificador del número de teléfono» (no el número en sí).', '', ''],
-      ['Crea un token que no caduque: Meta Business → Usuarios del sistema → Añadir (Administrador) → Asignar activos: tu app → Generar token con los permisos whatsapp_business_messaging y whatsapp_business_management.', 'https://business.facebook.com/settings/system-users', 'Abrir usuarios del sistema'],
-      ['Pega aquí un nombre para este número (Ventas, Eventos…), el identificador y el token. Para otro número, repite desde el paso 2.', '', ''],
+      ['Antes de nada, elige el número. Un número NUEVO o libre (SIM, fijo o virtual sin WhatsApp) se conecta con estos pasos, gratis. Si es el número del WhatsApp del móvil y no quieres perder la app (coexistencia), Meta solo lo permite con el negocio verificado y siendo proveedor de tecnología: Buzonero aún no tiene ese botón. Y ojo: si das de alta aquí el número del móvil, deja de funcionar en la app.', '', ''],
+      ['Crea la app: Meta for Developers → Crear app → nombre (por ejemplo, Buzonero) y tu correo → caso de uso «Conectarte con los clientes a través de WhatsApp» (solo ese) → elige el portfolio comercial de tu negocio → Crear app. Si es tu primera vez, antes te pedirá registrarte como desarrollador.', 'https://developers.facebook.com/apps/creation/', 'Abrir Meta for Developers'],
+      ['En el panel de la app: «Personalizar el caso de uso Conectarte con los clientes a través de WhatsApp» → arriba, Aceptar Condiciones del servicio (no cobra nada) → comprueba que sale tu portfolio → Continuar. No pulses «Conviértete en proveedor de tecnología» ni «Publicar»: no hacen falta.', '', ''],
+      ['Añade tu número real: menú izquierdo → «Paso 2: Configuración de producción» → Añadir número de teléfono. Nombre visible: el de tu negocio (Meta lo revisa). Número con prefijo (+34…) y el código que llega por SMS o llamada. El +1 555… de «Paso 1. Pruébalo» es un número de prueba de Meta: no lo uses para lo real.', '', ''],
+      ['Si Meta te pide verificar el negocio («Paso 3: Verificación del negocio»), pon el nombre legal y la dirección fiscal tal como salen en Hacienda (no la del local). Tiene que hacerlo quien administre la empresa.', '', ''],
+      ['Copia el «Identificador del número de teléfono» (Phone Number ID) de tu número: un número largo. No es el número de teléfono ni el «Identificador de la cuenta de WhatsApp Business».', '', ''],
+      ['Crea un token que no caduque (el de «Generar token» dura 24 h): Meta Business → Usuarios del sistema → Añadir (Administrador) → Asignar activos: tu app → Generar token con los permisos whatsapp_business_messaging y whatsapp_business_management.', 'https://business.facebook.com/settings/system-users', 'Abrir usuarios del sistema'],
+      ['Pega aquí un nombre para el número (Ventas, Eventos…), el identificador y el token, y pulsa Probar y guardar. Para otro número, repite desde el paso 4.', '', ''],
     ],
     campos:[['nombre', 'Nombre del número', 'text', 'Ventas'], ['numeroId', 'Identificador del número de teléfono', 'text', '123456789012345'], ['token', 'Token', 'password', '']] },
   { id:'nx', nombre:'Nexudus', icono:'ph-buildings', que:'Solo lectura: facturas pagadas o pendientes y reservas de cada cliente. Nunca cambia nada en Nexudus.',
     pasos:[
       ['Usa un usuario de Nexudus que pueda ver facturas y reservas (mejor uno creado solo para esto). Buzonero solo lee: nunca cambia nada.', '', ''],
       ['La dirección de tu espacio es la de tu panel, algo como tuespacio.spaces.nexudus.com.', '', ''],
+      ['Lo más fácil: si ya tienes un token de la API de Nexudus (por ejemplo, el que usa otra herramienta tuya), pega la dirección y el token y pulsa Probar y guardar. Si no lo tienes, sigue con el correo y la contraseña.', '', ''],
       ['Escribe el correo y la contraseña de ese usuario. Si tiene verificación en dos pasos, añade el código de 6 cifras de tu app.', '', ''],
       ['La contraseña no se guarda: Buzonero guarda un pase de solo lectura que dura unas semanas y te avisa para renovarlo.', '', ''],
     ],
-    campos:[['espacio', 'Dirección de tu espacio', 'text', 'tuespacio.spaces.nexudus.com'], ['usuario', 'Correo del usuario', 'text', ''], ['clave', 'Contraseña', 'password', ''], ['codigo', 'Código de 6 cifras (si te lo pide)', 'text', '123456']] },
+    campos:[['espacio', 'Dirección de tu espacio', 'text', 'tuespacio.spaces.nexudus.com'], ['token', 'Token de la API (si ya lo tienes: entonces no hace falta nada más)', 'password', ''], ['usuario', 'Correo del usuario', 'text', ''], ['clave', 'Contraseña', 'password', ''], ['codigo', 'Código de 6 cifras (si te lo pide)', 'text', '123456']] },
 ];
 function integDe(c){ return ((window.CRM_INTEG || {})[c.id]) || {}; }
 function estadoInteg(c, x){
@@ -167,11 +171,14 @@ function estadoInteg(c, x){
 }
 function pintarIntegraciones(c){
   if(CV.wiz) return pintarAsistente(c, INTEG.filter(function(x){ return x.id === CV.wiz; })[0]);
+  // cada CRM elige qué integraciones ve («Ocultar»): las que no use no estorban
+  var oc = c.integOcultas || [], vis = INTEG.filter(function(x){ return oc.indexOf(x.id) < 0; }), esc2 = INTEG.filter(function(x){ return oc.indexOf(x.id) >= 0; });
   return '<p class="cv-intro">Conecta otras herramientas a este CRM. Cada una se conecta por separado y se puede quitar cuando quieras.</p><div class="cv-integ">'
-    + INTEG.map(function(x){ var ok = estadoInteg(c, x);
+    + vis.map(function(x){ var ok = estadoInteg(c, x);
         return '<div class="cv-int"><div class="cv-int-h"><i class="ph ' + x.icono + '"></i><b>' + x.nombre + '</b><span class="cv-est' + (ok ? ' on' : '') + '">' + (ok ? 'Conectado' : 'Sin conectar') + '</span></div><p>' + x.que + '</p>' + ok
-          + '<button type="button" class="btn ' + (ok ? '' : 'primary') + '" data-int="' + x.id + '"><i class="ph ph-plug"></i> <span>' + (ok ? (x.id === 'wa' ? 'Añadir otro número' : 'Volver a conectar') : 'Conectar') + '</span></button></div>'; }).join('')
-    + '</div>';
+          + '<div class="cv-int-pie"><button type="button" class="btn ' + (ok ? '' : 'primary') + '" data-int="' + x.id + '"><i class="ph ph-plug"></i> <span>' + (ok ? (x.id === 'wa' ? 'Añadir otro número' : 'Volver a conectar') : 'Conectar') + '</span></button>' + (ok ? '' : '<button type="button" class="btn sm cv-ocultar" data-int-ocultar="' + x.id + '">Ocultar</button>') + '</div></div>'; }).join('')
+    + '</div>'
+    + (esc2.length ? '<p class="cv-ocultas"><span>Ocultas:</span> ' + esc2.map(function(x){ return '<button type="button" class="btn sm" data-int-mostrar="' + x.id + '"><i class="ph ph-eye"></i> ' + x.nombre + '</button>'; }).join(' ') + '</p>' : '');
 }
 function pintarAsistente(c, x){
   var campos = (x.campos || []).map(function(f){
@@ -199,6 +206,12 @@ async function probarInteg(){
   toast('Conectado: ' + nom + (j.estado && j.estado.resumen ? ' · ' + j.estado.resumen : ''));
   if(j.estado && j.estado.sinDatos) setTimeout(function(){ alert('Esa propiedad no ha tenido visitas en 7 días: seguramente no es la de tu web. Mira el paso 6 y prueba con otra.'); }, 400);
   CV.wiz = null; CV.wizDatos = {}; await crmCargar().catch(function(){}); pintar();
+}
+async function ocultarInteg(svc, ocultar){
+  var c = crmActual(); if(!c) return;
+  var r = await fetch('/api/crm', { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ accion:'ocultar', id:c.id, svc:svc, ocultar:ocultar }) }).catch(function(){ return { ok:false }; });
+  if(!r.ok){ toast('No se pudo cambiar'); return; }
+  await crmCargar().catch(function(){}); pintar();
 }
 async function quitarInteg(svc, num){
   var c = crmActual(); if(!c || !confirm('¿Quitar esta integración? Se borran su clave y su token de Buzonero.')) return;
@@ -260,6 +273,7 @@ vista.addEventListener('click', function(e){
   if(t.hasAttribute('data-wiz-volver')){ CV.wiz = null; pintar(); return; }
   if(t.hasAttribute('data-wiz-probar')){ probarInteg(); return; }
   if(t.dataset.intQuitar){ quitarInteg(t.dataset.intQuitar, t.dataset.num); return; }
+  if(t.dataset.intOcultar || t.dataset.intMostrar){ ocultarInteg(t.dataset.intOcultar || t.dataset.intMostrar, !!t.dataset.intOcultar); return; }
   if(t.dataset.lead){ CV.sel = CV.leads[+t.dataset.lead]; CV.sel.lead = true; pintar(); return; }
   if(t.dataset.cliAbrir){ CV.sel = CV.clientesVista[+t.dataset.cliAbrir]; pintar(); return; }
 });
