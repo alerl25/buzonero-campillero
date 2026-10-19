@@ -2,6 +2,11 @@
 
 Todas las versiones de Buzonero Campillero. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [1.5.1] · 2026-10-19
+
+### App web
+- Pasos de Google Analytics más claros: cada botón con su nombre en español y en inglés (como sale en Google Cloud), dónde está la clave, qué hacer si la organización bloquea las claves y el enlace directo a Credenciales.
+
 ## [1.5] · 2026-10-19
 
 ### App web
