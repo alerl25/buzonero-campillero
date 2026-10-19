@@ -480,6 +480,9 @@
   dialog.compose-dlg.en-linea .editor { min-height:180px; }
   #read.respondiendo .reply-dock { display:none; }
   /* caja de respuesta: al tocarla se abre el editor completo */
+  .reply-fake-row { display:flex; gap:8px; align-items:center; }
+  .reply-fake-row .reply-fake { flex:1; width:auto; min-width:0; }
+  .reply-fake-row .btn { height:52px; margin:8px 0 6px; flex:none; }
   .reply-fake { display:flex; align-items:center; gap:10px; width:100%; min-height:52px; margin:8px 0 6px; padding:0 14px; border:1px solid var(--line-strong); border-radius:var(--r); background:var(--bg); color:var(--mute); font:inherit; font-size:15px; text-align:left; cursor:text; transition:border-color .15s ease, background-color .15s ease; }
   @media (hover:hover) and (pointer:fine) { .reply-fake:hover { border-color:var(--acc); } }
   .reply-fake:active { background:var(--surface); }
@@ -589,14 +592,16 @@
   .editor blockquote { margin:6px 0; padding-left:12px; border-left:3px solid var(--line-strong); color:var(--mute); }
   .editor ul, .editor ol { padding-left:26px; margin:4px 0; }
   .editor a { color:var(--acc-press); }
-  .tb { position:relative; display:flex; flex-wrap:wrap; align-items:center; gap:2px; margin:6px 16px 0; padding:4px 8px; border-radius:var(--pill); background:var(--surface); }
+  .tb { position:relative; display:flex; flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; align-items:center; gap:2px; margin:6px 16px 0; padding:4px 8px; border-radius:var(--pill); background:var(--surface); }
   .tb[hidden] { display:none; }
-  .tb button { height:32px; min-width:32px; padding:0 6px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; gap:3px; color:var(--text); transition:background-color .12s ease; }
+  .tb button { height:32px; min-width:28px; padding:0 4px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; gap:3px; color:var(--text); transition:background-color .12s ease; }
   .tb button i.ph-caret-down { font-size:11px; color:var(--mute); }
-  .tb .tb-wide { min-width:110px; justify-content:space-between; font-size:13.5px; }
+  .tb .tb-wide { min-width:96px; white-space:nowrap; justify-content:space-between; font-size:13.5px; }
   @media (hover:hover) and (pointer:fine) { .tb button:hover { background:var(--surface-2); } }
   .tb button[aria-pressed="true"] { background:var(--acc-soft); color:var(--acc); }
-  .tb .sep { width:1px; height:20px; background:var(--line-strong); margin:0 4px; }
+  .tb::-webkit-scrollbar { display:none; }
+  .tb button, .tb .sep { flex:none; }
+  .tb .sep { width:1px; height:20px; background:var(--line-strong); margin:0 2px; }
   .tb-pop { position:absolute; bottom:calc(100% + 6px); z-index:9; min-width:180px; background:var(--bg); border:1px solid var(--line); border-radius:var(--r); box-shadow:var(--shadow-lg); padding:6px; }
   .tb-pop button { width:100%; justify-content:flex-start; padding:6px 10px; height:auto; min-height:34px; }
   .tb-pop .sw { display:grid; grid-template-columns:repeat(8, 24px); gap:6px; padding:4px; }
@@ -628,6 +633,11 @@
   .note i { color:var(--spark-ink); margin-top:1px; flex:none; }
   .dlg-foot { display:flex; gap:8px; padding:14px 18px 16px 22px; border-top:1px solid var(--line); align-items:center; }
   .dlg-foot .push { margin-left:auto; display:flex; gap:2px; align-items:center; }
+  .dlg-foot { min-width:0; }
+  .dlg-foot .push { flex:none; min-width:0; }
+  .dlg-foot > * { flex-shrink:0; }
+  @media (max-width:640px) { .dlg-foot .saved { display:none; } .dlg-foot #discard { width:36px; padding:0; font-size:0; gap:0; justify-content:center; } .dlg-foot #discard i { font-size:18px; } }
+  .dlg-foot #discard { height:36px; padding:0 14px; font-size:13.5px; white-space:nowrap; }
   .saved { font-family:var(--mono); font-size:12px; color:var(--faint); margin-right:6px; white-space:nowrap; }
   .drop { position:absolute; inset:0; border-radius:var(--r-lg); border:2px dashed var(--acc); background:color-mix(in oklab, var(--acc-soft) 80%, transparent); display:grid; place-items:center; font-weight:600; color:var(--acc); z-index:8; pointer-events:none; opacity:0; transition:opacity .15s ease; }
   .drop.on { opacity:1; }
@@ -909,8 +919,7 @@
     <button class="icon-btn" data-pop="link" aria-label="Insertar enlace" title="Insertar enlace"><i class="ph ph-link-simple"></i></button>
     <button class="icon-btn" data-pop="emoji" aria-label="Insertar emoji" title="Insertar emoji"><i class="ph ph-smiley"></i></button>
     <button class="icon-btn" id="sigToggle" aria-label="Firma" aria-pressed="true" title="Incluir firma"><i class="ph ph-signature"></i></button>
-    <span class="foot-hint">Más de 25 MB va por Drive</span>
-    <div class="push"><span class="saved" id="saved"></span><button class="icon-btn" id="discard" aria-label="Descartar borrador"><i class="ph ph-trash"></i></button></div>
+    <div class="push"><span class="saved" id="saved"></span><button class="btn" id="discard" aria-label="Borrar borrador" title="Borrar borrador"><i class="ph ph-trash"></i> Borrar borrador</button></div>
   </div>
 </dialog>
 <div class="notif-stack" id="notifs" aria-live="polite"></div>
@@ -1694,7 +1703,7 @@ function renderThread(animate){
     // responder abre el editor completo (el mismo de redactar), como la app de Gmail
     + (BANDEJA.some(function(x){ return x.o.threadId === c.id; })
         ? '<button type="button" class="reply-fake borrador" data-act="seguir-borrador"><b>Respuesta minimizada</b> · Seguir aquí</button>'
-        : hayBorrador ? '<button type="button" class="reply-fake borrador" data-act="seguir-borrador"><b>Borrador</b> · Seguir escribiendo</button>'
+        : hayBorrador ? '<div class="reply-fake-row"><button type="button" class="reply-fake borrador" data-act="seguir-borrador"><b>Borrador</b> · Seguir escribiendo</button><button type="button" class="btn" data-act="borrar-borrador" title="Borrar este borrador" aria-label="Borrar borrador"><i class="ph ph-trash"></i> Borrar borrador</button></div>'
         : '<button type="button" class="reply-fake" data-act="reply"><i class="ph ph-pencil-simple-line"></i> Escribe tu respuesta</button>')
     + '<div class="reply-actions"><button class="btn primary" data-act="reply"><i class="ph ph-arrow-bend-up-left"></i> Responder</button>'
     + (multi ? '<button class="btn" data-act="replyall"><i class="ph ph-arrow-bend-double-up-left"></i> Responder a todos</button>' : '')
@@ -2253,7 +2262,8 @@ function openPop(kind, anchor){
   if(kind === 'link'){ var sel = ed.getSelectedText(); h = '<div class="lk"><input id="lkText" placeholder="Texto que se verá" value="'+esc(sel)+'"><input id="lkUrl" placeholder="Dirección (https://...)"><button type="button" class="btn primary" data-dolink="1">Insertar enlace</button></div>'; }
   pop.innerHTML = h; pop.dataset.kind = kind; pop.hidden = false;
   var tb = $('tb'), tr = tb.getBoundingClientRect(), ar = anchor.getBoundingClientRect();
-  pop.style.left = Math.max(0, Math.min(ar.left - tr.left, tr.width - pop.offsetWidth)) + 'px';
+  pop.style.position = 'fixed'; pop.style.bottom = (window.innerHeight - tr.top + 6) + 'px'; pop.style.top = 'auto';
+  pop.style.left = Math.max(8, Math.min(ar.left, window.innerWidth - pop.offsetWidth - 8)) + 'px';
   var first = pop.querySelector('input, button'); if(first) first.focus();
 }
 function closePop(){ $('tbPop').hidden = true; }
@@ -2737,6 +2747,26 @@ async function doAct(kind){
   if(kind === 'baja'){ darDeBaja(m, cur.k); return; }
   if(kind === 'bloquear'){ bloquearRemitente(m, cur.k); return; }
   // seguir con la respuesta de este hilo: la minimizada (si la hay) o su borrador guardado, ahí mismo, dentro del hilo
+  if(kind === 'borrar-borrador'){
+    var tid = cur.id, kk = cur.k;
+    try {
+      var todos = [], page = ''; do { var dd = await gm(kk, 'drafts?maxResults=500' + (page ? '&pageToken=' + page : '')); todos = todos.concat(dd.drafts || []); page = dd.nextPageToken; } while(page);
+      var mios = todos.filter(function(d){ return d.message && d.message.threadId === tid; });
+      if(!mios.length){ toast('No se encontró el borrador'); }
+      else { await pool(mios, 3, function(d){ return gm(kk, 'drafts/' + d.id, { method:'DELETE' }); }); toast(mios.length === 1 ? 'Borrador eliminado' : mios.length + ' borradores eliminados'); }
+    } catch(e){ toast('No se pudo borrar el borrador: ' + e.message); return; }
+    refrescarBorradores(kk);
+    try {
+      var thx = await gm(kk, 'threads/' + tid + '?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Subject');
+      var fila = summarize(thx); META[kk + '|' + tid] = fila; var ix = st.threads.findIndex(function(x){ return x.id === tid; });
+      if(ix >= 0){ if(st.folder === 'DRAFT' && fila.draftOnly === false) st.threads.splice(ix, 1); else st.threads[ix] = fila; }
+    } catch(e){ st.threads = st.threads.filter(function(x){ return x.id !== tid; }); }
+    Object.keys(LISTAS).forEach(function(c){ if(c.indexOf(kk + '|DRAFT') === 0) delete LISTAS[c]; });
+    if(st.folder === 'DRAFT'){ closeRead(); drawRows(); return; }
+    drawRows();
+    var tt = byId(tid); if(tt) openThread(tid); else closeRead();
+    return;
+  }
   if(kind === 'seguir-borrador'){ var it = BANDEJA.find(function(x){ return x.o.threadId === cur.id; }); if(it) reabrir(it.id); else openDraftFromThread(cur.id, true); return; }
   if(kind === 'more-msgs'){ [].slice.call(document.querySelectorAll('#read [data-oculto]')).forEach(function(x){ x.hidden = false; }); var mb = document.querySelector('#read .more-msgs'); if(mb) mb.remove(); return; }
   // responder: el editor completo, con los destinatarios, el «Re:» y el hilo puestos; lo citado se añade al enviar
