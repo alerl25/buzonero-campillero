@@ -98,10 +98,21 @@ export function motivoBot(f, { dominios = [], frases = [] } = {}) {
 
 // ---------- el detector de una cuenta ----------
 const AUTOMATICO = /(^|[._+-])(no-?reply|do-?not-?reply|mailer-daemon|postmaster|notifications?|notificaciones|bounces?|newsletters?|news|alerts?|avisos?)([._+-]|$)/i;
+// remitentes de máquina que no llevan «noreply» (facturación, plataformas de envío)
+const MAQUINA = /^(message-service|mailer|system|automated|billing|invoice|facturacion|notify|calendar-notification)[^@]*@|@(sender\.|mail\.|email\.|em\d*\.|bounce\.|mailer\.)/i;
 const correoDe = (from) => { const m = /<([^>]+)>/.exec(from || ''); return ((m && m[1]) || from || '').trim().toLowerCase(); };
 const nombreDe = (from) => { const m = /^\s*"?([^"<]*?)"?\s*</.exec(from || ''); return (m && m[1].trim()) || ''; };
 const cab = (m, n) => (((m && m.payload && m.payload.headers) || []).find((h) => h.name.toLowerCase() === n) || {}).value || '';
 const encaja = (r, from, subj) => (r.de || r.asunto) && (!r.de || from.toLowerCase().includes(r.de.toLowerCase())) && (!r.asunto || subj.toLowerCase().includes(r.asunto.toLowerCase()));
+
+// hace fn sobre cada elemento, de n en n (para no pasarse del cupo de Gmail)
+async function enTanda(lista, n, fn) {
+  const out = new Array(lista.length); let i = 0;
+  await Promise.all(Array.from({ length: Math.min(n, lista.length) }, async () => { while (i < lista.length) { const j = i++; out[j] = await fn(lista[j]).catch(() => null); } }));
+  return out;
+}
+const dominio = (e) => String(e || '').split('@')[1] || '';
+export const esGratis = (d) => GRATIS.test(String(d || '') + '.');
 
 // tk: token de Gmail de la cuenta · esPropaganda: la misma regla que usa el vigía para no avisar de publicidad
 export function detector(tk, crm, todas, k, esPropaganda) {
@@ -110,10 +121,11 @@ export function detector(tk, crm, todas, k, esPropaganda) {
   const yo = String((todas[k] || {}).email || '').toLowerCase(), det = crm.deteccion || {}, propios = dominiosPropios(crm, todas);
   let etqs = null;
   const etiquetas = async () => { if (!etqs) etqs = (await J('labels')).labels || []; return etqs; };
+  // las etiquetas de las etapas se crean solo cuando entra el primer lead en esa etapa, y OCULTAS en la barra y en la lista
+  // (Alejandro, 19-oct: «no quiero tantas etiquetas»): los leads se ven desde la sección CRM de Buzonero
   async function idEtiqueta(nombre) {
     const ls = await etiquetas(), ya = ls.find((l) => l.name === nombre); if (ya) return ya.id;
-    if (!ls.find((l) => l.name === PREFIJO)) { const p = await G('labels', { method: 'POST', body: JSON.stringify({ name: PREFIJO, labelListVisibility: 'labelShow', messageListVisibility: 'show' }) }).then((r) => r.json()).catch(() => ({})); if (p.id) ls.push(p); }
-    const n = await G('labels', { method: 'POST', body: JSON.stringify({ name: nombre, labelListVisibility: 'labelShow', messageListVisibility: 'show' }) }).then((r) => r.json()).catch(() => ({}));
+    const n = await G('labels', { method: 'POST', body: JSON.stringify({ name: nombre, labelListVisibility: 'labelHide', messageListVisibility: 'hide' }) }).then((r) => r.json()).catch(() => ({}));
     if (!n.id) return null; ls.push(n); return n.id;
   }
   const idsLeads = async () => new Set((await etiquetas()).filter((l) => l.name.startsWith(PREFIJO + '/')).map((l) => l.id));
@@ -169,7 +181,7 @@ export function detector(tk, crm, todas, k, esPropaganda) {
       }
       const etapa = motivo ? ETIQUETA_BOT : (contestadoA(msgs, yoM.internalDate, f.email) || await escritoDespues(f.email, yoM.internalDate) ? crm.etapas[1] : crm.etapas[0]);
       const lid = await idEtiqueta(etiquetaEtapa(etapa));
-      if (lid) await etiquetar(ids, [lid], motivo ? ['UNREAD'] : []);
+      if (lid) await etiquetar(ids, [lid], motivo ? ['UNREAD', 'INBOX'] : []);   // los bots, además, se archivan (Alejandro, 19-oct): siguen en «Leads/Posible bot»
       return { hilo: m.threadId, ids, f, origen, motivo, etapa };
     },
     // la cuenta ha escrito en el hilo: los leads de la primera etapa a los que ha contestado pasan a la segunda («Respondido»)
@@ -203,8 +215,77 @@ export function detector(tk, crm, todas, k, esPropaganda) {
       await etiquetar(mover, [n2], [n1.id]);
       return n + mover.length;
     },
-    // crea las etiquetas de todas las etapas (para que se vean en la barra lateral desde el primer día)
-    async prepararEtiquetas() { for (const e of crm.etapas) await idEtiqueta(etiquetaEtapa(e)); },
+    // el tablero: los leads de cada etapa, uno por persona (su correo), con lo que dice su formulario o su correo
+    async pipeline() {
+      const ls = await etiquetas(), items = [];
+      for (const etapa of crm.etapas) {
+        const l = ls.find((x) => x.name === etiquetaEtapa(etapa)); if (!l) continue;
+        const j = await J('messages?maxResults=100&labelIds=' + l.id);
+        (j.messages || []).forEach((x) => items.push({ id: x.id, hilo: x.threadId, etapa }));
+      }
+      const lb = ls.find((x) => x.name === etiquetaEtapa(ETIQUETA_BOT));
+      const bots = lb ? ((await J('labels/' + lb.id).catch(() => ({}))).threadsTotal || 0) : 0;
+      const det2 = await enTanda(items, 8, async (x) => {
+        const m = await J('messages/' + x.id + '?format=full'), from = cab(m, 'from'), de = correoDe(from);
+        let f;
+        if (esFormulario(m)) f = { ...leerFormulario(textoDe(m.payload)), origen: 'formulario' };
+        else if (de === yo) { const to = cab(m, 'to').split(',')[0] || ''; f = { nombre: nombreDe(to), email: correoDe(to), asunto: cab(m, 'subject'), mensaje: String(m.snippet || ''), origen: 'a mano' }; }
+        else f = { nombre: nombreDe(from), email: de, asunto: cab(m, 'subject'), mensaje: String(m.snippet || ''), origen: 'correo' };
+        return { ...x, ...f, fecha: +m.internalDate };
+      });
+      const por = {};
+      for (const x of det2.filter(Boolean)) {
+        const c = x.email || x.id, ya = por[c];
+        if (!ya) { por[c] = { k, email: x.email, nombre: x.nombre, telefono: x.telefono || '', empresa: x.empresa || '', asunto: x.asunto, mensaje: x.mensaje, origen: x.origen, etapa: x.etapa, fecha: x.fecha, hilo: x.hilo, ids: [x.id] }; continue; }
+        ya.ids.push(x.id);
+        ['nombre', 'telefono', 'empresa'].forEach((q) => { if (!ya[q] && x[q]) ya[q] = x[q]; });
+        if (x.fecha > ya.fecha) Object.assign(ya, { asunto: x.asunto, mensaje: x.mensaje, etapa: x.etapa, fecha: x.fecha, hilo: x.hilo });
+      }
+      return { leads: Object.values(por), bots };
+    },
+    // cambia de etapa unos mensajes: quita las demás etapas del CRM (y «Posible bot») y pone la nueva
+    async mover(ids, etapa) {
+      const ls = await etiquetas(), nombres = crm.etapas.concat([ETIQUETA_BOT]).map(etiquetaEtapa);
+      const quitar = ls.filter((l) => nombres.includes(l.name) && l.name !== etiquetaEtapa(etapa)).map((l) => l.id);
+      const lid = await idEtiqueta(etiquetaEtapa(etapa)); if (!lid) throw new Error('etiqueta');
+      await etiquetar(ids, [lid], quitar);
+    },
+    // «Añadir al CRM» desde un correo: marca el primer mensaje de la otra persona (o el primero, si empezaste tú)
+    async anadir(hilo, etapa) {
+      const msgs = (await hiloMeta(hilo)).filter((x) => !(x.labelIds || []).includes('DRAFT'));
+      const m = msgs.find((x) => correoDe(cab(x, 'from')) !== yo) || msgs[0];
+      if (!m) throw new Error('hilo');
+      await this.mover([m.id], etapa || crm.etapas[0]);
+      return m.id;
+    },
+    // clientes: toda persona de fuera que ha escrito a la cuenta en los últimos días (como los contactos de HubSpot)
+    async clientes(dias = 90) {
+      const formu = (det.formularios || []).map((r) => (r.de || '').toLowerCase()).filter(Boolean);
+      // los hilos en los que la cuenta ha escrito (90 días) y lo recibido del último mes: las notificaciones no tapan a la gente
+      const vistos = new Set(), lista = [];
+      for (const [q, n] of [['in:sent newer_than:' + dias + 'd', 250], ['newer_than:30d -in:sent -in:spam -in:trash -category:promotions -category:social -category:forums -category:updates', 100]]) {
+        ((await J('threads?maxResults=' + n + '&q=' + encodeURIComponent(q))).threads || []).forEach((t) => { if (!vistos.has(t.id)) { vistos.add(t.id); lista.push(t); } });
+      }
+      const hilos = await enTanda(lista, 6, (t) => J('threads/' + t.id + '?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Cc&metadataHeaders=Subject&metadataHeaders=List-Unsubscribe'));
+      const por = {};
+      for (const t of hilos.filter(Boolean)) {
+        for (const m of t.messages || []) {
+          if ((m.labelIds || []).includes('DRAFT')) continue;
+          const from = cab(m, 'from'), de = correoDe(from);
+          const gente = de === yo ? (cab(m, 'to') + ',' + cab(m, 'cc')).split(',').map((x) => [nombreDe(x), correoDe(x)]) : (cab(m, 'list-unsubscribe') ? [] : [[nombreDe(from), de]]);
+          for (const [nom, e] of gente) {
+            if (!/@/.test(e) || e === yo || propios.includes(dominio(e)) || AUTOMATICO.test(e.split('@')[0]) || MAQUINA.test(e) || formu.some((f) => f.includes(e))) continue;
+            const c = por[e] || (por[e] = { k, email: e, nombre: '', empresa: esGratis(dominio(e)) ? '' : dominio(e), hilos: [], ultimo: 0, asunto: '', hilo: '', escribio: false });
+            if (nom && !c.nombre) c.nombre = nom;
+            if (!c.hilos.includes(t.id)) c.hilos.push(t.id);
+            if (de !== yo) c.escribio = true;
+            if (+m.internalDate > c.ultimo) { c.ultimo = +m.internalDate; c.asunto = cab(m, 'subject'); c.hilo = t.id; }
+          }
+        }
+      }
+      // solo quien te ha escrito alguna vez (no cada dirección a la que mandaste algo una vez)
+      return Object.values(por).filter((c) => c.escribio).map((c) => ({ ...c, hilos: c.hilos.length }));
+    },
     // repasa los últimos días: los formularios y, si está activo, los correos directos de gente nueva
     async importar(dias = 30, max = 60) {
       const qs = (det.formularios || []).map((r) => [r.de ? 'from:(' + r.de.replace(/[()"]/g, '') + ')' : '', r.asunto ? 'subject:("' + r.asunto.replace(/[()"]/g, '') + '")' : ''].join(' ').trim());

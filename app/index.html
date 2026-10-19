@@ -626,6 +626,84 @@
   .sig-link { color:var(--acc-text, var(--acc)); font:inherit; padding:0; text-decoration:underline; text-underline-offset:2px; }
   dialog.sig-dlg { width:min(560px, calc(100vw - 24px)); }
   dialog.crm-dlg { width:min(640px, calc(100vw - 24px)); }
+  /* pestaña CRM: ocupa el sitio de la lista y la lectura */
+  .shell.crm-on, .shell.crm-on.reading { grid-template-columns:236px minmax(0,1fr); }
+  .shell.crm-on > .list, .shell.crm-on > .read { display:none; }
+  .crm-view { position:relative; min-width:0; min-height:0; display:flex; flex-direction:column; border-left:1px solid var(--line); background:var(--bg); }
+  .crm-view[hidden] { display:none; }
+  .cv-head { display:flex; align-items:center; gap:14px; padding:12px 20px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  .cv-ttl { display:flex; align-items:center; gap:8px; font-size:16px; }
+  .cv-ttl i { color:var(--acc); font-size:20px; }
+  .cv-ttl select { font:inherit; font-weight:700; border:1px solid var(--line-strong); border-radius:var(--r-sm); padding:4px 8px; background:var(--bg); color:var(--text); }
+  .cv-tabs { display:flex; gap:4px; margin-right:auto; background:var(--surface); padding:4px; border-radius:var(--pill); }
+  .cv-tabs button { display:inline-flex; align-items:center; gap:6px; padding:7px 14px; border-radius:var(--pill); color:var(--mute); font-size:13.5px; }
+  .cv-tabs button[aria-selected="true"] { background:var(--bg); color:var(--text); box-shadow:0 1px 3px rgba(0,0,0,.12); font-weight:600; }
+  .cv-body { flex:1; min-height:0; overflow:auto; padding:18px 20px 28px; }
+  .cv-vacio { padding:40px 20px; text-align:center; color:var(--mute); display:flex; flex-direction:column; align-items:center; gap:14px; }
+  .cv-board { display:flex; gap:12px; align-items:flex-start; min-height:100%; overflow-x:auto; padding-bottom:8px; }
+  .cv-col { flex:0 0 260px; background:var(--surface); border-radius:var(--r); padding:10px; display:flex; flex-direction:column; gap:8px; transition:box-shadow .15s ease; }
+  .cv-col.sobre { box-shadow:inset 0 0 0 2px var(--acc); }
+  .cv-col-h { display:flex; align-items:center; justify-content:space-between; padding:2px 4px 4px; font-size:13.5px; }
+  .cv-n { font:600 12px/1 var(--label, inherit); color:var(--mute); background:var(--bg); border-radius:var(--pill); padding:4px 8px; }
+  .cv-cards { display:flex; flex-direction:column; gap:8px; min-height:40px; }
+  .cv-col-vacia { color:var(--faint); font-size:12.5px; text-align:center; padding:14px 6px; border:1px dashed var(--line-strong); border-radius:var(--r-sm); }
+  .cv-card { text-align:left; display:flex; flex-direction:column; gap:5px; padding:11px 12px; border-radius:var(--r-sm); background:var(--bg); border:1px solid var(--line); cursor:pointer; color:var(--text); font:inherit; width:100%; }
+  .cv-card:hover { border-color:var(--line-strong); }
+  .cv-card.arr { opacity:.45; }
+  .cv-card-top { display:flex; align-items:center; gap:8px; min-width:0; }
+  .cv-card-top b { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13.5px; }
+  .cv-card-top time { color:var(--faint); font-size:11.5px; flex:none; }
+  .cv-card-as { font-size:12.5px; font-weight:600; color:var(--acc-text, var(--acc)); }
+  .cv-card-tx { font-size:12.5px; color:var(--mute); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .cv-card-meta { font-size:11.5px; color:var(--faint); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .cv-av { flex:none; width:26px; height:26px; border-radius:50%; background:var(--acc-soft); color:var(--acc); display:inline-grid; place-items:center; font:700 10.5px/1 inherit; }
+  .cv-av.grande { width:44px; height:44px; font-size:15px; }
+  .cv-nota { color:var(--mute); font-size:12.5px; margin:14px 4px 0; display:flex; align-items:center; gap:6px; }
+  .cv-tools { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+  .cv-tools input { flex:1; max-width:420px; font:inherit; font-size:14px; border:1px solid var(--line-strong); border-radius:var(--pill); padding:8px 14px; background:var(--bg); color:var(--text); }
+  .cv-cuenta { color:var(--mute); font-size:13px; }
+  .cv-tabla { display:flex; flex-direction:column; border:1px solid var(--line); border-radius:var(--r); overflow:hidden; }
+  .cv-fila { display:grid; grid-template-columns:minmax(0,2.2fr) minmax(0,1.2fr) 150px minmax(0,1.6fr) 80px; gap:12px; align-items:center; padding:9px 14px; border-top:1px solid var(--line); font-size:13.5px; }
+  .cv-fila:first-child { border-top:0; }
+  .cv-th { background:var(--surface); color:var(--mute); font-size:12px; font-weight:600; }
+  .cv-fila small { display:block; color:var(--faint); font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .cv-fila > span { min-width:0; overflow:hidden; text-overflow:ellipsis; }
+  .cv-cli { display:flex; align-items:center; gap:10px; }
+  .cv-cli > span:last-child { min-width:0; }
+  .cv-fila select, .cv-ficha-et select { font:inherit; font-size:13px; border:1px solid var(--line-strong); border-radius:var(--r-sm); padding:5px 8px; background:var(--bg); color:var(--text); max-width:100%; }
+  .cv-intro { color:var(--mute); margin:0 0 16px; }
+  .cv-integ { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:14px; }
+  .cv-int { border:1px solid var(--line); border-radius:var(--r); padding:16px; display:flex; flex-direction:column; gap:10px; }
+  .cv-int-h { display:flex; align-items:center; gap:10px; }
+  .cv-int-h i { font-size:22px; color:var(--acc); }
+  .cv-int-h b { flex:1; }
+  .cv-est { font-size:11.5px; color:var(--mute); background:var(--surface); border-radius:var(--pill); padding:4px 9px; }
+  .cv-int p { margin:0; color:var(--mute); font-size:13.5px; }
+  .cv-int > .btn { align-self:flex-start; }
+  .cv-int-pasos { background:var(--surface); border-radius:var(--r-sm); padding:12px; display:flex; flex-direction:column; gap:10px; }
+  .cv-int-pasos .btn { align-self:flex-start; }
+  .cv-int-pasos a.btn { color:var(--text); text-decoration:none; }
+  .cv-aj { max-width:640px; display:flex; flex-direction:column; gap:8px; }
+  .cv-aj-pie { margin-top:8px; }
+  .cv-ficha { position:absolute; top:0; right:0; bottom:0; width:min(380px, 100%); background:var(--bg); border-left:1px solid var(--line); box-shadow:var(--shadow-lg); padding:18px; overflow:auto; display:flex; flex-direction:column; gap:14px; z-index:3; }
+  .cv-ficha-h { display:flex; align-items:center; gap:12px; }
+  .cv-ficha-h > div { flex:1; min-width:0; }
+  .cv-ficha-h small { display:block; color:var(--mute); }
+  .cv-ficha-et { display:flex; align-items:center; gap:10px; font-weight:600; font-size:13.5px; }
+  .cv-dl { display:grid; grid-template-columns:auto minmax(0,1fr); gap:6px 14px; margin:0; font-size:13.5px; }
+  .cv-dl dt { color:var(--mute); }
+  .cv-dl dd { margin:0; overflow-wrap:anywhere; }
+  .cv-msg { background:var(--surface); border-radius:var(--r-sm); padding:12px; font-size:13.5px; }
+  .cv-msg p { margin:6px 0 0; white-space:pre-wrap; color:var(--text); }
+  .cv-ficha-acc { display:flex; gap:8px; flex-wrap:wrap; }
+  .nav button[data-crm-abrir] i { color:var(--acc); }
+  @media (max-width: 1180px) { .shell.crm-on, .shell.crm-on.reading { grid-template-columns:72px minmax(0,1fr); } }
+  @media (max-width: 900px) {
+    .shell.crm-on, .shell.crm-on.reading { grid-template-columns:minmax(0,1fr); }
+    .cv-head { padding:10px 12px; gap:8px; } .cv-tabs { order:3; width:100%; overflow-x:auto; } .cv-tabs button span { font-size:12.5px; }
+    .cv-body { padding:12px; } .cv-col { flex-basis:78vw; }
+    .cv-fila { grid-template-columns:minmax(0,1fr) 120px; } .cv-fila > span:nth-child(2), .cv-fila > span:nth-child(4), .cv-fila > span:nth-child(5) { display:none; }
+  }
   .crm-pad { max-height:min(70vh, 720px); overflow:auto; }
   .crm-list { display:flex; flex-direction:column; gap:8px; margin-bottom:6px; }
   .crm-it { display:flex; align-items:center; gap:12px; padding:12px 14px; border:1px solid var(--line); border-radius:var(--r); }
@@ -1272,6 +1350,7 @@ async function loadCatCounts(k){
 function refrescarBorradores(k){ return gm(k, 'labels/DRAFT').then(function(l){ ACC[k].drafts = l.messagesTotal || 0; drawSide(); }).catch(function(){}); }
 async function refreshCounts(){
   refrescarBorradores(st.acc);
+  if(!CRMS && !refreshCounts.crm){ refreshCounts.crm = 1; crmCargar().then(function(){ drawSide(); crmContar(st.acc); }).catch(function(){ refreshCounts.crm = 0; }); } else crmContar(st.acc);
   loadCatCounts(st.acc).then(function(){ drawCats(); drawSide(); }).catch(function(){});
   await Promise.all(KEYS.map(async function(k){ try { var before = ACC[k].counted ? ACC[k].unread : null; var l = await gm(k, 'labels/INBOX'); ACC[k].unread = l.threadsUnread || 0; ACC[k].inboxTotal = l.threadsTotal || 0; ACC[k].counted = true;
     if(before !== null && ACC[k].unread > before) notifyNew(k); } catch(e){} }));
@@ -1390,6 +1469,20 @@ async function cambiarColorEtq(k, id, pp){
     drawSide(); drawRows(); toast('Color cambiado');
   } catch(err){ toast('No se pudo cambiar el color: ' + err.message); }
 }
+// etiquetas del CRM («Leads/Nuevo»…): no se enseñan con las demás
+function esEtqCrm(n){ return n === 'Leads' || /^Leads\//.test(n || ''); }
+// bloque «CRM» de la barra lateral: los leads sin contestar del CRM de esta cuenta y el acceso a Mis CRM
+function crmSide(k){
+  // un solo botón (Alejandro, 19-oct): dentro está todo (tablero, clientes, integraciones y ajustes)
+  var n = Object.keys(ACC).reduce(function(t, x){ return t + (ACC[x].crmN || 0); }, 0), on = !!(window.vistaCrmAbierta && vistaCrmAbierta());
+  return '<li class="nav-sub">CRM</li><li><button data-crm-abrir title="CRM: tablero, clientes e integraciones" aria-current="' + on + '"><i class="ph ph-kanban"></i><span>CRM</span><span class="n">' + (n ? fmtN(n) : '') + '</span></button></li>';
+}
+// cuántos hilos hay en la primera etapa del CRM de esa cuenta (los que esperan respuesta)
+function crmContar(k){
+  var cr = CRMS && crmDeK(k, ''); if(!cr) return Promise.resolve();
+  var ln = (ACC[k].labels || []).filter(function(l){ return l.name === 'Leads/' + cr.etapas[0]; })[0]; if(!ln) return Promise.resolve();
+  return gm(k, 'labels/' + ln.id).then(function(l){ ACC[k].crmN = l.threadsTotal || 0; drawSide(); }).catch(function(){});
+}
 function drawSide(){
   var c = a();
   $('sideHead').innerHTML = '<span class="orb" style="--tc:'+c.color+'">'+c.init+'</span><span><b>'+esc(c.name)+'</b><small>'+esc(c.email)+'</small></span>';
@@ -1397,12 +1490,12 @@ function drawSide(){
     var n = f[0]==='INBOX' ? c.unread : (f[0]==='DRAFT' ? c.drafts : 0);
     var cur = !st.q && !st.label && st.folder === f[0];
     return '<li><button data-f="'+f[0]+'" title="'+f[1]+'" aria-current="'+cur+'"><i class="ph '+f[2]+'"></i><span>'+f[1]+'</span><span class="n">'+(n ? fmtN(n) : '')+'</span></button></li>'; }).join('')
-    + '<li class="nav-sub">Categorías</li>' + CATS.map(function(f){ var n = (c.catUnread || {})[f[0]] || 0, cur = !st.q && !st.label && st.folder === f[0];
-      return '<li><button data-f="'+f[0]+'" title="'+f[1]+'" aria-current="'+cur+'"><i class="ph '+f[2]+'"></i><span>'+f[1]+'</span><span class="n">'+(n ? fmtN(n) : '')+'</span></button></li>'; }).join('')
+    // CRM a la vista (19-oct-2026, Alejandro): en el sitio de «Categorías», que ya están arriba de la lista
+    + crmSide(st.acc)
     // vistas de las cuatro cuentas a la vez (18-oct-2026): lo que viene de camino y la basura que paran los filtros
     + '<li class="nav-sub">Todas las cuentas</li>' + [['PAQUETES', 'Paquetes', 'ph-package', paqActivos()], ['SUSCRIP', 'Suscripciones', 'ph-newspaper', susPendientes()], ['AHORRO', 'Basura parada', 'ph-shield-check', ahorroSemana()]].map(function(f){ var cur = !st.q && !st.label && st.folder === f[0];
       return '<li><button data-f="'+f[0]+'" title="'+f[1]+'" aria-current="'+cur+'"><i class="ph '+f[2]+'"></i><span>'+f[1]+'</span><span class="n">'+(f[3] ? fmtN(f[3]) : '')+'</span></button></li>'; }).join('');
-  var labs = c.labels || [];
+  var labs = (c.labels || []).filter(function(l){ return !esEtqCrm(l.name); });   // las del CRM se ven en su sección
   $('labels').innerHTML = labs.length ? labs.map(function(l){
     var bg = colorEtq(l, labs).backgroundColor;
     return '<li><button data-l="'+esc(l.id)+'" title="'+esc(l.name)+'" aria-current="'+(st.label===l.id)+'"><span class="tag-sw" data-cl="'+esc(l.id)+'" title="Cambiar el color" style="--tc:'+esc(bg)+'"></span><span>'+esc(l.name)+'</span></button></li>'; }).join('')
@@ -1427,7 +1520,7 @@ function summarize(t, enviados){
   var inSent = enviados != null ? !!enviados : (st.folder === 'SENT' && !st.q && !st.label);
   var who = inSent ? 'Para: ' + splitAddrs(hdr(last.payload, 'To')).map(shortName).join(', ') : senders.slice(-3).join(', ');
   var anyAtt = ms.some(function(m){ return /multipart\/mixed/i.test((m.payload && m.payload.mimeType) || ''); });
-  var userLabels = Object.keys(labels).filter(function(l){ return /^Label_/.test(l); }).map(function(id){ var L = (a().labels||[]).filter(function(x){ return x.id === id; })[0]; return L ? L.name : null; }).filter(Boolean);
+  var userLabels = Object.keys(labels).filter(function(l){ return /^Label_/.test(l); }).map(function(id){ var L = (a().labels||[]).filter(function(x){ return x.id === id; })[0]; return L && !esEtqCrm(L.name) ? L.name : null; }).filter(Boolean);
   var lastFrom = hdr(last.payload, 'From'); for(var q = ms.length - 1; q >= 0; q--){ var fq = hdr(ms[q].payload, 'From'); if(!isMe(parseAddr(fq).email)){ lastFrom = fq; break; } }
   return { id:t.id, hid:t.historyId, fe: inSent ? parseAddr(splitAddrs(hdr(last.payload, 'To'))[0] || '').email.toLowerCase() : parseAddr(lastFrom).email.toLowerCase(), who:who || '(sin remitente)', init:initials(inSent ? who.replace('Para: ', '') : shortName(lastFrom)), subj: hdr(first.payload, 'Subject') || '(sin asunto)', snip: unent(t.snippet || last.snippet || ''),
            nd: ms.filter(function(m){ return (m.labelIds||[]).indexOf('DRAFT') >= 0; }).length, date: +last.internalDate, unread: !!labels.UNREAD, star: !!labels.STARRED, att:anyAtt, n: ms.length, labels:Object.keys(labels), userLabels:userLabels, draftOnly: ms.every(function(m){ return (m.labelIds||[]).indexOf('DRAFT') >= 0; }) };
@@ -1530,6 +1623,7 @@ function drawTools(){
          : '<button class="icon-btn" data-bulk="archive" aria-label="Archivar"><i class="ph ph-archive"></i></button><button class="icon-btn" data-bulk="trash" aria-label="Enviar a la papelera"><i class="ph ph-trash"></i></button>')
       + '<button class="icon-btn" data-bulk="'+(anyUnread?'read':'unread')+'" aria-label="'+(anyUnread?'Marcar como leído':'Marcar como no leído')+'"><i class="ph '+(anyUnread?'ph-envelope-simple-open':'ph-envelope-simple')+'"></i></button>'
       + '<button class="icon-btn" data-menu="label" aria-label="Etiquetar"><i class="ph ph-tag"></i></button>'
+    + (CRMS && crmDeK(st.acc, '') ? '<button class="icon-btn" data-crm-add aria-label="Añadir al CRM" title="Añadir al CRM"><i class="ph ph-user-plus"></i></button>' : '')
       + '<button class="icon-btn" data-menu="more" aria-label="Más acciones"><i class="ph ph-dots-three-vertical"></i></button></div>';
   } else {
     h += '<div class="grp"><button class="icon-btn" id="refresh" aria-label="Actualizar"><i class="ph ph-arrows-clockwise"></i></button>'
@@ -1760,6 +1854,7 @@ function renderThread(animate){
          + '<button class="icon-btn" data-q="trash" data-id="'+esc(c.id)+'" aria-label="Enviar a la papelera"><i class="ph ph-trash"></i></button>')
     + '<button class="icon-btn" data-q="unread" data-id="'+esc(c.id)+'" aria-label="Marcar como no leído"><i class="ph ph-envelope-simple"></i></button>'
     + '<button class="icon-btn" data-menu="label" aria-label="Etiquetar"><i class="ph ph-tag"></i></button>'
+    + (CRMS && crmDeK(st.acc, '') ? '<button class="icon-btn" data-crm-add aria-label="Añadir al CRM" title="Añadir al CRM"><i class="ph ph-user-plus"></i></button>' : '')
     + '<button class="icon-btn" data-star-open aria-pressed="'+starred+'" aria-label="Destacar"><i class="'+(starred?'ph-fill':'ph')+' ph-star" style="'+(starred?'color:var(--acc)':'')+'"></i></button>'
     + '<button class="icon-btn seg-btn" data-menu="seguir" aria-pressed="'+!!segDe(k, c.id)+'" aria-label="Avísame si no contesta" title="Avísame si no contesta"><i class="'+(segDe(k, c.id)?'ph-fill':'ph')+' ph-alarm"></i></button>'
     + '<div class="push"><button class="icon-btn" data-act="reply" aria-label="Responder"><i class="ph ph-arrow-bend-up-left"></i></button>'
@@ -2195,8 +2290,7 @@ function openMenu(btn, kind){
     h = '<div class="ttl">Cuentas</div>' + KEYS.map(function(k){ return '<button data-mi="goto-'+k+'"><span class="orb" style="--tc:'+ACC[k].color+';width:22px;height:22px;font-size:9px">'+accOrb(k)+'</span> <span>'+esc(ACC[k].email)+'</span>'+(ACC[k].broken?' <i class="ph ph-warning" style="color:var(--warn)"></i>':'')+'</button>'; }).join('')
       + '<button data-mi="anadir"><i class="ph ph-plus-circle"></i> <span>Añadir cuenta</span></button>'
       // Temas justo debajo de Cuentas: al final del menú quedaba fuera de la vista
-      + '<div class="sep"></div><button data-mi="crm"><i class="ph ph-kanban"></i> <span>Mis CRM</span></button>'
-      + '<button data-mi="temas"><i class="ph ph-palette"></i> <span>Temas</span><small class="mi-sub">' + esc(({ claro:'Claro', oscuro:'Oscuro' })[temaActual()] || (TEMAS.filter(function(x){ return x.id === temaActual(); })[0] || {}).nombre || '') + '</small></button>'
+      + '<div class="sep"></div><button data-mi="temas"><i class="ph ph-palette"></i> <span>Temas</span><small class="mi-sub">' + esc(({ claro:'Claro', oscuro:'Oscuro' })[temaActual()] || (TEMAS.filter(function(x){ return x.id === temaActual(); })[0] || {}).nombre || '') + '</small></button>'
       + (avisosE !== 'no' || esIOS ? '<div class="sep"></div><div class="ttl">Avisos en este dispositivo</div>' + ({
           no: '<button data-mi="av-info-ios"><i class="ph ph-info"></i> <span>Este iPhone necesita iOS 16.4 o posterior</span></button>',
           ok: '<button data-mi="av-prueba"><i class="ph ph-bell-ringing"></i> <span>Avisos activados · Probar</span></button><button data-mi="av-baja"><i class="ph ph-bell-slash"></i> <span>Desactivar avisos</span></button>',
@@ -2918,6 +3012,8 @@ function setAcc(k){
 }
 $('cats').addEventListener('click', function(e){ var b = e.target.closest('[data-cat]'); if(!b || b.dataset.cat === st.cat) return; st.cat = b.dataset.cat; st.sel = null; cur = null; st.checked = {}; st.threads = []; closeRead(); loadList(false); });
 $('folders').addEventListener('click', function(e){ var b = e.target.closest('[data-f]'); if(!b) return; st.cat = 'ALL'; st.folder = b.dataset.f; st.label = null; st.q = ''; $('q').value = ''; $('searchBox').classList.remove('has-q'); st.checked = {}; st.filter = 'all'; st.sel = null; cur = null; st.threads = []; drawSide(); drawEmptyRead(); $('read').classList.remove('is-open'); loadList(false); closeDrawer(); });
+$('folders').addEventListener('click', function(e){
+  if(e.target.closest('[data-crm-abrir]')){ closeDrawer(); abrirVistaCrm(); } });
 $('labels').addEventListener('click', function(e){ var sw = e.target.closest('.tag-sw[data-cl]'); if(sw){ e.preventDefault(); e.stopPropagation(); openMenu(sw, 'etqcolor'); return; }
   var b = e.target.closest('[data-l]'); if(!b) return; st.label = b.dataset.l; st.q = ''; $('q').value = ''; $('searchBox').classList.remove('has-q'); st.checked = {}; st.filter = 'all'; st.sel = null; cur = null; st.threads = []; drawSide(); drawEmptyRead(); $('read').classList.remove('is-open'); loadList(false); closeDrawer(); });
 $('rows').addEventListener('click', function(e){
@@ -3103,7 +3199,7 @@ function pintarCrmForm(){
     + '<button type="button" class="btn sm" data-crm-fa><i class="ph ph-plus"></i> Añadir formulario</button></div>'
     + '<label class="crm-chk"><input type="checkbox" id="crmDirecto"' + (d.directo ? ' checked' : '') + '> <span>También los correos de gente nueva que pregunta</span></label>'
     + '<label class="crm-lb">Palabras que lo delatan, separadas por comas<input type="text" id="crmPalabras" value="' + esc((d.palabras && d.palabras.length ? d.palabras : CRM_PALABRAS).join(', ')) + '"><small>Solo cuenta si es la primera vez que te escribe esa persona.</small></label>'
-    + '<label class="crm-lb">Frases de bots, una por línea<textarea id="crmBots" rows="3" placeholder="Texto que repiten los bots de tu formulario">' + esc((d.frasesBot || []).join('\n')) + '</textarea><small>Lo que parezca un bot va a «Leads/Posible bot», sin aviso.</small></label>'
+    + '<label class="crm-lb">Frases de bots, una por línea<textarea id="crmBots" rows="3" placeholder="Texto que repiten los bots de tu formulario">' + esc((d.frasesBot || []).join('\n')) + '</textarea><small>Lo que parezca un bot se archiva en «Leads/Posible bot», sin aviso.</small></label>'
     + '</div><div class="sig-foot crm-foot">'
     + (c.id ? '<button class="btn" type="button" data-crm-borrar>Borrar CRM</button><button class="btn" type="button" data-crm-importar><i class="ph ph-clock-counter-clockwise"></i> <span>Buscar leads de los últimos 30 días</span></button>' : '')
     + '<span class="push"></span><button class="btn" type="button" data-crm-volver>Cancelar</button><button class="btn primary" type="button" data-crm-guardar><i class="ph ph-check"></i> Guardar</button></div>';
@@ -3140,7 +3236,7 @@ $('crmPad').addEventListener('click', async function(e){
     if(!confirm('¿Borrar este CRM? Las etiquetas de los leads se quedan en Gmail.')) return;
     var jb = await crmPost({ accion:'borrar', id:crmEd.id }).catch(function(){ return {}; });
     if(!jb.ok){ toast('No se pudo borrar el CRM'); return; }
-    crmEd = null; await crmCargar().catch(function(){}); pintarCrm(); toast('CRM borrado'); return; }
+    crmEd = null; await crmCargar().catch(function(){}); pintarCrm(); if(window.cvRefrescar) cvRefrescar(); toast('CRM borrado'); return; }
   if(b.hasAttribute('data-crm-guardar')){
     var c = leerCrmForm(), nuevo = !c.id;
     if(!c.nombre){ toast('Ponle un nombre al CRM'); $('crmNom').focus(); return; }
@@ -3153,7 +3249,7 @@ $('crmPad').addEventListener('click', async function(e){
     if(!j.ok){ toast('No se pudo guardar el CRM'); return; }
     await crmCargar().catch(function(){});
     await Promise.all(c.cuentas.map(loadAccountMeta)); drawSide();
-    crmEd = null; pintarCrm(); toast('CRM guardado');
+    crmEd = null; pintarCrm(); crmContar(st.acc); if(window.cvRefrescar) cvRefrescar(); toast('CRM guardado');
     if(nuevo && c.deteccion.activa && confirm('¿Busco ya los leads de los últimos 30 días?')) crmImportar(j.id);
     return; }
 });
@@ -3884,5 +3980,6 @@ async function start(){
 if(innerWidth < 900) $('q').placeholder = 'Buscar';
 (function(){ var t = 'light', p = ''; try { t = localStorage.getItem('buzonero-tema') || 'light'; p = localStorage.getItem('buzonero-paleta') || ''; } catch(e){} if(p && TEMAS.some(function(x){ return x.id === p; })) aplicarPaleta(p); else applyTheme(t); start(); })();
 </script>
+<script src="/app/crm.js"></script>
 </body>
 </html>

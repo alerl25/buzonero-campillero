@@ -11,6 +11,22 @@ export default async function handler(req, res) {
   if (!maquina && !validSession(req)) return res.status(401).json({ error: 'sesion' });
   if (!maquina && !sameOrigin(req)) return res.status(403).json({ error: 'origen' });
   try {
+    const r = String((req.query && req.query.r) || '');
+    if (req.method === 'GET' && (r === 'leads' || r === 'clientes')) {
+      // el tablero (leads por etapa) o los clientes de un CRM, de todas sus cuentas
+      const c = (await readCrm()).crms[String(req.query.id || '')];
+      if (!c) return res.status(404).json({ error: 'crm' });
+      const todas = await allAccounts(), out = { ok: true, leads: [], clientes: [], bots: 0, fallos: [] };
+      for (const k of c.cuentas) {
+        try {
+          const tk = await accessToken(k); if (!tk) { out.fallos.push(k); continue; }
+          const d = detector(tk, c, todas, k, esPropaganda);
+          if (r === 'leads') { const p = await d.pipeline(); out.leads.push(...p.leads); out.bots += p.bots; }
+          else out.clientes.push(...await d.clientes());
+        } catch (e) { out.fallos.push(k); }
+      }
+      return res.status(200).json(out);
+    }
     if (req.method === 'GET') return res.status(200).json({ ok: true, crms: (await readCrm()).crms });
     if (req.method !== 'POST') return res.status(405).json({ error: 'metodo' });
     const b = req.body || {}, todas = await allAccounts();
@@ -26,18 +42,30 @@ export default async function handler(req, res) {
         d.crms[c.id] = { ...(d.crms[c.id] || {}), ...c, creado: (d.crms[c.id] || {}).creado || ahora, actualizado: ahora };
       });
       if (choque) return res.status(409).json({ error: 'cuenta-en-otro', crm: choque });
-      // las etiquetas de las etapas se crean ya, para que se vean en la barra lateral
-      const avisos = [];
-      for (const k of c.cuentas) {
-        try { const tk = await accessToken(k); if (!tk) { avisos.push(k); continue; } await detector(tk, c, todas, k, esPropaganda).prepararEtiquetas(); } catch (e) { avisos.push(k); }
-      }
-      return res.status(200).json({ ok: true, id: c.id, sinEtiquetas: avisos });
+      return res.status(200).json({ ok: true, id: c.id });
     }
     const id = String(b.id || '');
     if (!/^c[0-9a-f]{8}$/.test(id)) return res.status(400).json({ error: 'crm' });
     if (b.accion === 'borrar') {
       // las etiquetas de Gmail se quedan: borrar el CRM no toca el correo
       await updateCrm((d) => { if (!d.crms[id]) return false; delete d.crms[id]; });
+      return res.status(200).json({ ok: true });
+    }
+    if (b.accion === 'mover' || b.accion === 'anadir') {
+      // cambiar de etapa (tablero) o meter en el CRM un correo cualquiera («Añadir al CRM»)
+      const c = (await readCrm()).crms[id], k = String(b.k || '');
+      if (!c || !c.cuentas.includes(k)) return res.status(404).json({ error: 'crm' });
+      const etapa = String(b.etapa || c.etapas[0]);
+      if (!c.etapas.includes(etapa)) return res.status(400).json({ error: 'etapa' });
+      const tk = await accessToken(k); if (!tk) return res.status(409).json({ error: 'reconectar' });
+      const d = detector(tk, c, todas, k, esPropaganda);
+      if (b.accion === 'anadir') {
+        if (!/^[0-9a-f]{6,24}$/.test(String(b.hilo || ''))) return res.status(400).json({ error: 'hilo' });
+        return res.status(200).json({ ok: true, id: await d.anadir(String(b.hilo), etapa) });
+      }
+      const ids = (Array.isArray(b.ids) ? b.ids : []).map(String).filter((x) => /^[0-9a-f]{6,24}$/.test(x)).slice(0, 50);
+      if (!ids.length) return res.status(400).json({ error: 'ids' });
+      await d.mover(ids, etapa);
       return res.status(200).json({ ok: true });
     }
     if (b.accion === 'importar') {

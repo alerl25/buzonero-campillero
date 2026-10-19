@@ -2,6 +2,18 @@
 
 Todas las versiones de Buzonero Campillero. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [1.4] · 2026-10-19
+
+### App web
+- **Pestaña CRM** (botón «CRM» en la barra lateral, en el sitio de las categorías, que ya están encima de la lista): **Tablero** con una columna por etapa (arrastra las tarjetas para cambiar de etapa), **Clientes** (toda persona de fuera que te ha escrito, con su empresa y su etapa; si no tiene, hereda la de su empresa), **Integraciones** (Google Analytics, Google Business, WhatsApp con varios números y Nexudus de solo lectura; por ahora explican qué falta para conectarlas) y **Ajustes** (tus CRM).
+- **Ficha del cliente:** etapa, datos, su mensaje y botones para abrir el correo o escribirle.
+- **Añadir al CRM** desde cualquier correo abierto (botón con la persona y el «+»), para los leads que llegan por otro lado.
+- Las etiquetas del CRM («Leads/…») ya no salen en la barra ni en la lista: se crean solo cuando hace falta y ocultas, también en Gmail.
+- Los posibles bots, además, se archivan.
+
+### Servidor
+- `api/crm.js`: `?r=leads` (tablero), `?r=clientes`, acciones `mover` y `anadir`.
+
 ## [1.3] · 2026-10-19
 
 ### App web
