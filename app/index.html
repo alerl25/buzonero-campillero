@@ -2619,6 +2619,19 @@ $('send').addEventListener('click', function(){
   var cancelled = false;
   toast('Se envía desde ' + ACC[o.k].name + ' en 10 s', function(){ cancelled = true; openCompose(Object.assign({}, snapshot, { files:snapshot.files })); }, function(){ if(!cancelled) reallySend(snapshot); }, UNDO_ENVIO_MS);
 });
+// vuelve a leer UN hilo y pone su fila al día en la lista (tras enviar o borrar un borrador); devuelve true si el hilo sigue existiendo
+async function actualizarFilaHilo(k, tid){
+  try { olvidarHilo(k, tid); } catch(e){}
+  try {
+    var thx = await gm(k, 'threads/' + tid + '?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Subject');
+    var fila = summarize(thx); META[k + '|' + tid] = fila;
+    var ix = st.threads.findIndex(function(x){ return x.id === tid; });
+    if(st.acc === k && ix >= 0){ if(st.folder === 'DRAFT' && !(fila.labels || []).includes('DRAFT')) st.threads.splice(ix, 1); else st.threads[ix] = fila; }
+    Object.keys(LISTAS).forEach(function(c){ if(c.indexOf(k + '|DRAFT') === 0) delete LISTAS[c]; });
+    if(st.acc === k) drawRows();
+    return true;
+  } catch(e){ st.threads = st.threads.filter(function(x){ return x.id !== tid; }); if(st.acc === k) drawRows(); return false; }
+}
 async function reallySend(o){
   try {
     if(o.esperar){ await o.esperar(); delete o.esperar; }
@@ -2629,12 +2642,14 @@ async function reallySend(o){
     var raw = toB64u(btoa(await buildRaw(o, true)));
     var msg = { raw:raw }; if(o.threadId) msg.threadId = o.threadId;
     var enviado = await gm(o.k, 'messages/send', { method:'POST', json:msg });
-    if(o.draftId) gm(o.k, 'drafts/' + o.draftId, { method:'DELETE' }).catch(function(){});
+    if(o.draftId){ try { await gm(o.k, 'drafts/' + o.draftId, { method:'DELETE' }); } catch(e){} }
     // «Avísame si no contesta» marcado al escribir: se apunta el hilo que acaba de salir
     var aviso = o.seguir && enviado && enviado.threadId ? await ponerSeg(o.k, enviado.threadId, o.seguir, { asunto:o.subject || '', para:splitAddrs(o.to || o.cc || o.bcc).map(shortName).join(', '), desde:Date.now() }, true) : 0;
     toast('Enviado desde ' + ACC[o.k].name + (aviso ? '. Te aviso ' + fmtVence(aviso) + ' si no contesta' : o.seguir ? ', pero no se pudo poner el aviso' : ''));
-    if(cur && cur.id === o.threadId && st.acc === o.k) openThread(o.threadId);
-    if(st.acc === o.k && (st.folder === 'SENT' || st.folder === 'DRAFT')) loadList(false);
+    refrescarBorradores(o.k);
+    var tidE = o.threadId || (enviado && enviado.threadId);
+    if(tidE){ var sigue = await actualizarFilaHilo(o.k, tidE); if(cur && cur.id === tidE && st.acc === o.k){ if(sigue) openThread(tidE); else closeRead(); } }
+    if(st.acc === o.k && (st.folder === 'SENT' || st.folder === 'DRAFT' || st.folder === 'INBOX')) loadList(false);
   } catch(e){ toast('No se envió: ' + e.message, function(){ openCompose(o); }); }
 }
 async function uploadDrive(o, f){
@@ -2802,15 +2817,9 @@ async function doAct(kind, el){
       else { await pool(mios, 3, function(d){ return gm(kk, 'drafts/' + d.id, { method:'DELETE' }); }); toast(mios.length === 1 ? 'Borrador eliminado' : mios.length + ' borradores eliminados'); }
     } catch(e){ toast('No se pudo borrar el borrador: ' + e.message); return; }
     refrescarBorradores(kk);
-    try {
-      var thx = await gm(kk, 'threads/' + tid + '?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Subject');
-      var fila = summarize(thx); META[kk + '|' + tid] = fila; var ix = st.threads.findIndex(function(x){ return x.id === tid; });
-      if(ix >= 0){ if(st.folder === 'DRAFT' && fila.draftOnly === false) st.threads.splice(ix, 1); else st.threads[ix] = fila; }
-    } catch(e){ st.threads = st.threads.filter(function(x){ return x.id !== tid; }); }
-    Object.keys(LISTAS).forEach(function(c){ if(c.indexOf(kk + '|DRAFT') === 0) delete LISTAS[c]; });
-    if(st.folder === 'DRAFT'){ closeRead(); drawRows(); return; }
-    drawRows();
-    var tt = byId(tid); if(tt) openThread(tid); else closeRead();
+    var sigueB = await actualizarFilaHilo(kk, tid);
+    if(st.folder === 'DRAFT' && !sigueB){ closeRead(); return; }
+    if(sigueB && byId(tid)) openThread(tid); else closeRead();
     return;
   }
   if(kind === 'seguir-borrador'){ var it = BANDEJA.find(function(x){ return x.o.threadId === cur.id; }); if(it) reabrir(it.id); else openDraftFromThread(cur.id, true, mid); return; }
