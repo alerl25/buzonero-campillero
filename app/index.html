@@ -1602,6 +1602,8 @@ async function openThread(id){
     if(st.sel !== id || st.acc !== k) return;
     cur = { k:k, id:id, msgs:(th.messages||[]).map(parseMsg) };
     renderThread(true);
+    // como Gmail: desde Borradores, un borrador que responde a un hilo se abre ya dentro del hilo, con el correo al que contestas encima
+    if(st.folder === 'DRAFT' && cur.msgs.some(esBorrador) && !cur.msgs.every(esBorrador)) openDraftFromThread(id, true);
     if(t && t.unread){ t.unread = false; ACC[k].unread = Math.max(0, (ACC[k].unread||1) - 1); drawTabs(); drawSide(); marcarFila(id, true);
       gm(k, 'threads/' + id + '/modify', { method:'POST', json:{ removeLabelIds:['UNREAD'] } }).catch(function(){}); }
   } catch(e){ el.innerHTML = '<div class="empty"><div class="halo"><i class="ph ph-wifi-slash"></i></div><h2>No se pudo abrir<em>.</em></h2><p>'+esc(e.message)+'</p></div>'; }
