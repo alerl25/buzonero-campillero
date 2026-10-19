@@ -151,10 +151,11 @@ Recuérdale tres normas del MCP:
 - enviar, darse de baja y bloquear piden su confirmación;
 - su correo no sale de su Google, su Vercel y su ordenador.
 
-## Lo que hace el MCP (28 herramientas)
+## Lo que hace el MCP (33 herramientas)
 
 | Grupo | Herramientas |
 |---|---|
+| Calendario de Google | `calendarios`, `eventos`, `crear_evento`, `modificar_evento`, `borrar_evento` |
 | Varias cuentas a la vez | `cuentas`, `buscar_en_todas` (bandeja unificada o búsqueda en todas), `paquetes`, `suscripciones`, `basura_parada`, `avisos_pendientes`, `buscar_contacto` |
 | Leer y buscar | `buscar`, `leer_hilo`, `descargar_adjunto` |
 | Escribir | `crear_borrador` (nuevo, respuesta o reenvío con adjuntos), `enviar`, `enviar_borrador`, `listar_borradores`, `borrar_borrador` |

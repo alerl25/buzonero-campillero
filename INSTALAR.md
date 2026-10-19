@@ -34,6 +34,7 @@ Todo en [console.cloud.google.com](https://console.cloud.google.com), con tu cue
    - Gmail API
    - Google Drive API
    - People API
+   - Google Calendar API (para la pestaña Calendario y sus herramientas del MCP)
 3. **Pantalla de consentimiento**: **APIs y servicios → Pantalla de consentimiento de OAuth** (o «Google Auth Platform»).
    - Tipo de usuario: **Externo**. Nombre de la app: `Buzonero`. Correo de asistencia: el tuyo.
    - Página principal: `https://TU-APP.vercel.app` · Política de privacidad: `https://TU-APP.vercel.app/privacidad`.
@@ -124,7 +125,7 @@ Guarda la clave donde el MCP la busca: `~/.config/buzonero/mcp-key.txt` (en Wind
 - **Cursor, Windsurf, Claude Desktop** (JSON de MCP): `{ "mcpServers": { "buzonero": { "command": "node", "args": ["RUTA/mcp/buzonero-mcp.mjs"], "env": { "BUZONERO_URL": "https://TU-APP.vercel.app" } } } }`
 - **Codex** (`~/.codex/config.toml`): `[mcp_servers.buzonero]` con `command = "node"`, `args = ["RUTA/mcp/buzonero-mcp.mjs"]` y `env = { BUZONERO_URL = "https://TU-APP.vercel.app" }`
 
-Reinicia el agente y pídele: «¿qué cuentas de correo tengo?». La lista de las 28 herramientas está en el [README](README.md). Quien tenga la clave del MCP puede leer tu correo: guárdala como una contraseña. Para cambiarla, vuelve a lanzar `configurar.mjs` o pon en Vercel un `MCP_KEY_HASH` nuevo (el SHA-256 en hexadecimal de la clave).
+Reinicia el agente y pídele: «¿qué cuentas de correo tengo?». La lista de las 33 herramientas está en el [README](README.md). Quien tenga la clave del MCP puede leer tu correo: guárdala como una contraseña. Para cambiarla, vuelve a lanzar `configurar.mjs` o pon en Vercel un `MCP_KEY_HASH` nuevo (el SHA-256 en hexadecimal de la clave).
 
 ---
 

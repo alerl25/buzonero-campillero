@@ -2,6 +2,19 @@
 
 Todas las versiones de Buzonero Campillero. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [1.8] · 2026-10-19
+
+### App web
+- **Calendario de Google dentro de Buzonero:** nueva entrada «Calendario» en la barra lateral, con el mes de todos tus calendarios de Google. A la izquierda, el panel «Mis calendarios», como en Google Calendar: un check por cuenta y otro por cada calendario para ver u ocultar sus eventos (se recuerda en el navegador). Detalle del día, y **crear, editar y borrar eventos** desde aquí: los cambios se hacen de verdad en Google Calendar.
+- Sin funciones nuevas en el servidor: la web habla con la API de Calendar con el mismo token de 1 h que ya usa Gmail.
+- Las cuentas conectadas antes de esta versión no tienen el permiso de Calendario: la vista lo avisa y basta con **reconectarlas** (engranaje → Reconectar). Además hay que activar «Google Calendar API» en el proyecto de Google Cloud.
+
+### MCP
+- **5 herramientas nuevas (33 en total):** `calendarios`, `eventos`, `crear_evento`, `modificar_evento` y `borrar_evento`. Borrar, o crear con invitados, exige `confirmado: true`. Los agentes pueden mirar la agenda antes de contestar un correo con fechas.
+
+### Permisos
+- Nuevo permiso de Google: `calendar` (ver y editar tus calendarios). Está en el acceso con Google (`api/auth/start.js`) y en `scripts/conectar_cuenta.py`.
+
 ## [1.7] · 2026-10-19
 
 ### App web

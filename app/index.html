@@ -1090,7 +1090,7 @@ var CATS = [['CATEGORY_SOCIAL','Social','ph-users'],['CATEGORY_UPDATES','Notific
 var TABS = [['ALL','Todo','ph-tray'],['CATEGORY_PERSONAL','Principal','ph-envelope-simple'],['CATEGORY_PROMOTIONS','Promociones','ph-tag'],['CATEGORY_SOCIAL','Social','ph-users'],['CATEGORY_UPDATES','Notificaciones','ph-info']];
 var EMPTY = { IMPORTANT:['Nada importante','Gmail marca aquí lo que cree que te importa.'], CATEGORY_SOCIAL:['Sin novedades sociales','Aquí llegan avisos de redes sociales.'], CATEGORY_UPDATES:['Sin notificaciones','Aquí van confirmaciones, recibos y avisos.'], CATEGORY_FORUMS:['Sin foros','Aquí llegan listas de correo y grupos.'], CATEGORY_PROMOTIONS:['Sin promociones','Aquí llegan ofertas y boletines.'], CATEGORY_PERSONAL:['Principal al día','No te queda nada por aquí.'], INBOX:['Bandeja al día','No te queda nada por aquí.'], STARRED:['Nada destacado','Marca con la estrella lo que quieras tener a mano.'], SENT:['Sin enviados','Lo que mandes desde esta cuenta aparecerá aquí.'], DRAFT:['Sin borradores','Los mensajes a medias se guardan solos.'], ALL:['Sin correos','Esta cuenta está vacía.'], SPAM:['Sin spam','Gmail lo filtra antes de que llegue.'], TRASH:['Papelera vacía','Lo que borres se queda aquí 30 días.'], LABEL:['Etiqueta vacía','Ningún correo lleva esta etiqueta.'], SEARCH:['Sin resultados','Prueba con otra palabra, un remitente o has:attachment.'] };
 var DIRECT_MAX = 25 * 1024 * 1024; // como Gmail: por encima, a Drive
-var UNDO_MS = 5000, UNDO_ENVIO_MS = 5000;   // enviar: 5 s para echarse atrás (Alejandro, 19-oct-2026)
+var UNDO_MS = 5000, UNDO_ENVIO_MS = 5000;   // enviar: 5 s para echarse atrás (el dueño, 19-oct-2026)
 
 var st = { acc:null, cat:'ALL', folder:'INBOX', label:null, q:'', filter:'all', threads:[], next:null, sel:null, checked:{}, loading:false, listErr:null, gen:0 };
 var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1502,7 +1502,7 @@ async function cambiarColorEtq(k, id, pp){
 function esEtqCrm(n){ return n === 'Leads' || /^Leads\//.test(n || ''); }
 // bloque «CRM» de la barra lateral: los leads sin contestar del CRM de esta cuenta y el acceso a Mis CRM
 function crmSide(k){
-  // un solo botón (Alejandro, 19-oct): dentro está todo (tablero, clientes, integraciones y ajustes)
+  // un solo botón (el dueño, 19-oct): dentro está todo (tablero, clientes, integraciones y ajustes)
   var n = Object.keys(ACC).reduce(function(t, x){ return t + (ACC[x].crmN || 0); }, 0), on = !!(window.vistaCrmAbierta && vistaCrmAbierta());
   return '<li class="nav-sub">CRM</li><li><button data-crm-abrir title="CRM: tablero, clientes e integraciones" aria-current="' + on + '"><i class="ph ph-kanban"></i><span>CRM</span><span class="n">' + (n ? fmtN(n) : '') + '</span></button></li>';
 }
@@ -1519,10 +1519,10 @@ function drawSide(){
     var n = f[0]==='INBOX' ? c.unread : (f[0]==='DRAFT' ? c.drafts : 0);
     var cur = !st.q && !st.label && st.folder === f[0];
     return '<li><button data-f="'+f[0]+'" title="'+f[1]+'" aria-current="'+cur+'"><i class="ph '+f[2]+'"></i><span>'+f[1]+'</span><span class="n">'+(n ? fmtN(n) : '')+'</span></button></li>'; }).join('')
-    // CRM a la vista (19-oct-2026, Alejandro): en el sitio de «Categorías», que ya están arriba de la lista
+    // CRM a la vista (19-oct-2026, el dueño): en el sitio de «Categorías», que ya están arriba de la lista
     + crmSide(st.acc)
     // vistas de las cuatro cuentas a la vez (18-oct-2026): lo que viene de camino y la basura que paran los filtros
-    + '<li class="nav-sub">Todas las cuentas</li>' + [['PAQUETES', 'Paquetes', 'ph-package', paqActivos()], ['SUSCRIP', 'Suscripciones', 'ph-newspaper', susPendientes()], ['AHORRO', 'Basura parada', 'ph-shield-check', ahorroSemana()]].map(function(f){ var cur = !st.q && !st.label && st.folder === f[0];
+    + '<li class="nav-sub">Todas las cuentas</li>' + [['CALENDARIO', 'Calendario', 'ph-calendar-blank', 0], ['PAQUETES', 'Paquetes', 'ph-package', paqActivos()], ['SUSCRIP', 'Suscripciones', 'ph-newspaper', susPendientes()], ['AHORRO', 'Basura parada', 'ph-shield-check', ahorroSemana()]].map(function(f){ var cur = !st.q && !st.label && st.folder === f[0];
       return '<li><button data-f="'+f[0]+'" title="'+f[1]+'" aria-current="'+cur+'"><i class="ph '+f[2]+'"></i><span>'+f[1]+'</span><span class="n">'+(f[3] ? fmtN(f[3]) : '')+'</span></button></li>'; }).join('');
   var labs = (c.labels || []).filter(function(l){ return !esEtqCrm(l.name); });   // las del CRM se ven en su sección
   $('labels').innerHTML = labs.length ? labs.map(function(l){
@@ -3537,7 +3537,7 @@ $('micBtn').addEventListener('click', function(){ dic ? pararDictado() : empezar
 $('dicFin').addEventListener('click', function(){ pararDictado(); if(ed) ed.focus(); });
 
 /* ---------------- vistas de todas las cuentas (barra lateral) ---------------- */
-var VISTAS = { PAQUETES:function(){ pintarPaquetes(); }, AHORRO:function(){ pintarAhorro(); }, SUSCRIP:function(){ pintarSus(); } };
+var VISTAS = { CALENDARIO:function(){ pintarCalendario(); }, PAQUETES:function(){ pintarPaquetes(); }, AHORRO:function(){ pintarAhorro(); }, SUSCRIP:function(){ pintarSus(); } };
 function enVista(){ return !!VISTAS[st.folder] && !st.q && !st.label; }
 function guardarLocal(clave, v){ try { localStorage.setItem(clave, JSON.stringify(v)); } catch(e){} }
 function leerLocal(clave){ try { return JSON.parse(localStorage.getItem(clave) || 'null'); } catch(e){ return null; } }
@@ -4010,5 +4010,6 @@ if(innerWidth < 900) $('q').placeholder = 'Buscar';
 (function(){ var t = 'light', p = ''; try { t = localStorage.getItem('buzonero-tema') || 'light'; p = localStorage.getItem('buzonero-paleta') || ''; } catch(e){} if(p && TEMAS.some(function(x){ return x.id === p; })) aplicarPaleta(p); else applyTheme(t); start(); })();
 </script>
 <script src="/app/crm.js"></script>
+<script src="/app/calendario.js"></script>
 </body>
 </html>

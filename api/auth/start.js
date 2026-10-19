@@ -11,7 +11,7 @@ export const MAIL_SCOPES = [
   'openid', 'https://www.googleapis.com/auth/userinfo.email', 'https://www.googleapis.com/auth/userinfo.profile',
   'https://www.googleapis.com/auth/gmail.modify', 'https://www.googleapis.com/auth/gmail.settings.basic',
   'https://www.googleapis.com/auth/drive.file', 'https://www.googleapis.com/auth/contacts.readonly',
-  'https://www.googleapis.com/auth/contacts.other.readonly',
+  'https://www.googleapis.com/auth/contacts.other.readonly', 'https://www.googleapis.com/auth/calendar',
 ];
 const mac = (s) => crypto.createHmac('sha256', process.env.SESSION_SECRET).update('state:' + s).digest('base64url');
 export function packState(o) { const p = Buffer.from(JSON.stringify(o)).toString('base64url'); return p + '.' + mac(p); }

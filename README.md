@@ -49,12 +49,13 @@ Tu agente lo clona, lo publica en tu Vercel, genera las claves y se conecta el M
 
 ¿Prefieres hacerlo a mano? Tienes la guía completa en **[INSTALAR.md](INSTALAR.md)**.
 
-## El MCP: 28 herramientas para tu agente
+## El MCP: 33 herramientas para tu agente
 
 <p align="center"><img src="docs/mcp-demo.png" alt="Un agente buscando en todas las cuentas y dejando un borrador" width="88%"></p>
 
 | Para… | Herramientas |
 |---|---|
+| **Calendario de Google** | `calendarios`, `eventos`, `crear_evento`, `modificar_evento`, `borrar_evento` |
 | **Ver todas las cuentas a la vez** | `cuentas`, `buscar_en_todas` (bandeja unificada o búsqueda en todas), `paquetes`, `suscripciones`, `basura_parada`, `avisos_pendientes`, `buscar_contacto` |
 | **Leer** | `buscar`, `leer_hilo`, `descargar_adjunto` |
 | **Escribir** | `crear_borrador` (nuevo, respuesta o reenvío con adjuntos), `enviar`, `enviar_borrador`, `listar_borradores`, `borrar_borrador` |
@@ -157,6 +158,7 @@ env = { BUZONERO_URL = "https://TU-APP.vercel.app" }
 **Lo que encuentra por ti**
 - **Añadir al calendario**: detecta fechas y horas en el correo y crea el evento en Google Calendar.
 - **Teléfonos y direcciones**: los convierte en botones de llamada, WhatsApp y mapa.
+- **Calendario de Google**: el mes de todos tus calendarios en una pestaña, con un check por cuenta y por calendario como en Google Calendar, y crear, editar y borrar eventos desde aquí.
 - **Paquetes**: reúne en una pestaña los pedidos y envíos de todas las cuentas, con su estado.
 - **Suscripciones**: lista los boletines y te deja darte de baja en un clic o filtrarlos. Te señala los que nunca abres.
 - **Basura parada**: cuenta lo que tus filtros apartan cada semana.

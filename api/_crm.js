@@ -123,7 +123,7 @@ export function detector(tk, crm, todas, k, esPropaganda) {
   let etqs = null;
   const etiquetas = async () => { if (!etqs) etqs = (await J('labels')).labels || []; return etqs; };
   // las etiquetas de las etapas se crean solo cuando entra el primer lead en esa etapa, y OCULTAS en la barra y en la lista
-  // (Alejandro, 19-oct: «no quiero tantas etiquetas»): los leads se ven desde la sección CRM de Buzonero
+  // (el dueño, 19-oct: «no quiero tantas etiquetas»): los leads se ven desde la sección CRM de Buzonero
   async function idEtiqueta(nombre) {
     const ls = await etiquetas(), ya = ls.find((l) => l.name === nombre); if (ya) return ya.id;
     const n = await G('labels', { method: 'POST', body: JSON.stringify({ name: nombre, labelListVisibility: 'labelHide', messageListVisibility: 'hide' }) }).then((r) => r.json()).catch(() => ({}));
@@ -184,7 +184,7 @@ export function detector(tk, crm, todas, k, esPropaganda) {
       }
       const etapa = motivo ? ETIQUETA_BOT : (contestadoA(msgs, yoM.internalDate, f.email) || await escritoDespues(f.email, yoM.internalDate) ? crm.etapas[1] : crm.etapas[0]);
       const lid = await idEtiqueta(etiquetaEtapa(etapa));
-      if (lid) await etiquetar(ids, [lid], motivo ? ['UNREAD', 'INBOX'] : []);   // los bots, además, se archivan (Alejandro, 19-oct): siguen en «Leads/Posible bot»
+      if (lid) await etiquetar(ids, [lid], motivo ? ['UNREAD', 'INBOX'] : []);   // los bots, además, se archivan (el dueño, 19-oct): siguen en «Leads/Posible bot»
       return { hilo: m.threadId, ids, f, origen, motivo, etapa };
     },
     // la cuenta ha escrito en el hilo: los leads de la primera etapa a los que ha contestado pasan a la segunda («Respondido»)

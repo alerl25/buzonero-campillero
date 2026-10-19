@@ -2,7 +2,8 @@
 // Buzonero Campillero · MCP
 // Da a cualquier agente de IA (Claude Code, Cursor, Codex, Windsurf…) el control de TODAS tus cuentas de Gmail a la vez,
 // con lo mismo que hace la app: buscar en todas, leer, borradores, enviar, reenviar, archivar, etiquetas con color,
-// «Avísame si no contesta», paquetes, suscripciones y bajas, bloquear, filtros, firmas, contactos y basura parada.
+// «Avísame si no contesta», paquetes, suscripciones y bajas, bloquear, filtros, firmas, contactos, basura parada
+// y el calendario de Google (calendarios, eventos, crear, modificar y borrar).
 // Un solo fichero, sin dependencias (Node 20+). Habla MCP por stdio.
 // No guarda permisos de Google: pide a TU instalación de Buzonero un token de 1 hora con la clave del MCP.
 // Configuración (variables de entorno):
@@ -16,7 +17,7 @@ import path from 'node:path';
 import dns from 'node:dns/promises';
 import net from 'node:net';
 
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
 const BASE = String(process.env.BUZONERO_URL || '').replace(/\/+$/, '');
 const DIRECT_MAX = 25 * 1024 * 1024;
 const DIA = 864e5;
@@ -279,7 +280,33 @@ const TOOLS = [
   T('cambiar_firma', 'Cambia la firma de una cuenta. Texto con saltos de línea o HTML.', { cuenta: CUENTA, firma: { type: 'string' } }, ['cuenta', 'firma']),
   T('buscar_contacto', 'Busca un contacto por nombre o correo en los contactos y en la gente con la que te has escrito, en todas las cuentas: nombre, correos y teléfonos.', { consulta: { type: 'string' } }, ['consulta']),
   T('basura_parada', 'Cuánta publicidad y basura han parado tus filtros («Basura filtrada») en todas las cuentas, y de quién viene más.', { dias: { type: 'number', description: 'Por defecto 7.' } }),
+  T('calendarios', 'Los calendarios de Google de una cuenta (o de todas): nombre, id, tu permiso (owner, writer, reader) y zona horaria. El id «primary» es el calendario principal de la cuenta.', { cuenta: { ...CUENTA, description: 'Opcional: solo esta cuenta; sin ella, todas.' } }),
+  T('eventos', 'Eventos de un calendario de Google, ordenados por hora. Por defecto: calendario principal, desde ahora y los próximos 14 días. Fechas en ISO (2026-10-24 o 2026-10-24T10:00).', { cuenta: CUENTA, calendario: { type: 'string', description: 'Id del calendario (de «calendarios»). Por defecto «primary».' }, desde: { type: 'string' }, hasta: { type: 'string' }, texto: { type: 'string', description: 'Buscar en título, descripción y lugar.' }, max: { type: 'number', description: '1-100, por defecto 25.' } }, ['cuenta']),
+  T('crear_evento', 'Crea un evento en un calendario de Google. Para uno de todo el día pasa `todo_el_dia: true` y solo fechas. Si lleva `asistentes` (se les enviará la invitación) exige `confirmado: true`.', { cuenta: CUENTA, calendario: { type: 'string' }, titulo: { type: 'string' }, inicio: { type: 'string', description: 'ISO, p. ej. 2026-10-24T10:00 (hora local de la zona) o 2026-10-24 si es de todo el día.' }, fin: { type: 'string' }, todo_el_dia: { type: 'boolean' }, zona: { type: 'string', description: 'Zona horaria IANA; por defecto Europe/Madrid.' }, lugar: { type: 'string' }, descripcion: { type: 'string' }, asistentes: { type: 'array', items: { type: 'string' }, description: 'Correos a invitar.' }, confirmado: { type: 'boolean' } }, ['cuenta', 'titulo', 'inicio']),
+  T('modificar_evento', 'Cambia campos de un evento (título, horas, lugar, descripción). Solo se tocan los campos que pases.', { cuenta: CUENTA, calendario: { type: 'string' }, evento_id: { type: 'string' }, titulo: { type: 'string' }, inicio: { type: 'string' }, fin: { type: 'string' }, todo_el_dia: { type: 'boolean' }, zona: { type: 'string' }, lugar: { type: 'string' }, descripcion: { type: 'string' } }, ['cuenta', 'evento_id']),
+  T('borrar_evento', 'Borra un evento de un calendario de Google. Exige `confirmado: true`; sin él solo dice qué borraría.', { cuenta: CUENTA, calendario: { type: 'string' }, evento_id: { type: 'string' }, confirmado: { type: 'boolean' } }, ['cuenta', 'evento_id', 'confirmado']),
 ];
+
+// ---------- calendario de Google ----------
+const CAL = (k, ruta, opt) => api(k, 'https://www.googleapis.com/calendar/v3/' + ruta, opt);
+const calId = (c) => encodeURIComponent(String(c || 'primary'));
+function errCal(e) {
+  const m = String((e && e.message) || e);
+  return /insufficient|scope|permission|has not been used|disabled|accessNotConfigured/i.test(m)
+    ? new Error('Esta cuenta aún no tiene permiso de Calendario, o la API de Google Calendar no está activada en tu proyecto de Google Cloud. Reconecta la cuenta desde la app (engranaje → Reconectar) y activa «Google Calendar API» en la consola. Detalle: ' + m)
+    : e;
+}
+function fechaGoogle(v, todoDia, zona, finDeDia) {
+  const s = String(v || '').trim(); if (!s) return undefined;
+  if (todoDia) { const d = s.slice(0, 10); if (finDeDia) { const x = new Date(d + 'T00:00:00Z'); x.setUTCDate(x.getUTCDate() + 1); return { date: x.toISOString().slice(0, 10) }; } return { date: d }; }
+  return { dateTime: /[zZ]$|[+-]\d\d:\d\d$/.test(s) ? s : (s.length === 16 ? s + ':00' : s), timeZone: zona || 'Europe/Madrid' };
+}
+const resumenEvento = (e) => ({
+  id: e.id, titulo: e.summary || '(sin título)', inicio: (e.start || {}).dateTime || (e.start || {}).date, fin: (e.end || {}).dateTime || (e.end || {}).date,
+  todo_el_dia: !!(e.start || {}).date, lugar: e.location || '', descripcion: String(e.description || '').slice(0, 600), estado: e.status, enlace: e.htmlLink,
+  ...(e.attendees && e.attendees.length ? { asistentes: e.attendees.map((a) => a.email + (a.responseStatus ? ' (' + a.responseStatus + ')' : '')) } : {}),
+});
+function limiteTiempo(v, porDefecto) { const s = String(v || '').trim(); if (!s) return porDefecto; const d = new Date(s.length === 10 ? s + 'T00:00:00' : s); if (isNaN(d)) throw new Error('Fecha no válida: ' + s); return d.toISOString(); }
 
 const HANDLERS = {
   async cuentas() {
@@ -522,6 +549,48 @@ const HANDLERS = {
     const ok = res.filter((r) => r && !r._err);
     return { dias: n, total: ok.reduce((t, r) => t + r.parados, 0), cuentas: ok };
   },
+  async calendarios({ cuenta }) {
+    const claves = cuenta ? [accKey(cuenta)] : Object.keys(ACC);
+    const res = await pool(claves, 3, async (k) => { try { const r = await CAL(k, 'users/me/calendarList?maxResults=250'); return { cuenta: k, nombre: ACC[k].name, calendarios: (r.items || []).map((c) => ({ id: c.id, nombre: c.summaryOverride || c.summary, permiso: c.accessRole, principal: !!c.primary, zona: c.timeZone, visible: c.selected !== false })) }; } catch (e) { return { cuenta: k, nombre: ACC[k].name, error: errCal(e).message }; } });
+    return res;
+  },
+  async eventos({ cuenta, calendario, desde, hasta, texto, max }) {
+    const k = accKey(cuenta);
+    const t0 = limiteTiempo(desde, new Date().toISOString()), t1 = limiteTiempo(hasta, new Date(Date.now() + 14 * DIA).toISOString());
+    const q = new URLSearchParams({ timeMin: t0, timeMax: t1, singleEvents: 'true', orderBy: 'startTime', maxResults: String(Math.min(Math.max(+max || 25, 1), 100)) });
+    if (texto) q.set('q', String(texto));
+    try { const r = await CAL(k, 'calendars/' + calId(calendario) + '/events?' + q.toString()); return { cuenta: ACC[k].name, calendario: r.summary || calendario || 'primary', zona: r.timeZone, eventos: (r.items || []).map(resumenEvento) }; }
+    catch (e) { throw errCal(e); }
+  },
+  async crear_evento({ cuenta, calendario, titulo, inicio, fin, todo_el_dia, zona, lugar, descripcion, asistentes, confirmado }) {
+    const k = accKey(cuenta); if (!String(titulo || '').trim()) throw new Error('Falta el título.');
+    const cuerpo = { summary: titulo, start: fechaGoogle(inicio, todo_el_dia, zona), end: fechaGoogle(fin || inicio, todo_el_dia, zona, !!todo_el_dia), ...(lugar ? { location: lugar } : {}), ...(descripcion ? { description: descripcion } : {}) };
+    const lista = (Array.isArray(asistentes) ? asistentes : []).map((x) => String(x).trim()).filter(Boolean);
+    if (lista.length) {
+      cuerpo.attendees = lista.map((email) => ({ email }));
+      if (confirmado !== true) return { enviado: false, motivo: 'Lleva asistentes: se les enviaría una invitación. Enséñaselo al usuario y repite con confirmado: true si lo pide.', evento: cuerpo };
+    }
+    try { const e = await CAL(k, 'calendars/' + calId(calendario) + '/events?sendUpdates=' + (lista.length ? 'all' : 'none'), { method: 'POST', json: cuerpo }); return { creado: true, cuenta: ACC[k].name, evento: resumenEvento(e) }; }
+    catch (e) { throw errCal(e); }
+  },
+  async modificar_evento({ cuenta, calendario, evento_id, titulo, inicio, fin, todo_el_dia, zona, lugar, descripcion }) {
+    const k = accKey(cuenta); const cuerpo = {};
+    if (titulo !== undefined) cuerpo.summary = titulo;
+    if (lugar !== undefined) cuerpo.location = lugar;
+    if (descripcion !== undefined) cuerpo.description = descripcion;
+    if (inicio !== undefined) cuerpo.start = fechaGoogle(inicio, todo_el_dia, zona);
+    if (fin !== undefined) cuerpo.end = fechaGoogle(fin, todo_el_dia, zona, !!todo_el_dia);
+    if (!Object.keys(cuerpo).length) throw new Error('No has pasado ningún campo que cambiar.');
+    try { const e = await CAL(k, 'calendars/' + calId(calendario) + '/events/' + encodeURIComponent(evento_id) + '?sendUpdates=none', { method: 'PATCH', json: cuerpo }); return { modificado: true, cuenta: ACC[k].name, evento: resumenEvento(e) }; }
+    catch (e) { throw errCal(e); }
+  },
+  async borrar_evento({ cuenta, calendario, evento_id, confirmado }) {
+    const k = accKey(cuenta); const ruta = 'calendars/' + calId(calendario) + '/events/' + encodeURIComponent(evento_id);
+    let ev; try { ev = await CAL(k, ruta); } catch (e) { throw errCal(e); }
+    if (confirmado !== true) return { borrado: false, motivo: 'Sin confirmado: true no se borra nada. Esto es lo que se borraría.', evento: resumenEvento(ev) };
+    await CAL(k, ruta + '?sendUpdates=none', { method: 'DELETE' });
+    return { borrado: true, cuenta: ACC[k].name, evento: resumenEvento(ev) };
+  },
 };
 
 // ---------- MCP por stdio (JSON-RPC 2.0, una línea por mensaje) ----------
@@ -530,7 +599,8 @@ let buf = '';
 process.stdin.setEncoding('utf8');
 process.stdin.on('data', (chunk) => { buf += chunk; let i; while ((i = buf.indexOf('\n')) >= 0) { const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1); if (line) handle(line); } });
 const INSTRUCCIONES = 'Correo de Gmail del usuario en varias cuentas a la vez (Buzonero Campillero). Usa «cuentas» para verlas y «buscar_en_todas» para mirar todas juntas. '
-  + 'Por defecto deja BORRADORES; enviar, darse de baja y bloquear solo cuando el usuario lo pida, con confirmado: true. No escribas a nadie por iniciativa propia.';
+  + 'Por defecto deja BORRADORES; enviar, darse de baja y bloquear solo cuando el usuario lo pida, con confirmado: true. No escribas a nadie por iniciativa propia. '
+  + 'También el calendario de Google de cada cuenta («calendarios», «eventos», «crear_evento»…): antes de contestar un correo con fechas, mira los eventos; borrar o invitar a otras personas exige confirmado: true.';
 async function handle(line) {
   let m; try { m = JSON.parse(line); } catch { return; }
   const { id, method, params } = m;

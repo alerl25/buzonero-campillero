@@ -50,7 +50,7 @@ Your agent clones the repo, deploys it to your Vercel, generates all the keys an
 
 The manual guide is in [INSTALAR.md](INSTALAR.md) (Spanish).
 
-## The MCP server: 28 tools
+## The MCP server: 33 tools
 
 <p align="center"><img src="docs/mcp-demo.png" alt="An agent searching every account and leaving a draft" width="88%"></p>
 
