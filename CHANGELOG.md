@@ -2,6 +2,18 @@
 
 Todas las versiones de Buzonero Campillero. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [1.10] · 2026-10-19
+
+### App web: el calendario, como Google Calendar
+- **Día, Semana y Mes** (se recuerda la última), «Hoy», flechas y minicalendario en el lateral.
+- **Día y Semana por horas**, con la fila «todo el día», la línea de la hora actual y los eventos que se solapan uno al lado del otro.
+- **Pulsar un evento** abre su tarjeta: editar, borrar, abrir en Google Calendar, lugar, Meet, invitados y descripción.
+- **Pulsar un hueco** crea un evento a esa hora (o arrastrando, con la duración que marques); en Mes, un evento de todo el día.
+- **Arrastrar un evento** lo mueve (también a otro día) y **estirar su borde** cambia cuándo acaba; se guarda en Google al soltar.
+- **Crear y editar** en una ventana: título, inicio y fin (también de varios días), todo el día, cuenta y calendario, lugar y descripción.
+- **«Mis calendarios»** se guarda en tu propio Google Calendar (la casilla «visible»), así se recuerda en cualquier ordenador y también en Google.
+- Un mismo evento de un calendario compartido entre varias cuentas sale una sola vez.
+
 ## [1.9.1] · 2026-10-19
 
 ### App web
