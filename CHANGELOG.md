@@ -2,6 +2,11 @@
 
 Todas las versiones de Buzonero Campillero. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [1.8.1] · 2026-10-19
+
+### Documentación
+- `INSTALAR.md`: son cuatro API (también Google Calendar) y qué hacer si ya tenías Buzonero instalado: activar la Google Calendar API en tu proyecto y reconectar cada cuenta marcando todas las casillas.
+
 ## [1.8] · 2026-10-19
 
 ### App web

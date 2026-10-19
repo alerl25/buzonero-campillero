@@ -30,7 +30,7 @@ Ningún paso pide tarjeta ni plan de pago. Si algo te lo pide, para: te has equi
 Todo en [console.cloud.google.com](https://console.cloud.google.com), con tu cuenta principal.
 
 1. **Proyecto nuevo**: arriba, selector de proyectos → **Proyecto nuevo** → nombre `buzonero` → Crear. Selecciónalo.
-2. **Activa las APIs**: menú → **APIs y servicios → Biblioteca**. Busca y pulsa **Habilitar** en las tres:
+2. **Activa las APIs**: menú → **APIs y servicios → Biblioteca**. Busca y pulsa **Habilitar** en las cuatro:
    - Gmail API
    - Google Drive API
    - People API
@@ -50,6 +50,10 @@ Todo en [console.cloud.google.com](https://console.cloud.google.com), con tu cue
      - `https://TU-APP.vercel.app/api/auth/callback`
      - `http://localhost:53682/callback` (solo para el paso 4; luego puedes quitarlo)
    - Crear. Copia el **ID de cliente** y el **Secreto de cliente**.
+
+> **¿Ya tenías Buzonero instalado de antes (versión anterior a la 1.8)?** Para el calendario solo hacen falta dos cosas:
+> 1. En tu proyecto de Google Cloud (el de Buzonero, no otro): **APIs y servicios → Biblioteca** → busca **Google Calendar API** → **Habilitar**. Comprueba arriba que está elegido el proyecto bueno.
+> 2. En Buzonero: **Ajustes** (rueda) → **Reconectar con Google** → cada cuenta, y en la pantalla de Google **marca todas las casillas**, también la de Google Calendar. Las cuentas que no reconectes siguen con el correo igual, pero no enseñan su calendario.
 
 ## 3. Descarga el código en tu ordenador
 
