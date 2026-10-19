@@ -121,6 +121,12 @@
   /* barras de desplazamiento: píldora fina sin flechas, del color del texto; al arrastrar, rojo de marca */
   :root { color-scheme:light; --sb-rest:color-mix(in srgb, var(--text) 11%, transparent); --sb:color-mix(in srgb, var(--text) 24%, transparent); --sb-hover:color-mix(in srgb, var(--text) 44%, transparent); }
   :root[data-theme="dark"] { color-scheme:dark; }
+  /* modo oscuro: leídos apagados y no leídos claros, en negrita y con barra roja a la izquierda */
+  :root[data-theme="dark"] { --unread-bg:#232a3b; --read-bg:#07080b; }
+  :root[data-theme="dark"] .row.unread { box-shadow:inset 3px 0 0 var(--acc); }
+  :root[data-theme="dark"] .row:not(.unread) .from, :root[data-theme="dark"] .row:not(.unread) .subj, :root[data-theme="dark"] .row:not(.unread) .line1 .t { color:var(--faint); font-weight:400; }
+  :root[data-theme="dark"] .row:not(.unread) .snip { color:#6f6567; }
+  :root[data-theme="dark"] .row:not(.unread) .av, :root[data-theme="dark"] .row:not(.unread) .orb { opacity:.7; }
   ::-webkit-scrollbar { width:12px; height:12px; background:transparent; }
   ::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background:transparent; }
   ::-webkit-scrollbar-button { display:none; width:0; height:0; }
