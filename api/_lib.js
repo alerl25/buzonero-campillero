@@ -302,6 +302,43 @@ export async function updateEnv(fn) {
   return env;
 }
 
+// ---------------- CRM (buzonero-crm.enc) ----------------
+// Solo la definición de cada CRM: nombre, cuentas, etapas y reglas para detectar leads (y, más adelante, las integraciones).
+// Lo escribe solo la persona desde la app; el vigía solo lo lee. La etapa de cada lead NO vive aquí: es la etiqueta
+// de Gmail de su hilo («Leads/Nuevo»…), que Gmail cambia de una vez y sin carreras entre funciones. Nunca guarda correos.
+const CRM_NAME = 'buzonero-crm.enc';
+let crmFileId = null;
+export async function readCrm() {
+  const H = { Authorization: 'Bearer ' + await anchorToken() };
+  if (!crmFileId) {
+    const q = encodeURIComponent("name='" + CRM_NAME + "' and trashed=false");
+    const l = await (await fetch('https://www.googleapis.com/drive/v3/files?q=' + q + '&fields=files(id)&orderBy=modifiedTime%20desc', { headers: H })).json();
+    if (!Array.isArray(l.files)) throw new Error('drive');
+    crmFileId = (l.files[0] || {}).id || null;
+  }
+  if (!crmFileId) return { crms: {} };
+  const r = await fetch('https://www.googleapis.com/drive/v3/files/' + crmFileId + '?alt=media', { headers: H });
+  if (r.status === 404) { crmFileId = null; return { crms: {} }; }
+  if (!r.ok) throw new Error('drive ' + r.status);
+  const d = unseal((await r.text()).trim()) || {};
+  return { ...d, crms: d.crms || {} };
+}
+export async function updateCrm(fn) {
+  const crm = await readCrm();
+  if ((await fn(crm)) === false) return crm;
+  const t = await anchorToken(), body = seal(crm);
+  if (crmFileId) {
+    const r = await fetch('https://www.googleapis.com/upload/drive/v3/files/' + crmFileId + '?uploadType=media', { method: 'PATCH', headers: { Authorization: 'Bearer ' + t, 'Content-Type': 'text/plain' }, body });
+    if (!r.ok) throw new Error('crm ' + r.status);
+  } else {
+    const b = 'bz' + crypto.randomBytes(6).toString('hex');
+    const mp = '--' + b + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + JSON.stringify({ name: CRM_NAME, mimeType: 'text/plain' }) + '\r\n--' + b + '\r\nContent-Type: text/plain\r\n\r\n' + body + '\r\n--' + b + '--';
+    const r = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', { method: 'POST', headers: { Authorization: 'Bearer ' + t, 'Content-Type': 'multipart/related; boundary=' + b }, body: mp });
+    const j = await r.json().catch(() => ({})); if (!j.id) throw new Error('crm'); crmFileId = j.id;
+  }
+  return crm;
+}
+
 
 // ---------------- avisos al móvil (Web Push, sin librerías) ----------------
 // RFC 8291 (cifrado aes128gcm) + RFC 8292 (VAPID). Claves en VAPID_PUBLIC (punto P-256 sin comprimir, base64url)

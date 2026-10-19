@@ -2,6 +2,20 @@
 
 Todas las versiones de Buzonero Campillero. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [1.3] · 2026-10-19
+
+### App web
+- **Mis CRM** (Ajustes → Mis CRM): crea un CRM por negocio, elige qué cuentas de correo son suyas (una cuenta, un solo CRM), sus etapas (por defecto Nuevo → Respondido → Propuesta → Reserva → Ganado / Perdido) y cómo se detectan sus leads.
+- **Detección de leads:** los formularios de tu web (quién envía el aviso y qué dice el asunto) y, si quieres, los correos de gente nueva que escribe por primera vez con palabras como «presupuesto» o «reserva». Cada lead lleva una etiqueta de Gmail con su etapa («Leads/Nuevo»…), así que se ve también desde Gmail y en la barra lateral.
+- **Buscar leads de los últimos 30 días**, para no empezar con el CRM vacío.
+
+### Servidor
+- `api/crm.js` y un fichero cifrado propio en Drive (`buzonero-crm.enc`) con la definición de cada CRM. Nunca guarda correos.
+- El vigía (cada minuto) marca los leads nuevos y avisa al móvil «Nuevo lead»; cuando contestas a un lead (en su hilo o en un correo nuevo a su dirección), pasa solo a la segunda etapa.
+- **Bots fuera:** un envío va a «Leads/Posible bot», sin aviso y marcado como leído, si trae texto sin sentido, una dirección de tu propio dominio, publicidad típica (SEO, «free shipping»…), una frase de bot que tú indiques o el mismo correo con otro nombre en otro envío.
+- Gmail junta en un hilo envíos distintos del mismo formulario: cada envío es un lead aparte (la etiqueta va en el mensaje, no en el hilo).
+- «Cerrar sesión» y «Quitar cuenta» pasan a `api/session.js` (`?r=salir`, `?r=cuenta`), para caber en las 12 funciones del plan gratuito de Vercel; `/api/logout` y `/api/cuenta` siguen funcionando por `vercel.json`.
+
 ## [1.2] · 2026-10-19
 
 ### App web

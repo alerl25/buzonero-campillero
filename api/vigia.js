@@ -3,7 +3,10 @@
 // y, si lo hay, manda el aviso a los móviles suscritos. No guarda correos: solo el punto del historial de cada cuenta.
 // También vigila los «Avísame si no contesta» (su propio fichero, readSeg): al vencer, si nadie ha respondido, avisa y devuelve el hilo a Recibidos.
 import crypto from 'node:crypto';
-import { allAccounts, accessToken, readStore, updateStore, readSeg, updateSeg, readEnv, updateEnv, pushTodos, noStore } from './_lib.js';
+// Y, en las cuentas que están en un CRM con la detección activa, marca los leads nuevos («Leads/Nuevo») y avisa «Nuevo lead»;
+// cuando la cuenta contesta en un hilo de la primera etapa, lo pasa a la segunda («Respondido»).
+import { allAccounts, accessToken, readStore, updateStore, readSeg, updateSeg, readEnv, updateEnv, readCrm, pushTodos, noStore } from './_lib.js';
+import { crmDeCuenta, detector } from './_crm.js';
 
 const MAX_POR_CUENTA = 4;   // si entran más de golpe, el resto va en un aviso de resumen
 const ETIQUETA_SEG = 'Sin respuesta';
@@ -33,11 +36,14 @@ export default async function handler(req, res) {
   const vencidos = Object.values(await readSeg().catch(() => ({}))).filter((s) => s && s.vence <= Date.now());
   // envíos pulsados en la app que la app no llegó a mandar (se cerró o se apagó): 20 s de margen sobre su hora
   const pendEnv = Object.values(await readEnv().catch(() => ({}))).filter((e) => e && e.tras + 20000 <= Date.now());
-  if (!hayMoviles && !vencidos.length && !pendEnv.length) return res.status(200).json({ ok: true, sinMoviles: true });
+  // los CRM con la detección de leads activa: sus cuentas se miran aunque no haya móviles
+  const crms = (await readCrm().catch(() => ({ crms: {} }))).crms || {};
   const todas = await allAccounts(), nuevosH = {}, avisos = [], hist = st0.hist || {};
-  const tokens = {};
+  const crmDe = {}; Object.keys(todas).forEach((k) => { const c = crmDeCuenta(crms, k); if (c && c.deteccion && c.deteccion.activa && c.etapas && c.etapas.length >= 2) crmDe[k] = c; });
+  if (!hayMoviles && !vencidos.length && !pendEnv.length && !Object.keys(crmDe).length) return res.status(200).json({ ok: true, sinMoviles: true });
+  const tokens = {}, leads = { nuevos: 0, bots: 0, respondidos: 0 };
   const tok = async (k) => { if (!(k in tokens)) tokens[k] = await accessToken(k).catch(() => null); return tokens[k]; };
-  if (hayMoviles) await Promise.all(Object.entries(todas).map(async ([k, acc]) => {
+  await Promise.all(Object.entries(todas).filter(([k]) => hayMoviles || crmDe[k]).map(async ([k, acc]) => {
     try {
       const tk = await tok(k); if (!tk) return;
       const G = (u) => fetch('https://gmail.googleapis.com/gmail/v1/users/me/' + u, { headers: { Authorization: 'Bearer ' + tk } });
@@ -47,22 +53,47 @@ export default async function handler(req, res) {
       if (r.status === 404) { const p = await (await G('profile')).json(); if (p.historyId) nuevosH[k] = p.historyId; return; }   // punto caducado: se reinicia
       const j = await r.json(); if (!r.ok) return;
       if (j.historyId && j.historyId !== desde) nuevosH[k] = j.historyId;
+      const crm = crmDe[k], det = crm ? detector(tk, crm, todas, k, esPropaganda) : null;
+      // lo que ha enviado esta cuenta: si contesta a un lead de la primera etapa, pasa a la segunda
+      if (det) {
+        try {
+          const s = await (await G('history?historyTypes=messageAdded&labelId=SENT&maxResults=100&startHistoryId=' + desde)).json();
+          const env = [...new Set((s.history || []).flatMap((h) => (h.messagesAdded || []).map((x) => x.message)).filter((m) => (m.labelIds || []).includes('SENT')).map((m) => m.id))];
+          for (const id of env.slice(0, 5)) leads.respondidos += await det.enviado(id).catch(() => 0);
+        } catch (e) {}
+      }
+      // nuevos en Recibidos: los leídos también cuentan para el CRM (un filtro puede marcarlos), pero solo los no leídos avisan
       const vistos = new Set(), msgs = [];
       (j.history || []).forEach((h) => (h.messagesAdded || []).forEach((x) => {
         const m = x.message, L = m.labelIds || [];
-        if (vistos.has(m.id) || !L.includes('INBOX') || !L.includes('UNREAD') || L.includes('SENT') || L.includes('DRAFT') || L.includes('SPAM')) return;
+        if (vistos.has(m.id) || !L.includes('INBOX') || L.includes('SENT') || L.includes('DRAFT') || L.includes('SPAM')) return;
+        if (!L.includes('UNREAD') && !det) return;
         vistos.add(m.id); msgs.push(m);
       }));
       if (!msgs.length) return;
-      const detalle = await Promise.all(msgs.slice(-MAX_POR_CUENTA).map((m) => G('messages/' + m.id + '?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=List-Unsubscribe').then((x) => x.json()).catch(() => null)));
-      detalle.filter(Boolean).forEach((m) => {
+      const detalle = await Promise.all(msgs.slice(det ? -8 : -MAX_POR_CUENTA).map((m) => G('messages/' + m.id + '?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=List-Unsubscribe').then((x) => x.json()).catch(() => null)));
+      const yaLead = new Set();   // mensajes ya tratados como lead o bot (un envío del formulario suele llegar dos veces)
+      for (const m of detalle.filter(Boolean)) {
+        if (!det) continue;
+        if (yaLead.has(m.id)) continue;
+        const l = await det.revisar(m).catch(() => null);
+        if (!l) continue;
+        l.ids.forEach((x) => yaLead.add(x));
+        if (l.motivo) { leads.bots++; continue; }   // posible bot: se etiqueta y no se avisa
+        leads.nuevos++;
+        avisos.push({ title: 'Nuevo lead · ' + (l.f.nombre || l.f.email) + ' · ' + crm.nombre, body: (l.f.asunto ? l.f.asunto + '\n' : '') + (l.f.mensaje || '').slice(0, 140), tag: k + '-' + m.threadId, url: '/app?acc=' + encodeURIComponent(k) + '&hilo=' + encodeURIComponent(m.threadId) });
+      }
+      const sinLeer = detalle.filter((m) => m && !yaLead.has(m.id) && (m.labelIds || []).includes('UNREAD'));
+      if (!hayMoviles) return;
+      sinLeer.slice(-MAX_POR_CUENTA).forEach((m) => {
         const H = {}; ((m.payload && m.payload.headers) || []).forEach((h) => { H[h.name.toLowerCase()] = h.value; });
         if (esPropaganda(m.labelIds, H)) return;   // publicidad: entra, pero sin avisar
         if (nombre(H.from).toLowerCase() === acc.email.toLowerCase() || (H.from || '').toLowerCase().includes('<' + acc.email.toLowerCase() + '>')) return;   // lo que envía esa misma cuenta, no
         const snip = String(m.snippet || '').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
         avisos.push({ title: nombre(H.from) + ' · ' + acc.name, body: (H.subject || '(sin asunto)') + (snip ? '\n' + snip.slice(0, 140) : ''), tag: k + '-' + m.threadId, url: '/app?acc=' + encodeURIComponent(k) + '&hilo=' + encodeURIComponent(m.threadId) });
       });
-      if (msgs.length > MAX_POR_CUENTA) avisos.push({ title: acc.name, body: 'Y ' + (msgs.length - MAX_POR_CUENTA) + ' correos nuevos más', tag: k + '-resumen', url: '/app?acc=' + encodeURIComponent(k) });
+      const nSinLeer = msgs.filter((m) => (m.labelIds || []).includes('UNREAD')).length;
+      if (nSinLeer > MAX_POR_CUENTA) avisos.push({ title: acc.name, body: 'Y ' + (nSinLeer - MAX_POR_CUENTA) + ' correos nuevos más', tag: k + '-resumen', url: '/app?acc=' + encodeURIComponent(k) });
     } catch (e) {}
   }));
 
@@ -121,5 +152,5 @@ export default async function handler(req, res) {
   }
   const enviados = [];
   if (hayMoviles) for (const a of avisos) enviados.push(await pushTodos(a));
-  return res.status(200).json({ ok: true, avisos: avisos.length, entregas: enviados.flat().filter((c) => c >= 200 && c < 300).length, puntos: Object.keys(nuevosH).length, seguimientos: segHechos.length, enviosServidor: envHechos.length });
+  return res.status(200).json({ ok: true, avisos: avisos.length, entregas: enviados.flat().filter((c) => c >= 200 && c < 300).length, puntos: Object.keys(nuevosH).length, seguimientos: segHechos.length, enviosServidor: envHechos.length, leads });
 }

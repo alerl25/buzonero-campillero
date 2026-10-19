@@ -625,6 +625,25 @@
   .sig .sig-box { margin-top:6px; max-height:120px; overflow:auto; }
   .sig-link { color:var(--acc-text, var(--acc)); font:inherit; padding:0; text-decoration:underline; text-underline-offset:2px; }
   dialog.sig-dlg { width:min(560px, calc(100vw - 24px)); }
+  dialog.crm-dlg { width:min(640px, calc(100vw - 24px)); }
+  .crm-pad { max-height:min(70vh, 720px); overflow:auto; }
+  .crm-list { display:flex; flex-direction:column; gap:8px; margin-bottom:6px; }
+  .crm-it { display:flex; align-items:center; gap:12px; padding:12px 14px; border:1px solid var(--line); border-radius:var(--r); }
+  .crm-tx { flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+  .crm-tx small, .crm-lb small, .crm-chk small { color:var(--mute); font-size:12.5px; }
+  .crm-vacio { color:var(--faint); margin:8px 0 14px; }
+  .crm-ed { display:flex; flex-direction:column; gap:14px; }
+  .crm-lb { display:flex; flex-direction:column; gap:6px; font-weight:600; font-size:13.5px; }
+  .crm-lb small { font-weight:400; }
+  .crm-lb input[type=text], .crm-lb textarea, .crm-form-row input { font:inherit; font-weight:400; font-size:14px; border:1px solid var(--line-strong); border-radius:var(--r-sm); padding:8px 10px; background:var(--bg); color:var(--text); min-width:0; }
+  .crm-lb textarea { resize:vertical; }
+  .crm-cuentas { display:flex; flex-direction:column; gap:6px; font-weight:400; }
+  .crm-chk { display:flex; align-items:center; gap:8px; font-size:14px; }
+  .crm-chk.off { opacity:.55; }
+  .crm-form-row { display:flex; gap:6px; align-items:center; }
+  .crm-form-row input { flex:1; }
+  .crm-lb > .btn { align-self:flex-start; }
+  .crm-foot { padding-left:0; padding-right:0; flex-wrap:wrap; }
   .sig-pad { padding:4px 22px 8px; }
   .sig-help { margin:0 0 12px; color:var(--mute); font-size:13px; }
   .sig-tb { display:flex; gap:2px; margin-bottom:8px; }
@@ -853,6 +872,13 @@
     <div class="push"><button class="icon-btn" id="temasX" aria-label="Cerrar"><i class="ph ph-x"></i></button></div>
   </div>
   <div class="temas-pad" id="temasLista"></div>
+</dialog>
+
+<dialog class="compose-dlg sig-dlg crm-dlg" id="crmDlg" aria-labelledby="crmTitle">
+  <div class="dlg-head"><span id="crmTitle">Mis CRM</span>
+    <div class="push"><button class="icon-btn" id="crmX" aria-label="Cerrar"><i class="ph ph-x"></i></button></div>
+  </div>
+  <div class="sig-pad crm-pad" id="crmPad"></div>
 </dialog>
 
 <dialog class="compose-dlg sig-dlg" id="sigDlg" aria-labelledby="sigTitle">
@@ -2169,7 +2195,8 @@ function openMenu(btn, kind){
     h = '<div class="ttl">Cuentas</div>' + KEYS.map(function(k){ return '<button data-mi="goto-'+k+'"><span class="orb" style="--tc:'+ACC[k].color+';width:22px;height:22px;font-size:9px">'+accOrb(k)+'</span> <span>'+esc(ACC[k].email)+'</span>'+(ACC[k].broken?' <i class="ph ph-warning" style="color:var(--warn)"></i>':'')+'</button>'; }).join('')
       + '<button data-mi="anadir"><i class="ph ph-plus-circle"></i> <span>Añadir cuenta</span></button>'
       // Temas justo debajo de Cuentas: al final del menú quedaba fuera de la vista
-      + '<div class="sep"></div><button data-mi="temas"><i class="ph ph-palette"></i> <span>Temas</span><small class="mi-sub">' + esc(({ claro:'Claro', oscuro:'Oscuro' })[temaActual()] || (TEMAS.filter(function(x){ return x.id === temaActual(); })[0] || {}).nombre || '') + '</small></button>'
+      + '<div class="sep"></div><button data-mi="crm"><i class="ph ph-kanban"></i> <span>Mis CRM</span></button>'
+      + '<button data-mi="temas"><i class="ph ph-palette"></i> <span>Temas</span><small class="mi-sub">' + esc(({ claro:'Claro', oscuro:'Oscuro' })[temaActual()] || (TEMAS.filter(function(x){ return x.id === temaActual(); })[0] || {}).nombre || '') + '</small></button>'
       + (avisosE !== 'no' || esIOS ? '<div class="sep"></div><div class="ttl">Avisos en este dispositivo</div>' + ({
           no: '<button data-mi="av-info-ios"><i class="ph ph-info"></i> <span>Este iPhone necesita iOS 16.4 o posterior</span></button>',
           ok: '<button data-mi="av-prueba"><i class="ph ph-bell-ringing"></i> <span>Avisos activados · Probar</span></button><button data-mi="av-baja"><i class="ph ph-bell-slash"></i> <span>Desactivar avisos</span></button>',
@@ -2230,7 +2257,8 @@ menu.addEventListener('click', async function(e){
       var url = URL.createObjectURL(new Blob([b64uToBytes(raw.raw)], { type:'text/plain;charset=utf-8' })); window.open(url, '_blank', 'noopener'); setTimeout(function(){ URL.revokeObjectURL(url); }, 60000); } catch(err){ toast('No se pudo abrir el original'); } return; }
   if(mi === 'theme'){ toggleTheme(); return; }
   if(mi === 'temas'){ abrirTemas(); return; }
-  if(mi === 'logout'){ await fetch('/api/logout', { method:'POST' }); TOK = {};
+  if(mi === 'crm'){ abrirCrm(); return; }
+  if(mi === 'logout'){ await fetch('/api/session?r=salir', { method:'POST' }); TOK = {};
     // fuera también lo que se guardó de los correos en este navegador (contactos, paquetes, suscripciones…); el tema se queda
     try { Object.keys(localStorage).forEach(function(x){ if(/^buzonero-/.test(x) && !/^buzonero-(tema|paleta|recordar)$/.test(x)) localStorage.removeItem(x); }); } catch(e){}
     showLogin(); return; }
@@ -2246,7 +2274,7 @@ menu.addEventListener('click', async function(e){
   if(mi === 'anadir'){ closeMenu(); var nom = prompt('Nombre para la pestaña de la cuenta nueva (por ejemplo, «Trabajo»):', ''); if(nom === null) return; location.href = '/api/auth/start?fin=anadir&nombre=' + encodeURIComponent(nom.trim().slice(0, 30)); return; }
   if(mi.indexOf('firma-') === 0){ closeMenu(); openSig(mi.slice(6)); return; }
   if(mi.indexOf('quitar-') === 0){ var qk = mi.slice(7); closeMenu(); if(!ACC[qk] || !confirm('¿Quitar ' + ACC[qk].name + ' (' + ACC[qk].email + ') de Buzonero? Se le retira el permiso; el correo sigue intacto en Gmail.')) return;
-    var qr = await fetch('/api/cuenta', { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ quitar:qk }) }).catch(function(){ return { ok:false }; });
+    var qr = await fetch('/api/session?r=cuenta', { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ quitar:qk }) }).catch(function(){ return { ok:false }; });
     if(!qr.ok){ toast('No se pudo quitar la cuenta'); return; } try { if(localStorage.getItem('buzonero-cuenta') === qk) localStorage.removeItem('buzonero-cuenta'); } catch(e){} location.reload(); return; }
 });
 
@@ -3033,6 +3061,102 @@ function abrirTemas(){
 }
 $('temasLista').addEventListener('click', function(e){ var b = e.target.closest('[data-tema]'); if(!b) return; aplicarPaleta(b.dataset.tema); var sc = $('temasLista').scrollTop; abrirTemas(); $('temasLista').scrollTop = sc; });
 $('temasX').addEventListener('click', function(){ $('temasDlg').close(); });
+
+/* ---------------- CRM: uno por negocio, con sus cuentas, sus etapas y la detección de leads ----------------
+   La definición vive cifrada en el Drive de la cuenta ancla (/api/crm). Cada lead es un hilo con la etiqueta de su etapa
+   («Leads/Nuevo»…): el vigía la pone al llegar el correo y la cambia a la segunda etapa cuando contestas. */
+var CRMS = null, crmEd = null;
+var CRM_ETAPAS = ['Nuevo', 'Respondido', 'Propuesta', 'Reserva', 'Ganado', 'Perdido'];
+var CRM_PALABRAS = ['presupuesto', 'precio', 'tarifa', 'información', 'reserva', 'disponibilidad', 'alquiler', 'contratar', 'visita', 'quote', 'pricing', 'booking', 'availability'];
+async function crmCargar(){ var r = await fetch('/api/crm', { cache:'no-store' }); if(!r.ok) throw new Error('crm ' + r.status); CRMS = (await r.json()).crms || {}; return CRMS; }
+function abrirCrm(){
+  crmEd = null; $('crmPad').innerHTML = '<p class="sig-help">Cargando…</p>';
+  if(!$('crmDlg').open) $('crmDlg').showModal();
+  crmCargar().then(pintarCrm).catch(function(){ $('crmPad').innerHTML = '<p class="sig-help">No se pudieron leer los CRM. Prueba otra vez en un momento.</p>'; });
+}
+function crmDeK(k, salvo){ return Object.keys(CRMS || {}).map(function(i){ return CRMS[i]; }).filter(function(c){ return c.id !== salvo && (c.cuentas || []).indexOf(k) >= 0; })[0] || null; }
+function pintarCrm(){
+  if(crmEd) return pintarCrmForm();
+  var ls = Object.keys(CRMS || {}).map(function(i){ return CRMS[i]; });
+  $('crmPad').innerHTML = '<p class="sig-help">Un CRM por negocio: eliges qué cuentas de correo son suyas y Buzonero aparta solo los leads que llegan (los formularios de tu web y, si quieres, los correos de gente nueva). Cada lead lleva una etiqueta de Gmail con su etapa («Leads/Nuevo», «Leads/Respondido»…), que verás en la barra lateral.</p>'
+    + (ls.length ? '<div class="crm-list">' + ls.map(function(c){
+        return '<div class="crm-it"><div class="crm-tx"><b data-notr>' + esc(c.nombre) + '</b><small><span data-notr>' + esc(c.cuentas.map(function(k){ return ACC[k] ? ACC[k].name : k; }).join(' · ')) + '</span> · <span>' + c.etapas.length + ' etapas</span> · <span>' + (c.deteccion && c.deteccion.activa ? 'Detección activa' : 'Detección apagada') + '</span></small></div>'
+          + '<button class="btn" type="button" data-crm-ed="' + esc(c.id) + '">Editar</button></div>'; }).join('') + '</div>'
+      : '<p class="crm-vacio">Aún no tienes ningún CRM.</p>')
+    + '<div class="sig-foot crm-foot"><span class="push"></span><button class="btn primary" type="button" data-crm-nuevo><i class="ph ph-plus"></i> Crear CRM</button></div>';
+}
+function pintarCrmForm(){
+  var c = crmEd, d = c.deteccion;
+  var cuentas = KEYS.map(function(k){ var otro = crmDeK(k, c.id);
+    return '<label class="crm-chk' + (otro ? ' off' : '') + '"><input type="checkbox" data-crm-k="' + k + '"' + (c.cuentas.indexOf(k) >= 0 ? ' checked' : '') + (otro ? ' disabled' : '') + '> <span data-notr>' + esc(ACC[k].name) + ' · ' + esc(ACC[k].email) + '</span>'
+      + (otro ? ' <small>Ya está en otro CRM</small>' : '') + '</label>'; }).join('');
+  var forms = d.formularios.map(function(r, i){
+    return '<div class="crm-form-row"><input type="text" data-crm-fde value="' + esc(r.de) + '" placeholder="Quién lo envía, p. ej. noreply@tuweb.com" aria-label="Quién envía el formulario">'
+      + '<input type="text" data-crm-fas value="' + esc(r.asunto) + '" placeholder="El asunto contiene…" aria-label="El asunto contiene">'
+      + '<button type="button" class="icon-btn" data-crm-fq="' + i + '" aria-label="Quitar formulario" title="Quitar formulario"><i class="ph ph-x"></i></button></div>'; }).join('');
+  $('crmPad').innerHTML = '<div class="crm-ed">'
+    + '<label class="crm-lb">Nombre del negocio<input type="text" id="crmNom" maxlength="40" value="' + esc(c.nombre) + '" placeholder="Por ejemplo, «Mi negocio»"></label>'
+    + '<div class="crm-lb">Cuentas de correo de este CRM<div class="crm-cuentas">' + cuentas + '</div><small>Una cuenta solo puede estar en un CRM.</small></div>'
+    + '<label class="crm-lb">Etapas, una por línea<textarea id="crmEtapas" rows="6">' + esc(c.etapas.join('\n')) + '</textarea><small>El lead entra en la primera y, cuando le contestas, pasa solo a la segunda.</small></label>'
+    + '<label class="crm-chk"><input type="checkbox" id="crmActiva"' + (d.activa ? ' checked' : '') + '> <span>Detectar leads nuevos solos</span></label>'
+    + '<div class="crm-lb">Formularios de tu web<small>El correo que te llega cuando alguien rellena el formulario: quién lo envía y qué dice el asunto.</small>' + forms
+    + '<button type="button" class="btn sm" data-crm-fa><i class="ph ph-plus"></i> Añadir formulario</button></div>'
+    + '<label class="crm-chk"><input type="checkbox" id="crmDirecto"' + (d.directo ? ' checked' : '') + '> <span>También los correos de gente nueva que pregunta</span></label>'
+    + '<label class="crm-lb">Palabras que lo delatan, separadas por comas<input type="text" id="crmPalabras" value="' + esc((d.palabras && d.palabras.length ? d.palabras : CRM_PALABRAS).join(', ')) + '"><small>Solo cuenta si es la primera vez que te escribe esa persona.</small></label>'
+    + '<label class="crm-lb">Frases de bots, una por línea<textarea id="crmBots" rows="3" placeholder="Texto que repiten los bots de tu formulario">' + esc((d.frasesBot || []).join('\n')) + '</textarea><small>Lo que parezca un bot va a «Leads/Posible bot», sin aviso.</small></label>'
+    + '</div><div class="sig-foot crm-foot">'
+    + (c.id ? '<button class="btn" type="button" data-crm-borrar>Borrar CRM</button><button class="btn" type="button" data-crm-importar><i class="ph ph-clock-counter-clockwise"></i> <span>Buscar leads de los últimos 30 días</span></button>' : '')
+    + '<span class="push"></span><button class="btn" type="button" data-crm-volver>Cancelar</button><button class="btn primary" type="button" data-crm-guardar><i class="ph ph-check"></i> Guardar</button></div>';
+}
+function leerCrmForm(){
+  var c = crmEd, sp = function(v, re){ return v.split(re).map(function(x){ return x.trim(); }).filter(Boolean); };
+  c.nombre = $('crmNom').value.trim();
+  c.cuentas = [].slice.call(document.querySelectorAll('[data-crm-k]')).filter(function(x){ return x.checked; }).map(function(x){ return x.dataset.crmK; });
+  c.etapas = sp($('crmEtapas').value, /\n/);
+  var des = document.querySelectorAll('[data-crm-fde]'), ass = document.querySelectorAll('[data-crm-fas]');
+  c.deteccion = { activa:$('crmActiva').checked, directo:$('crmDirecto').checked, palabras:sp($('crmPalabras').value, /,/), frasesBot:sp($('crmBots').value, /\n/),
+    formularios:[].slice.call(des).map(function(x, i){ return { de:x.value.trim(), asunto:(ass[i].value || '').trim() }; }) };
+  return c;
+}
+async function crmPost(o){ var r = await fetch('/api/crm', { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify(o) }); var j = await r.json().catch(function(){ return {}; }); j.status = r.status; return j; }
+async function crmImportar(id, btn){
+  if(btn){ btn.disabled = true; btn.innerHTML = '<i class="ph ph-spinner"></i> <span>Buscando…</span>'; }
+  var j = await crmPost({ accion:'importar', id:id, dias:30 }).catch(function(){ return {}; });
+  if(btn){ btn.disabled = false; btn.innerHTML = '<i class="ph ph-clock-counter-clockwise"></i> <span>Buscar leads de los últimos 30 días</span>'; }
+  if(!j.ok){ toast('No se pudieron buscar los leads'); return; }
+  toast('Leads encontrados: ' + j.leads + (j.bots ? ' (+' + j.bots + ' bots)' : ''));
+  var c = CRMS[id]; if(c) await Promise.all(c.cuentas.map(loadAccountMeta)); drawSide();
+}
+$('crmX').addEventListener('click', function(){ $('crmDlg').close(); });
+$('crmPad').addEventListener('click', async function(e){
+  var b = e.target.closest('button'); if(!b) return;
+  if(b.hasAttribute('data-crm-ed')){ crmEd = JSON.parse(JSON.stringify(CRMS[b.dataset.crmEd])); crmEd.deteccion = crmEd.deteccion || { formularios:[] }; crmEd.deteccion.formularios = crmEd.deteccion.formularios || []; pintarCrmForm(); return; }
+  if(b.hasAttribute('data-crm-nuevo')){ crmEd = { id:'', nombre:'', cuentas:crmDeK(st.acc, '') ? [] : [st.acc], etapas:CRM_ETAPAS.slice(), deteccion:{ activa:true, directo:false, palabras:[], frasesBot:[], formularios:[{ de:'', asunto:'' }] } }; pintarCrmForm(); return; }
+  if(b.hasAttribute('data-crm-fa')){ leerCrmForm(); crmEd.deteccion.formularios.push({ de:'', asunto:'' }); pintarCrmForm(); return; }
+  if(b.hasAttribute('data-crm-fq')){ leerCrmForm(); crmEd.deteccion.formularios.splice(+b.dataset.crmFq, 1); pintarCrmForm(); return; }
+  if(b.hasAttribute('data-crm-volver')){ crmEd = null; pintarCrm(); return; }
+  if(b.hasAttribute('data-crm-importar')){ crmImportar(crmEd.id, b); return; }
+  if(b.hasAttribute('data-crm-borrar')){
+    if(!confirm('¿Borrar este CRM? Las etiquetas de los leads se quedan en Gmail.')) return;
+    var jb = await crmPost({ accion:'borrar', id:crmEd.id }).catch(function(){ return {}; });
+    if(!jb.ok){ toast('No se pudo borrar el CRM'); return; }
+    crmEd = null; await crmCargar().catch(function(){}); pintarCrm(); toast('CRM borrado'); return; }
+  if(b.hasAttribute('data-crm-guardar')){
+    var c = leerCrmForm(), nuevo = !c.id;
+    if(!c.nombre){ toast('Ponle un nombre al CRM'); $('crmNom').focus(); return; }
+    if(!c.cuentas.length){ toast('Elige al menos una cuenta de correo'); return; }
+    if(c.etapas.length < 2){ toast('Hacen falta al menos dos etapas'); return; }
+    b.disabled = true;
+    var j = await crmPost({ accion:'guardar', crm:c }).catch(function(){ return {}; });
+    b.disabled = false;
+    if(j.status === 409){ toast('Una de esas cuentas ya está en otro CRM'); return; }
+    if(!j.ok){ toast('No se pudo guardar el CRM'); return; }
+    await crmCargar().catch(function(){});
+    await Promise.all(c.cuentas.map(loadAccountMeta)); drawSide();
+    crmEd = null; pintarCrm(); toast('CRM guardado');
+    if(nuevo && c.deteccion.activa && confirm('¿Busco ya los leads de los últimos 30 días?')) crmImportar(j.id);
+    return; }
+});
 $('temasDlg').addEventListener('click', function(e){ if(e.target === this && matchMedia('(pointer:fine)').matches) this.close(); });
 function applyTheme(t, conPaleta){ if(!conPaleta && document.documentElement.hasAttribute('data-paleta')){ document.documentElement.removeAttribute('data-paleta'); try { localStorage.removeItem('buzonero-paleta'); } catch(e){} }
   document.documentElement.setAttribute('data-theme', t); $('theme').innerHTML = '<i class="ph '+(t==='dark'?'ph-sun':'ph-moon')+'"></i>'; $('theme').setAttribute('aria-label', t === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'); try { localStorage.setItem('buzonero-tema', t); } catch(e){} }
