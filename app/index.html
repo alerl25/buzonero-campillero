@@ -1073,7 +1073,12 @@ function b64uToBytes(s){ s = (s||'').replace(/-/g,'+').replace(/_/g,'/'); var bi
 function bytesToB64(u){ var bin = '', CH = 0x8000; for(var i=0;i<u.length;i+=CH) bin += String.fromCharCode.apply(null, u.subarray(i, i+CH)); return btoa(bin); }
 function utf8B64(s){ return bytesToB64(new TextEncoder().encode(s)); }
 function toB64u(s){ return s.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
-function decodeBody(data, ct){ var cs = /charset="?([^";]+)/i.exec(ct||''); var label = cs ? cs[1].toLowerCase() : 'utf-8'; try { return new TextDecoder(label).decode(b64uToBytes(data)); } catch(e){ return new TextDecoder('utf-8').decode(b64uToBytes(data)); } }
+function decodeBody(data, ct){
+  var cs = /charset="?([^";\s]+)/i.exec(ct||''), label = cs ? cs[1].toLowerCase() : 'utf-8', bytes = b64uToBytes(data);
+  // muchos remitentes declaran iso-8859-1/windows-1252 y mandan UTF-8: si los bytes son UTF-8 válido, manda UTF-8 (si no, salen «Ã¡», «Ã³»…)
+  if(label !== 'utf-8' && label !== 'utf8'){ try { var u = new TextDecoder('utf-8', { fatal:true }).decode(bytes); if(/[À-ÿĀ-￿]/.test(u)) return u; } catch(e){} }
+  try { return new TextDecoder(label).decode(bytes); } catch(e){ return new TextDecoder('utf-8').decode(bytes); }
+}
 function textToHtml(t){ return '<div style="white-space:pre-wrap;word-wrap:break-word">' + esc(t).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1">$1</a>') + '</div>'; }
 
 /* ---------------- fotos de perfil ----------------
