@@ -1366,7 +1366,7 @@ function summarize(t, enviados){
   var userLabels = Object.keys(labels).filter(function(l){ return /^Label_/.test(l); }).map(function(id){ var L = (a().labels||[]).filter(function(x){ return x.id === id; })[0]; return L ? L.name : null; }).filter(Boolean);
   var lastFrom = hdr(last.payload, 'From'); for(var q = ms.length - 1; q >= 0; q--){ var fq = hdr(ms[q].payload, 'From'); if(!isMe(parseAddr(fq).email)){ lastFrom = fq; break; } }
   return { id:t.id, hid:t.historyId, fe: inSent ? parseAddr(splitAddrs(hdr(last.payload, 'To'))[0] || '').email.toLowerCase() : parseAddr(lastFrom).email.toLowerCase(), who:who || '(sin remitente)', init:initials(inSent ? who.replace('Para: ', '') : shortName(lastFrom)), subj: hdr(first.payload, 'Subject') || '(sin asunto)', snip: unent(t.snippet || last.snippet || ''),
-           date: +last.internalDate, unread: !!labels.UNREAD, star: !!labels.STARRED, att:anyAtt, n: ms.length, labels:Object.keys(labels), userLabels:userLabels, draftOnly: ms.every(function(m){ return (m.labelIds||[]).indexOf('DRAFT') >= 0; }) };
+           nd: ms.filter(function(m){ return (m.labelIds||[]).indexOf('DRAFT') >= 0; }).length, date: +last.internalDate, unread: !!labels.UNREAD, star: !!labels.STARRED, att:anyAtt, n: ms.length, labels:Object.keys(labels), userLabels:userLabels, draftOnly: ms.every(function(m){ return (m.labelIds||[]).indexOf('DRAFT') >= 0; }) };
 }
 /* Listas en memoria: al volver a una cuenta, carpeta o pestaña, sus correos salen AL INSTANTE desde aquí
    y se ponen al día por detrás. Al abrir la app se precargan las bandejas de las demás cuentas. */
@@ -1496,7 +1496,7 @@ function rowHTML(t){
   return '<div class="rw" data-rw="'+esc(t.id)+'"><div class="row'+(t.unread?' unread':'')+(on?' sel':'')+'" aria-current="'+(st.sel===t.id)+'">'
     + '<label class="pick"><input type="checkbox" class="cb" data-cb="'+esc(t.id)+'" aria-label="Seleccionar: '+esc(t.subj)+'"'+(on?' checked':'')+'>'+avatarHTML(t.fe, t.init)+'</label>'
     + '<button class="open" data-open="'+esc(t.id)+'"><span class="main">'
-    + '<span class="line1"><span class="from"><span>'+esc(t.who)+'</span>'+(t.n>1?'<span class="n">'+t.n+'</span>':'')+(t.draftOnly?'<span class="dr">Borrador</span>':'')+'</span>'
+    + '<span class="line1"><span class="from"><span>'+esc(t.who)+'</span>'+(t.n>1?'<span class="n">'+t.n+'</span>':'')+(t.draftOnly?'<span class="dr">Borrador</span>':(st.folder==='DRAFT' && t.nd>1 ? '<span class="dr">'+t.nd+' borradores</span>' : ''))+'</span>'
     + (t.att?'<i class="ph ph-paperclip clip" aria-label="Con adjuntos"></i>':'')+dateHTML(t.date, 't')+'</span>'
     + '<span class="subj">'+labelChips(t)+esc(t.subj)+'</span><span class="snip">'+esc(t.snip)+'</span>'
     + '</span></button>'
@@ -1709,7 +1709,7 @@ function renderThread(animate){
     // responder abre el editor completo (el mismo de redactar), como la app de Gmail
     + (BANDEJA.some(function(x){ return x.o.threadId === c.id; })
         ? '<button type="button" class="reply-fake borrador" data-act="seguir-borrador"><b>Respuesta minimizada</b> · Seguir aquí</button>'
-        : hayBorrador ? '<div class="reply-fake-row"><button type="button" class="reply-fake borrador" data-act="seguir-borrador"><b>Borrador</b> · Seguir escribiendo</button><button type="button" class="btn" data-act="borrar-borrador" title="Borrar este borrador" aria-label="Borrar borrador"><i class="ph ph-trash"></i> Borrar borrador</button></div>'
+        : hayBorrador ? (c.msgs.filter(esBorrador).length > 1 ? c.msgs.filter(esBorrador).map(function(dm){ return '<div class="reply-fake-row"><button type="button" class="reply-fake borrador" data-act="seguir-borrador" data-mid="'+esc(dm.id)+'"><b>Borrador</b> · para '+esc(splitAddrs(dm.to).map(shortName).join(', ') || 'sin destinatario')+'</button><button type="button" class="btn" data-act="borrar-borrador" data-mid="'+esc(dm.id)+'" title="Borrar este borrador" aria-label="Borrar borrador"><i class="ph ph-trash"></i> Borrar</button></div>'; }).join('') : '<div class="reply-fake-row"><button type="button" class="reply-fake borrador" data-act="seguir-borrador"><b>Borrador</b> · Seguir escribiendo</button><button type="button" class="btn" data-act="borrar-borrador" title="Borrar este borrador" aria-label="Borrar borrador"><i class="ph ph-trash"></i> Borrar borrador</button></div>')
         : '<button type="button" class="reply-fake" data-act="reply"><i class="ph ph-pencil-simple-line"></i> Escribe tu respuesta</button>')
     + '<div class="reply-actions"><button class="btn primary" data-act="reply"><i class="ph ph-arrow-bend-up-left"></i> Responder</button>'
     + (multi ? '<button class="btn" data-act="replyall"><i class="ph ph-arrow-bend-double-up-left"></i> Responder a todos</button>' : '')
@@ -2664,9 +2664,9 @@ function setRcpt(id, s){ var inp = $(id); [].slice.call(inp.parentNode.querySele
 });
 
 /* abrir un borrador */
-async function openDraftFromThread(threadId, enLinea){
+async function openDraftFromThread(threadId, enLinea, mid){
   try {
-    var k = st.acc, ds = await gm(k, 'drafts?maxResults=100'), d = (ds.drafts||[]).filter(function(x){ return x.message && x.message.threadId === threadId; })[0];
+    var k = st.acc, ds = await gm(k, 'drafts?maxResults=100'), d = (ds.drafts||[]).filter(function(x){ return x.message && x.message.threadId === threadId && (!mid || x.message.id === mid); })[0];
     if(!d){ toast('Ese borrador ya no existe: actualizo la lista'); loadList(false); return; }
     var full = await gm(k, 'drafts/' + d.id + '?format=full'), m = parseMsg(full.message);
     var files = []; for(var i=0;i<m.atts.length;i++){ var x = m.atts[i]; if(x.inline) continue; try { var dd = x.data ? { data:x.data } : await gm(k, 'messages/' + m.id + '/attachments/' + x.id); var bytes = b64uToBytes(dd.data); files.push({ name:x.name, size:bytes.length, type:x.mime, bytes:bytes }); } catch(e){} }
@@ -2747,7 +2747,8 @@ async function bloquearRemitente(m, k){
     } catch(e){ toast('No se pudo limpiar Recibidos: ' + e.message); }
   }
 }
-async function doAct(kind){
+async function doAct(kind, el){
+  var mid = el && el.dataset ? el.dataset.mid : '';
   if(!cur) return;
   var m = cur.msgs[ultimoReal(cur)];
   if(kind === 'baja'){ darDeBaja(m, cur.k); return; }
@@ -2757,7 +2758,7 @@ async function doAct(kind){
     var tid = cur.id, kk = cur.k;
     try {
       var todos = [], page = ''; do { var dd = await gm(kk, 'drafts?maxResults=500' + (page ? '&pageToken=' + page : '')); todos = todos.concat(dd.drafts || []); page = dd.nextPageToken; } while(page);
-      var mios = todos.filter(function(d){ return d.message && d.message.threadId === tid; });
+      var mios = todos.filter(function(d){ return d.message && d.message.threadId === tid && (!mid || d.message.id === mid); });
       if(!mios.length){ toast('No se encontró el borrador'); }
       else { await pool(mios, 3, function(d){ return gm(kk, 'drafts/' + d.id, { method:'DELETE' }); }); toast(mios.length === 1 ? 'Borrador eliminado' : mios.length + ' borradores eliminados'); }
     } catch(e){ toast('No se pudo borrar el borrador: ' + e.message); return; }
@@ -2773,7 +2774,7 @@ async function doAct(kind){
     var tt = byId(tid); if(tt) openThread(tid); else closeRead();
     return;
   }
-  if(kind === 'seguir-borrador'){ var it = BANDEJA.find(function(x){ return x.o.threadId === cur.id; }); if(it) reabrir(it.id); else openDraftFromThread(cur.id, true); return; }
+  if(kind === 'seguir-borrador'){ var it = BANDEJA.find(function(x){ return x.o.threadId === cur.id; }); if(it) reabrir(it.id); else openDraftFromThread(cur.id, true, mid); return; }
   if(kind === 'more-msgs'){ [].slice.call(document.querySelectorAll('#read [data-oculto]')).forEach(function(x){ x.hidden = false; }); var mb = document.querySelector('#read .more-msgs'); if(mb) mb.remove(); return; }
   // responder: el editor completo, con los destinatarios, el «Re:» y el hilo puestos; lo citado se añade al enviar
   if(kind === 'reply' || kind === 'replyall' || kind === 'reply-full'){ var all = kind === 'replyall' || (kind === 'reply-full' && cur.replyAll); cur.replyAll = all; var f = replyFields(all); f.focusBody = true; f.enLinea = kind !== 'reply-full'; openCompose(f); return; }
@@ -2897,7 +2898,7 @@ $('read').addEventListener('click', function(e){
   if((t = e.target.closest('[data-star-open]'))){ toggleStar(cur.id, t); return; }
   if((t = e.target.closest('[data-q]'))){ var kind = t.dataset.q; act(kind, [t.dataset.id]); if(kind === 'unread'){ closeRead(); } return; }
   if((t = e.target.closest('[data-menu]'))){ menuFor === t.dataset.menu ? closeMenu() : openMenu(t, t.dataset.menu); return; }
-  if((t = e.target.closest('[data-act]'))){ doAct(t.dataset.act); return; }
+  if((t = e.target.closest('[data-act]'))){ doAct(t.dataset.act, t); return; }
   if((t = e.target.closest('[data-attdl]'))){ downloadAtt(t); return; }
   if((t = e.target.closest('[data-att]'))){ openViewer(t); return; }
   if((t = e.target.closest('.msg.collapsed'))){ t.classList.remove('collapsed'); var pf = t.querySelector('[data-frame][data-pend]'); if(pf && cur){ delete pf.dataset.pend; fillFrame(pf, cur.msgs[+pf.dataset.frame], cur.k); } return; }
