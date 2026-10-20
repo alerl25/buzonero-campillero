@@ -129,11 +129,38 @@ Guarda la clave donde el MCP la busca: `~/.config/buzonero/mcp-key.txt` (en Wind
 - **Cursor, Windsurf, Claude Desktop** (JSON de MCP): `{ "mcpServers": { "buzonero": { "command": "node", "args": ["RUTA/mcp/buzonero-mcp.mjs"], "env": { "BUZONERO_URL": "https://TU-APP.vercel.app" } } } }`
 - **Codex** (`~/.codex/config.toml`): `[mcp_servers.buzonero]` con `command = "node"`, `args = ["RUTA/mcp/buzonero-mcp.mjs"]` y `env = { BUZONERO_URL = "https://TU-APP.vercel.app" }`
 
-Reinicia el agente y pídele: «¿qué cuentas de correo tengo?». La lista de las 33 herramientas está en el [README](README.md). Quien tenga la clave del MCP puede leer tu correo: guárdala como una contraseña. Para cambiarla, vuelve a lanzar `configurar.mjs` o pon en Vercel un `MCP_KEY_HASH` nuevo (el SHA-256 en hexadecimal de la clave).
+Reinicia el agente y pídele: «¿qué cuentas de correo tengo?». La lista de las 39 herramientas está en el [README](README.md). Quien tenga la clave del MCP puede leer tu correo: guárdala como una contraseña. Para cambiarla, vuelve a lanzar `configurar.mjs` o pon en Vercel un `MCP_KEY_HASH` nuevo (el SHA-256 en hexadecimal de la clave).
 
 ---
 
-## Opcional
+## Opcional: WhatsApp, Contactos de Google y Metricool
+
+Todo esto se gestiona después desde el botón **Integraciones** de la barra lateral. «WhatsApp» y «Redes sociales» **solo aparecen en la barra lateral cuando están conectados**.
+
+### WhatsApp (solo lectura) con Zernio
+
+1. Crea una cuenta en [zernio.com](https://zernio.com) (las 2 primeras cuentas conectadas son gratis, sin tarjeta) y conecta tu WhatsApp siguiendo sus pantallas.
+   - Conectar un número a la API de WhatsApp Business **puede dejar de funcionar en la app del móvil**. Usa un número nuevo, o mira antes lo que dicen Meta y Zernio sobre la «coexistencia».
+   - Meta cobra los mensajes que **empieza** tu empresa y pide un método de pago y la verificación del negocio para eso. Buzonero no envía nada, así que para solo leer no los necesitas.
+2. Crea y copia tu **clave de API** de Zernio (empieza por `sk_`; se crea en el panel de zernio.com, o tu agente puede pedirla siguiendo `https://zernio.com/auth.md`) y añádela en Vercel como variable de entorno `ZERNIO_API_KEY` (**Settings → Environment Variables**). Vuelve a desplegar.
+3. En Buzonero: **Integraciones → WhatsApp** debe decir «Conectado». Aparece «WhatsApp» en la barra lateral.
+4. Para que cada conversación sea un lead: **CRM → Integraciones → WhatsApp (Zernio) → Conectar**.
+
+Es **solo lectura**: Buzonero no contesta ni marca los mensajes como leídos. Los avisos al móvil de WhatsApp nuevo salen del mismo aviso de cada minuto del paso 5.
+
+### Contactos de Google (nombre y foto de los números)
+
+WhatsApp no da la foto de perfil de los clientes a las empresas, y el nombre solo si la persona lo puso. Si quieres nombre y foto: **Integraciones → Contactos de Google → Conectar**, y elige la cuenta de Google donde tienes la agenda. Es una conexión **aparte y solo de lectura de Contactos** (no añade esa cuenta como correo). Hace falta la People API del paso 2. Se quita con el botón «Quitar».
+
+### Metricool (redes sociales)
+
+**Integraciones → Metricool**, y elige una de las dos vías:
+- **Con tu cuenta (MCP)**: pulsa **Conectar**, entra en Metricool y acepta el permiso. Vale en **cualquier plan** y no necesita token ni configuración (Buzonero se registra solo ante Metricool; la dirección de vuelta es la misma `BZ_URL/api/auth/callback` de Google).
+- **Con token (API)**: solo en los planes Advanced o Custom de Metricool. En Metricool: Ajustes → API → copia el token; tu `userId` es el número que sale en la dirección de Metricool tras `userId=`. Pégalos en la tarjeta y pulsa **Probar y guardar**.
+
+Después aparece **Redes sociales** en la barra lateral. Programar pide siempre tu confirmación. Si Metricool dice «Aplicación no verificada», es normal (es tu propia app): revisa los permisos y acepta.
+
+## Más opciones
 
 - **Que también puedan entrar otras cuentas con Google**: por defecto solo entra la cuenta ancla (y la contraseña). Para permitir más, añade la variable `BZ_ENTRAR` con los correos separados por comas.
 - **Cuentas fijas en la configuración**: `BZ_CUENTAS` admite varias cuentas, cada una con su permiso en su propia variable:
@@ -156,10 +183,15 @@ Reinicia el agente y pídele: «¿qué cuentas de correo tengo?». La lista de l
 | No llegan avisos al móvil | En el iPhone, la app tiene que abrirse desde el icono de la pantalla de inicio. Revisa también que cron-job.org dé `200`. |
 | Error 500 en todo | Falta alguna variable o no volviste a desplegar después de añadirlas (paso 4). |
 | «Faltan permisos» al conectar | Marca todas las casillas en la pantalla de Google. |
+| Falta la clave de Zernio en la vista de WhatsApp | Añade `ZERNIO_API_KEY` en las variables de Vercel y vuelve a desplegar. |
+| «Zernio no tiene ningún WhatsApp conectado» | Conecta tu número en zernio.com y vuelve a probar. |
+| Los números de WhatsApp salen sin nombre ni foto | Normal: WhatsApp no los da. Conecta tus Contactos de Google (Integraciones) o usa «Poner nombre». |
+| Metricool: «Metricool ya no reconoce el permiso» | Quítalo y vuelve a conectarlo en Integraciones. |
 
 ## Seguridad, en corto
 
 - **La sesión** va en una cookie `HttpOnly`, `Secure` y `SameSite=Strict`, firmada con `SESSION_SECRET`.
 - **Los permisos de Google** se guardan cifrados (AES-256-GCM, `TOKEN_KEY`) en un fichero del Drive de tu cuenta ancla que solo ve esta app.
-- **El contenido de tus correos no se guarda** en el servidor. Tu navegador lo pide directamente a Google con tokens de una hora.
+- **El contenido de tus correos no se guarda** en el servidor. Tu navegador lo pide directamente a Google con tokens de una hora. Tampoco los mensajes de WhatsApp: se leen de Zernio cada vez.
+- **WhatsApp es solo lectura** y las acciones de Metricool solo se aceptan desde la app con tu sesión, nunca con la clave del MCP.
 - **Si crees que alguna clave se ha filtrado**: cambia la variable en Vercel, vuelve a desplegar y retira los permisos en [myaccount.google.com/permissions](https://myaccount.google.com/permissions).

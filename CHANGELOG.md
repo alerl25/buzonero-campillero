@@ -2,6 +2,16 @@
 
 Todas las versiones de Buzonero Campillero. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [1.17.1] · 2026-10-20
+
+### Documentación
+- README (español e inglés), INSTALAR, AGENTS, SECURITY y CONTRIBUTING al día: WhatsApp de solo lectura, CRM con leads de WhatsApp, Contactos de Google, panel de Integraciones, Redes sociales con Metricool (por MCP o por API), 39 herramientas del MCP, límite de 12 funciones de Vercel y reglas de seguridad nuevas.
+- Capturas nuevas hechas con la app real y datos inventados (`scripts/capturas-demo.mjs`): WhatsApp, CRM con leads de WhatsApp, Integraciones y Redes sociales.
+- `.env.example` con `ZERNIO_API_KEY`.
+
+### App web
+- Las tarjetas del CRM sin correo ya no empiezan con un «·» suelto.
+
 ## [1.17] · 2026-10-20
 
 ### App web

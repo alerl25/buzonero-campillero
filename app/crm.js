@@ -97,7 +97,7 @@ function tarjeta(x){
   var i = CV.leads.indexOf(x);
   return '<button type="button" class="cv-card" draggable="true" data-lead="' + i + '"><span class="cv-card-top"><span class="cv-av">' + esc(iniciales(x)) + '</span><b data-notr>' + esc(nombreDe(x)) + '</b><time>' + esc(fecha(x.fecha)) + '</time></span>'
     + '<span class="cv-card-as" data-notr>' + esc(x.asunto || '') + '</span><span class="cv-card-tx" data-notr>' + esc((x.mensaje || '').slice(0, 140)) + '</span>'
-    + pastillas(x) + '<span class="cv-card-meta" data-notr>' + esc(x.email || '') + (x.telefono ? ' · ' + esc(x.telefono) : '') + '</span></button>';
+    + pastillas(x) + '<span class="cv-card-meta" data-notr>' + esc([x.email, x.telefono].filter(Boolean).join(' · ')) + '</span></button>';
 }
 
 /* ---------- Clientes ---------- */

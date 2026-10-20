@@ -44,7 +44,7 @@ npx --yes vercel@latest deploy --prod --yes
 Que entre con su cuenta de Gmail **principal** y vaya haciendo esto (dale cada enlace en su momento):
 
 1. **Crear el proyecto**: https://console.cloud.google.com/projectcreate → nombre `buzonero` → Crear. Que se asegure de que queda seleccionado arriba.
-2. **Activar las tres APIs de una vez**: https://console.cloud.google.com/flows/enableapi?apiid=gmail.googleapis.com,drive.googleapis.com,people.googleapis.com → Siguiente → Habilitar.
+2. **Activar las cuatro APIs de una vez**: https://console.cloud.google.com/flows/enableapi?apiid=gmail.googleapis.com,drive.googleapis.com,people.googleapis.com,calendar-json.googleapis.com → Siguiente → Habilitar.
 3. **Marca de la app**: https://console.cloud.google.com/auth/branding.
    - Si pide empezar, «Comenzar».
    - Nombre: `Buzonero`. Correo de asistencia: el suyo.
@@ -138,6 +138,16 @@ Para que el MCP aparezca, la persona tiene que reiniciar el agente (o recargar l
 - **iPhone (iOS 16.4 o superior):** abrir `URL/app` en **Safari** → Compartir → **Añadir a pantalla de inicio**. Abrirla desde el icono → engranaje → **Avisos en este dispositivo** → Permitir.
 - **Android:** Chrome → menú → **Instalar aplicación**, y lo mismo para los avisos.
 
+## Paso 8 · Opcional: WhatsApp, Contactos de Google y Metricool (la persona, guiada por ti)
+
+No lo hagas si no lo pide. Es todo opcional y se gestiona desde el botón **Integraciones** de la app. La guía detallada está en [INSTALAR.md](INSTALAR.md) («Opcional: WhatsApp, Contactos de Google y Metricool»). Lo esencial:
+
+- **WhatsApp (Zernio), solo lectura**: la persona crea su cuenta en zernio.com y conecta su número; tú pones `ZERNIO_API_KEY` en las variables de Vercel y vuelves a desplegar. Avísale de que conectar un número a la API de WhatsApp Business puede dejar de funcionar en la app del móvil. Para que cada conversación sea un lead: CRM → Integraciones → WhatsApp (Zernio).
+- **Contactos de Google**: Integraciones → Contactos de Google → Conectar (solo lectura, aparte, no es una cuenta de correo). **Nunca lo conectes por tu cuenta**: es un clic de la persona.
+- **Metricool**: Integraciones → Metricool → por MCP (su cuenta, cualquier plan) o por API (token + userId, planes Advanced o Custom). El permiso lo da la persona en Metricool.
+
+**Reglas que no se rompen:** WhatsApp es solo lectura (no contestes ni marques como leído); tú no tienes herramientas de redes sociales y no publicas por la persona; cualquier programación la confirma ella en pantalla.
+
 ## Al terminar
 
 Resume a la persona lo que tiene, en pocas líneas:
@@ -151,11 +161,12 @@ Recuérdale tres normas del MCP:
 - enviar, darse de baja y bloquear piden su confirmación;
 - su correo no sale de su Google, su Vercel y su ordenador.
 
-## Lo que hace el MCP (37 herramientas)
+## Lo que hace el MCP (39 herramientas)
 
 | Grupo | Herramientas |
 |---|---|
 | CRM | `crm`, `leads` (etapa, turno y Nexudus de cada lead), `mover_lead`, `anadir_al_crm` |
+| WhatsApp (solo lectura) | `whatsapp` (conversaciones recientes), `whatsapp_leer` (los mensajes de una conversación) |
 | Calendario de Google | `calendarios`, `eventos`, `crear_evento`, `modificar_evento`, `borrar_evento` |
 | Varias cuentas a la vez | `cuentas`, `buscar_en_todas` (bandeja unificada o búsqueda en todas), `paquetes`, `suscripciones`, `basura_parada`, `avisos_pendientes`, `buscar_contacto` |
 | Leer y buscar | `buscar`, `leer_hilo`, `descargar_adjunto` |
@@ -168,7 +179,9 @@ Recuérdale tres normas del MCP:
 ## Si vas a tocar el código (no para instalar)
 
 - **Sin compilación ni dependencias.**
-  - `app/index.html` es la app; la pestaña CRM está en `app/crm.js` y el calendario en `app/calendario.js`.
+  - `app/index.html` es la app; las vistas grandes van aparte: el CRM en `app/crm.js`, el calendario en `app/calendario.js`, WhatsApp en `app/mensajes.js`, el panel de Integraciones en `app/integraciones.js` y Redes sociales (Metricool) en `app/redes.js`.
+  - **Vercel Hobby admite 12 funciones y ya están usadas.** Una ruta nueva va dentro de una existente: `api/zernio.js` es el enrutador de integraciones (WhatsApp, Contactos y Metricool, con `?r=` y `accion`). Las ayudas `api/_*.js` no cuentan como función.
+  - Las rutas `mc-*` (Metricool) solo se aceptan con sesión de la app, nunca con la clave del MCP; y no hay ningún camino de escritura hacia WhatsApp.
   - `app/tema.css` se genera en parte con `python scripts/temas.py app`.
   - `api/` son funciones de Vercel en Node 20.
   - `mcp/buzonero-mcp.mjs` es el MCP.

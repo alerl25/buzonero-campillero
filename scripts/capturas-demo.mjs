@@ -53,6 +53,50 @@ const HILOS = [
 const PAQ = HILOS.filter((t) => /pedido|reparto/i.test(t.asunto));
 const SUS = HILOS.filter((t) => t.unsub);
 
+
+// ---------- WhatsApp (Zernio), CRM y Metricool de la persona ficticia ----------
+const MARCAS_DEMO = [
+  { id: '1001', nombre: 'Estudio Nube', redes: ['facebook', 'instagram', 'linkedin'], tz: 'Europe/Madrid' },
+  { id: '1002', nombre: 'Taller Oliva', redes: ['facebook', 'instagram', 'tiktok'], tz: 'Europe/Madrid' },
+];
+const iso = (ms) => new Date(ms).toISOString();
+const CONVS = [
+  ['Marta Ibáñez', '+34600000101', '¿Tenéis hueco para una reunión el jueves por la tarde?', 22, false],
+  ['', '+34611000202', 'Hola, ¿cuánto cuesta una mesa fija al mes?', 95, false],
+  ['Javier Soto', '+34622000303', 'Perfecto, os mando el logotipo en vector hoy mismo.', 3 * 60, true],
+  ['', '+447700900123', 'Hi! Do you have a meeting room for 8 people next Monday?', 5 * 60, false],
+  ['Clara Vidal', '+34633000404', 'Gracias por la propuesta, la reviso con el equipo y os digo algo.', 26 * 60, true],
+  ['', '+34644000505', 'Buenas, ¿abrís los sábados?', 30 * 60, false],
+  ['Pablo Serrano', '+34655000606', 'Genial, quedamos entonces el martes a las 10:00.', 52 * 60, true],
+].map(([nombre, tel, texto, haceMin, nuestro], i) => ({ id: 'conv' + i, accountId: 'wa1', platform: 'whatsapp', accountUsername: '+34 600 000 000', participantId: tel.replace('+', ''), participantName: nombre || tel.replace(/^\+(\d{2})(\d{3})(\d{2})(\d{2})(\d{2})$/, '+$1 $2 $3 $4 $5') || tel, sinNombre: !nombre, telefono: tel,
+  lastMessage: texto, updatedTime: iso(AHORA - haceMin * MIN), status: 'active', unreadCount: nuestro ? 0 : 1, participantPicture: '', _nuestro: nuestro }));
+const MSGS = (c) => [
+  { id: 'm1', direction: 'incoming', message: c._nuestro ? 'Hola, quería concretar lo que hablamos ayer.' : c.lastMessage, createdAt: iso(Date.parse(c.updatedTime) - (c._nuestro ? 40 : 0) * MIN) },
+  ...(c._nuestro ? [{ id: 'm2', direction: 'outgoing', message: 'Claro, ahora te cuento. ¿Te viene bien por la tarde?', createdAt: iso(Date.parse(c.updatedTime) - 20 * MIN) }, { id: 'm3', direction: 'incoming', message: c.lastMessage, createdAt: c.updatedTime }] : []),
+];
+const lunesDe = (ms) => { const d = new Date(ms); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d; };
+const cuando = (dias, h, m) => { const d = new Date(lunesDe(AHORA)); d.setDate(d.getDate() + dias); const z = (n) => String(n).padStart(2, '0'); return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()) + 'T' + z(h) + ':' + z(m) + ':00'; };
+const POSTS = [
+  [1, 10, 0, 'Abrimos plazas para el taller de identidad de marca de noviembre. Sitios limitados.', ['instagram', 'facebook'], 2],
+  [2, 9, 30, 'Tres errores que vemos siempre al elegir la tipografía de una marca.', ['linkedin'], 0],
+  [2, 9, 45, 'Detrás de las cámaras: así preparamos una sesión de fotos de producto.', ['instagram', 'tiktok'], 1],
+  [3, 13, 0, 'Nuevo en el estudio: ya puedes reservar tu primera consultoría gratuita.', ['facebook', 'linkedin'], 0],
+  [4, 18, 15, 'Cerramos la semana con el antes y el después de la web de Taller Oliva.', ['instagram'], 4],
+  [5, 11, 0, 'Domingo de inspiración: nuestros 5 carteles favoritos del mes.', ['instagram', 'facebook'], 1],
+].map(([dia, h, m, texto, redes, media], i) => ({ id: String(900 + i), texto, fecha: cuando(dia, h, m), borrador: false, redes: redes.map((red) => ({ red, estado: 'PENDING', url: '' })), media, enlace: '' }));
+const INTEG_DEMO = { ok: true, zernio: { clave: true, whatsapp: 1 }, metricool: { conectado: true, modo: 'mcp', marcas: MARCAS_DEMO }, contactos: ['hola@luciamarin.example'], agenda: { n: 128, fotos: 34, fallos: [] } };
+const LEADS_DEMO = [
+  ['wa', 'Marta Ibáñez', 'marta@cafeteria-alba.example', '+34600000101', 'WhatsApp', '¿Tenéis hueco para una reunión el jueves por la tarde?', 'Nuevo', 22, 'tuyo', 'WhatsApp'],
+  ['wa', '+34 611 00 02 02', '', '+34611000202', 'WhatsApp', 'Hola, ¿cuánto cuesta una mesa fija al mes?', 'Nuevo', 95, 'tuyo', 'WhatsApp'],
+  ['tr', 'Rocío Peña', 'rocio@bodega-pena.example', '+34 677 000 707', 'Nueva etiqueta para el vino joven', 'Nos encantó lo que hiciste con el reserva. ¿Te animas con la etiqueta del joven?', 'Nuevo', 6 * 60, 'tuyo', 'formulario'],
+  ['wa', 'Javier Soto', '', '+34622000303', 'WhatsApp', 'Perfecto, os mando el logotipo en vector hoy mismo.', 'Respondido', 3 * 60, 'suyo', 'WhatsApp'],
+  ['tr', 'Clara Vidal', 'clara@cliente-ondas.example', '', 'Fotos para la web', 'Ya están subidas a la carpeta compartida. Son 48, en alta resolución.', 'Respondido', 2 * 24 * 60, 'suyo', 'correo'],
+  ['tr', 'Pablo Serrano', 'pablo@agencia-faro.example', '', 'Presupuesto de campaña', 'Te adjunto el briefing y el presupuesto de la campaña de Navidad.', 'Propuesta', 3 * 24 * 60, 'suyo', 'correo'],
+  ['wa', 'Carmen Marín', '', '+34655000606', 'WhatsApp', 'Genial, quedamos entonces el martes a las 10:00.', 'Reserva', 52 * 60, 'suyo', 'WhatsApp'],
+  ['tr', 'Taller Oliva', 'hola@taller-oliva.example', '', 'Rediseño web: primera fase', 'Pago recibido de la primera fase. ¡Gracias!', 'Ganado', 5 * 24 * 60, 'suyo', 'correo'],
+].map(([k, nombre, email, tel, asunto, mensaje, etapa, haceMin, turno, origen], i) => ({ k, nombre, email, telefono: tel, empresa: '', asunto, mensaje, origen, etapa, fecha: AHORA - haceMin * MIN, hilo: 'l' + i, ids: ['l' + i], turno, ultimo: AHORA - haceMin * MIN, ...(k === 'wa' ? { canal: 'whatsapp', cuenta: 'wa1' } : {}) }));
+const CRM_DEMO = { ok: true, crms: { c1: { id: 'c1', nombre: 'Estudio Nube', cuentas: ['tr', 'pe', 'fr'], etapas: ['Nuevo', 'Respondido', 'Propuesta', 'Reserva', 'Ganado', 'Perdido'], deteccion: { activa: true, directo: false, palabras: [], frasesBot: [], formularios: [] }, integOcultas: [] } }, integ: { c1: { zr: { cuentas: ['Estudio Nube'], conectado: new Date().toISOString() } } } };
+
 // ---------- respuestas de Gmail ----------
 const yo = (k) => CUENTAS.find((c) => c.key === k);
 function mensaje(t, i, total, full) {
@@ -113,6 +157,20 @@ async function pagina(opt, tema) {
     const u = new URL(r.request().url());
     if (u.origin === BASE && u.pathname === '/api/session') return r.fulfill({ json: { ok: true, accounts: CUENTAS.map((x) => ({ key: x.key, email: x.email, name: x.name, ini: x.ini, extra: false, ancla: x.ancla, foto: null, caida: null })), vapid: null, version: '' } });
     if (u.origin === BASE && u.pathname === '/api/token') return r.fulfill({ json: { access_token: 'demo-' + u.searchParams.get('acc'), expires_in: 3600 } });   // el token dice de qué cuenta es
+    if (u.origin === BASE && u.pathname === '/api/zernio') {
+      const q = u.searchParams.get('r');
+      if (q === 'integraciones') return r.fulfill({ json: INTEG_DEMO });
+      if (q === 'estado') return r.fulfill({ json: { ok: true, cuentas: [{ id: 'wa1', plataforma: 'whatsapp', nombre: 'Estudio Nube', usuario: '+34 600 000 000' }], contactos: INTEG_DEMO.contactos, agenda: INTEG_DEMO.agenda } });
+      if (q === 'conversaciones') return r.fulfill({ json: { ok: true, conversaciones: CONVS, pagina: null } });
+      if (q === 'mensajes') { const c = CONVS.find((x) => x.id === u.searchParams.get('id')) || CONVS[0]; return r.fulfill({ json: { ok: true, mensajes: MSGS(c) } }); }
+      if (q === 'mc-posts') return r.fulfill({ json: { ok: true, posts: POSTS } });
+      return r.fulfill({ json: { ok: true } });
+    }
+    if (u.origin === BASE && u.pathname === '/api/crm') {
+      if (u.searchParams.get('r') === 'leads') return r.fulfill({ json: { ok: true, leads: LEADS_DEMO, clientes: [], bots: 0, fallos: [] } });
+      if (u.searchParams.get('r') === 'clientes') return r.fulfill({ json: { ok: true, leads: [], clientes: [], bots: 0, fallos: [] } });
+      return r.fulfill({ json: CRM_DEMO });
+    }
     if (u.origin === BASE && u.pathname.startsWith('/api/')) return r.fulfill({ json: { ok: true, seg: {} } });
     if (u.hostname === 'gmail.googleapis.com') {
       const k = (r.request().headers().authorization || '').replace('Bearer demo-', '');
@@ -144,6 +202,17 @@ async function foto(p, nombre, opt) { const f = path.join(OUT, nombre); await p.
   await p.evaluate(() => aplicarPaleta('neon')); await sleep(800); await p.locator('.rw .open').nth(1).click(); await sleep(2200); await foto(p, 'tema-neon.png');
   await p.evaluate(() => aplicarPaleta('papel')); await sleep(1500); await foto(p, 'tema-papel.png');
   await p.evaluate(() => { aplicarPaleta('oscuro'); abrirTemas(); }); await sleep(2500); await foto(p, 'temas.png');
+  await c.close(); }
+// 4b) WhatsApp, CRM, Integraciones y Redes sociales (PC, claro, con el movimiento reducido para ver la figura ya formada)
+{ const { c, p } = await pagina({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2, reducedMotion: 'reduce' }, 'light');
+  await preparar(p); await sleep(2500);
+  const ir = async (carpeta) => { await p.evaluate((f) => { const b = document.querySelector('#folders [data-f="' + f + '"]'); if (b) b.click(); }, carpeta); await sleep(2800); };
+  await ir('MENSAJES'); await foto(p, 'whatsapp-vacio.png');
+  await p.locator('.men-it').first().click(); await sleep(1800); await foto(p, 'whatsapp.png');
+  await p.evaluate(() => abrirVistaCrm('tablero')); await sleep(3500); await foto(p, 'crm-whatsapp.png');
+  await p.evaluate(() => cerrarVistaCrm && cerrarVistaCrm()); await sleep(600);
+  await ir('INTEGRACIONES'); await foto(p, 'integraciones.png');
+  await ir('REDES'); await sleep(1500); await foto(p, 'redes-calendario.png');
   await c.close(); }
 // 4) móvil
 { const { c, p } = await pagina({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true }, 'dark');
