@@ -75,26 +75,6 @@ export async function conectarNX(d) {
   return { guardar: { espacio, usuario: String(d.usuario || ''), token: j.access_token, caduca, conectado: new Date().toISOString() }, estado: { espacio, usuario: String(d.usuario || ''), caduca } };
 }
 
-// ---------- Metricool (token de la API de la cuenta de cada persona) ----------
-// El token sale de Metricool → Ajustes → API (planes Advanced o Custom). Cada instalación guarda el suyo, cifrado; nunca va en el código.
-export async function metricoolGet(mc, ruta, q) {
-  const r = await fetch('https://app.metricool.com/api' + ruta + '?' + new URLSearchParams(Object.assign({ userId: mc.userId }, q || {})), { headers: { 'X-Mc-Auth': mc.token, Accept: 'application/json' } });
-  const j = await r.json().catch(() => null);
-  if (!r.ok) { const e = new Error('metricool ' + r.status); e.status = r.status; throw e; }
-  return j;
-}
-export async function conectarMC(d) {
-  const token = String(d.token || '').trim(), userId = String(d.userId || '').trim();
-  if (token.length < 20) throw new Error('Pega el token completo (Metricool → Ajustes → API).');
-  if (!/^\d{3,12}$/.test(userId)) throw new Error('El «userId» es un número: sale en la dirección de Metricool, después de «userId=».');
-  let lista;
-  try { lista = await metricoolGet({ token, userId }, '/admin/simpleProfiles'); }
-  catch (e) { throw new Error(e.status === 401 || e.status === 403 ? 'Metricool no acepta ese token o ese userId.' : 'No se pudo hablar con Metricool (' + (e.status || 'red') + ').'); }
-  if (!Array.isArray(lista)) throw new Error('Metricool respondió algo inesperado: revisa el token y el userId.');
-  const marcas = lista.map((b) => ({ id: String(b.id), nombre: String(b.label || b.title || b.name || b.id).slice(0, 60) }));
-  return { guardar: { token, userId, marcas, conectado: new Date().toISOString() }, estado: { userId, marcas: marcas.length, resumen: marcas.length + ' marca' + (marcas.length === 1 ? '' : 's') } };
-}
-
 // ---------- WhatsApp por Zernio (solo lectura) ----------
 // No lleva claves del usuario: usa la ZERNIO_API_KEY del servidor. Se activa por CRM; sus conversaciones entran como leads.
 export async function conectarZR() {
@@ -114,7 +94,6 @@ export function estadoPublico(integ) {
   if (i.ga) out.ga = { propiedad: i.ga.propiedad, cuenta: (i.ga.sa || {}).client_email, conectado: i.ga.conectado };
   if (Array.isArray(i.wa) && i.wa.length) out.wa = i.wa.map((n) => ({ id: n.id, nombre: n.nombre, numero: n.numero, verificado: n.verificado, conectado: n.conectado }));
   if (i.zr) out.zr = { cuentas: i.zr.cuentas || [], conectado: i.zr.conectado };
-  if (i.mc) out.mc = { userId: i.mc.userId, marcas: i.mc.marcas || [], conectado: i.mc.conectado };
   if (i.nx) out.nx = { espacio: i.nx.espacio, usuario: i.nx.usuario, caduca: i.nx.caduca, conectado: i.nx.conectado };
   return out;
 }

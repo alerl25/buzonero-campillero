@@ -2,6 +2,13 @@
 
 Todas las versiones de Buzonero Campillero. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [1.14] · 2026-10-20
+
+### App web
+- **«Mensajes» pasa a llamarse «WhatsApp»** (barra lateral, título de la vista y herramientas del conector: `whatsapp` y `whatsapp_leer`).
+- **Panel vacío de WhatsApp con partículas:** igual que el sobre del correo, pero con una burbuja de chat con auricular.
+- **Metricool sale de las integraciones del CRM:** no es una integración del CRM. Irá en su propio sitio.
+
 ## [1.13] · 2026-10-20
 
 ### App web

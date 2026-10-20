@@ -155,6 +155,9 @@ body {
 /* el sobre de partículas sustituye al icono del panel vacío (lo activa particulas.js) */
 .particulas-sobre #read > .empty .halo { width:180px; height:132px; margin-bottom:26px; background:none; }
 .particulas-sobre #read > .empty .halo i { opacity:0; }
+.particulas-sobre .men-chat > .empty .halo { width:180px; height:132px; margin-bottom:26px; background:none; }
+.particulas-sobre .men-chat > .empty .halo i { opacity:0; }
+.men-chat > .empty { max-width:420px; }
 
 /* ---------- capas flotantes ---------- */
 .menu, .sugg, .tb-pop, .notif { background:var(--card); border-color:var(--card-line); }

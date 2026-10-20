@@ -92,6 +92,20 @@
     return pts;   // pares x,y en -1..1 (y hacia abajo, como la pantalla)
   })();
 
+  /* ---------- la figura de Mensajes: una burbuja de chat con un auricular dentro (como el icono de WhatsApp) ---------- */
+  var TELEFONO = (function () {
+    var S = 240, c = doc.createElement('canvas'); c.width = c.height = S;
+    var g = c.getContext('2d'), cx = 122, cy = 112, r = 76, rad = Math.PI / 180;
+    g.strokeStyle = '#000'; g.fillStyle = '#000'; g.lineWidth = 16; g.lineJoin = 'round'; g.lineCap = 'round';
+    g.beginPath(); g.arc(cx, cy, r, 160 * rad, 468 * rad, false); g.lineTo(42, 200); g.closePath(); g.stroke();   // burbuja con cola abajo a la izquierda
+    g.lineWidth = 17; g.beginPath(); g.moveTo(98, 86); g.bezierCurveTo(94, 118, 118, 146, 152, 152); g.stroke();   // el auricular
+    g.beginPath(); g.arc(98, 84, 11, 0, 6.2832); g.fill(); g.beginPath(); g.arc(154, 152, 11, 0, 6.2832); g.fill();
+    var d = g.getImageData(0, 0, S, S).data, pts = [];
+    for (var i = 0; i < S * S; i++) if (d[i * 4 + 3] > 120) pts.push((i % S) / S * 2 - 1, Math.floor(i / S) / S * 2 - 1);
+    return pts;
+  })();
+  var PANEL = null, FIG = 'sobre', FIGN = 'sobre';   // el panel vacío que lleva la figura y cuál es (sobre = correo, telefono = Mensajes)
+
   function rng(s) { return function () { s |= 0; s = s + 0x6D2B79F5 | 0; var t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
   function clamp(x, a, b) { return x < a ? a : x > b ? b : x; }
   function smooth(x) { return x * x * (3 - 2 * x); }
@@ -140,6 +154,10 @@
     var login = doc.getElementById('login'), app = doc.getElementById('app');
     if (visible(login)) return 'login';
     if (!visible(app)) return 'none';
+    // Mensajes: su panel vacío (a la derecha de la lista) lleva el teléfono; el panel de lectura del correo no se ve
+    PANEL = null; FIGN = 'sobre';
+    var men = doc.querySelector('.men-chat > .empty.tel');
+    if (men && visible(men)) { var mp = men.parentNode.getBoundingClientRect(); if (mp.width >= 260 && mp.left < W - 4 && mp.right > 4) { PANEL = men.parentNode; FIGN = 'telefono'; return 'read'; } }
     var read = doc.getElementById('read');
     if (!read) return 'app';
     var empty = read.querySelector(':scope > .empty');
@@ -147,6 +165,7 @@
     if (!icono) return 'app';
     var r = read.getBoundingClientRect();
     if (r.width < 260 || r.left >= W - 4 || r.right <= 4) return 'app';
+    PANEL = read;
     return 'read';
   }
 
@@ -163,7 +182,7 @@
       largo = 2.2;
       dens = movil ? Math.min(760, Math.max(420, W * H / 440)) : Math.min(2600, Math.max(1000, W * H / 420));
     } else if (modo === 'read') {
-      var read = doc.getElementById('read'), rr = read.getBoundingClientRect();
+      var read = PANEL || doc.getElementById('read'), rr = read.getBoundingClientRect();
       reg = { l: Math.max(0, rr.left), t: Math.max(0, rr.top), r: Math.min(W, rr.right), b: Math.min(H, rr.bottom) };
       var halo = read.querySelector(':scope > .empty .halo'), hr = halo.getBoundingClientRect();
       cx = hr.left + hr.width / 2; cy = hr.top + hr.height / 2;
@@ -192,7 +211,7 @@
     if (modo !== 'login' && movil) nd = Math.max(nd, 120);
     var es = PAL[tema] && PAL[tema].e; if (es && modo !== 'login') nd = Math.min(1600, nd * es.dens);   // cada tema, su densidad de polvo
     L = { cx: cx, cy: cy, S: S, reg: reg, regD: regD, huecos: huecos, largo: largo, alfa: alfa, dirs: abanico(origen), movil: movil && modo !== 'login' };
-    var firma = modo + '|' + Math.round(dens) + '|' + Math.round(nd) + '|' + (movil ? 1 : 0);
+    var firma = modo + '|' + FIG + '|' + Math.round(dens) + '|' + Math.round(nd) + '|' + (movil ? 1 : 0);
     if (firma !== disponer.firma) { disponer.firma = firma; crear(Math.round(dens), Math.round(nd), movil); }
   }
 
@@ -202,7 +221,7 @@
           del: new Float32Array(T), n1: new Float32Array(T), n2: new Float32Array(T), n3: new Float32Array(T), ph: new Float32Array(T), siz: new Float32Array(T),
           kind: new Uint8Array(T), col: new Uint8Array(T), lvl: new Uint8Array(T), str: new Uint8Array(T),
           px: new Float32Array(T), py: new Float32Array(T), ps: new Float32Array(T) };
-    var npts = SOBRE.length / 2, base = movil ? 1.15 : 1.1;
+    var FORMA = FIG === 'telefono' ? TELEFONO : SOBRE, npts = FORMA.length / 2, base = movil ? 1.15 : 1.1;
     for (var i = 0; i < T; i++) {
       var k = i >= n ? 2 : (i % 5 === 0 ? 1 : 0);
       A.kind[i] = k; A.del[i] = r() * 0.35;
@@ -213,7 +232,7 @@
       if (L && L.movil && modo === 'app' && k !== 2) A.siz[i] = 0.75 + r() * 0.8;   // sobre pequeño del logo del móvil: puntos finos
       if (k === 0) {
         var p = Math.floor(r() * npts);
-        A.tx[i] = SOBRE[p * 2] + (r() - 0.5) / 120; A.ty[i] = SOBRE[p * 2 + 1] + (r() - 0.5) / 120; A.tz[i] = (r() - 0.5) * 0.22;
+        A.tx[i] = FORMA[p * 2] + (r() - 0.5) / 120; A.ty[i] = FORMA[p * 2 + 1] + (r() - 0.5) / 120; A.tz[i] = (r() - 0.5) * 0.22;
         A.col[i] = r() < 0.86 ? 0 : 1; A.lvl[i] = i % 7 === 0 ? 2 : (r() < 0.55 ? 1 : 2);
       } else if (k === 1) {
         A.str[i] = Math.floor(r() * 3); A.col[i] = r() < 0.68 ? 1 : 0; A.lvl[i] = 1;
@@ -372,6 +391,7 @@
     tema = claveTema();
     var dlg = doc.getElementById('dlg'); dlgAbierto = !!(dlg && dlg.open && dlg.matches(':modal'));
     var m = calcularModo();
+    if (m === 'read') { if (FIGN !== FIG) { FIG = FIGN; rehacer = true; } } else if (FIG !== 'sobre') { FIG = 'sobre'; rehacer = true; }
     if (m !== modo || rehacer) { modo = m; disponer(); }
     ajustarLienzo();
     var hay = modo !== 'none';
@@ -533,6 +553,7 @@
 
   window.__particulas = {
     vuelo: vuelo,
+    refrescar: function () { programar(true); },
     pausa: function () {},   // ya no pausa nada (se mantiene para no romper a quien la llame)
     estado: function () { return { modo: modo, tema: tema, figura: N, polvo: ND, total: N + ND, corriendo: !!raf, frames: frames, dibujoMs: +dibujoMs.toFixed(2), reducido: mqReduce.matches, dpr: DPR, vuelos: vuelos, vivos: FX.length, gpu: !!GL, vueloMs: +fxMs.toFixed(2), vueloFrames: fxFrames }; }
   };

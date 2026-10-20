@@ -1,6 +1,5 @@
-/* Buzonero Campillero · Mensajes (bandeja unificada de Zernio)
-   Vista «Mensajes» de la barra lateral: las conversaciones de WhatsApp, Instagram, Facebook, Telegram y X que tengas
-   conectadas en Zernio, en una sola lista, con el chat al lado. Es de SOLO LECTURA: no se puede contestar desde aquí ni se marca nada como leído (en WhatsApp eso manda el doble check azul).
+/* Buzonero Campillero · WhatsApp (por Zernio)
+   Vista «WhatsApp» de la barra lateral: las conversaciones de WhatsApp conectado en Zernio, en una lista, con el chat al lado. Es de SOLO LECTURA: no se puede contestar desde aquí ni se marca nada como leído (en WhatsApp eso manda el doble check azul).
    Habla con /api/zernio (la clave de Zernio vive en el servidor). Se registra en VISTAS (MENSAJES → pintarMensajes). */
 var MEN = { cuentas:null, convs:null, sel:null, msgs:null, cargando:false, error:null, at:0 };
 var MEN_PLAT = { whatsapp:['WhatsApp', 'ph-whatsapp-logo'], instagram:['Instagram', 'ph-instagram-logo'], facebook:['Facebook', 'ph-facebook-logo'], telegram:['Telegram', 'ph-telegram-logo'], twitter:['X', 'ph-x-logo'], bluesky:['Bluesky', 'ph-butterfly'], reddit:['Reddit', 'ph-reddit-logo'], imessage:['iMessage', 'ph-chat-circle'] };
@@ -105,12 +104,12 @@ function menNuevo(c){ return !!c.updatedTime && (!MEN_V[c.id] || Date.parse(c.up
 function pintarMensajes(){
   var el = $('rows'); if(!el) return;
   if(!MEN.convs && !MEN.cargando){ cargarMensajes(); return; }
-  var sub = MEN.cargando ? 'Cargando…' : (MEN.cuentas && MEN.cuentas.length ? MEN.cuentas.length + ' cuenta' + (MEN.cuentas.length > 1 ? 's' : '') + ' conectada' + (MEN.cuentas.length > 1 ? 's' : '') + ' en Zernio' : 'Ninguna cuenta conectada todavía');
-  var h = '<div class="vista-esp men">' + cabezaVista('Mensajes', sub, 'men', MEN.cargando);
+  var sub = MEN.cargando ? 'Cargando…' : (MEN.cuentas && MEN.cuentas.length ? 'Solo lectura · por Zernio' : 'Ningún WhatsApp conectado todavía');
+  var h = '<div class="vista-esp men">' + cabezaVista('WhatsApp', sub, 'men', MEN.cargando);
   if(!MEN.convs){ h += '<div class="men-vacio">Cargando tus conversaciones…</div>'; }
   else if(MEN.error === 'sin_clave'){ h += '<div class="men-vacio"><h3>Falta la clave de Zernio</h3><p>Hay que añadir <code>ZERNIO_API_KEY</code> en las variables de entorno de Vercel.</p></div>'; }
   else if(MEN.error){ h += '<div class="men-vacio"><h3>No se pudo conectar con Zernio</h3><p>Prueba otra vez en un momento.</p></div>'; }
-  else if(!MEN.cuentas.length){ h += '<div class="men-vacio"><h3>Conecta tu primera cuenta</h3><p>Entra en <a href="https://zernio.com" target="_blank" rel="noopener">zernio.com</a> y conecta WhatsApp, Instagram, Facebook… Cuando lo hagas, sus conversaciones aparecerán aquí.</p></div>'; }
+  else if(!MEN.cuentas.length){ h += '<div class="men-vacio"><h3>Conecta tu WhatsApp</h3><p>Entra en <a href="https://zernio.com" target="_blank" rel="noopener">zernio.com</a> y conecta tu WhatsApp. Cuando lo hagas, sus conversaciones aparecerán aquí.</p></div>'; }
   else {
     h += '<div class="men-body' + (MEN.sel ? ' chat-on' : '') + '"><div class="men-lista">';
     if(!MEN.convs.length) h += '<div class="men-vacio">No hay conversaciones todavía.</div>';
@@ -121,7 +120,8 @@ function pintarMensajes(){
         + '<span class="men-meta"><i class="ph ' + p[1] + '"></i>' + esc(p[0]) + (c.accountUsername ? ' · ' + esc(c.accountUsername) : '') + (menNuevo(c) ? ' <span class="men-n">nuevo</span>' : '') + '</span></span></button>';
     });
     h += '</div><div class="men-chat">';
-    if(!MEN.sel) h += '<div class="men-vacio">Elige una conversación.</div>';
+    if(!MEN.sel) h += '<div class="empty tel"><div class="halo"><i class="ph ph-whatsapp-logo"></i></div><span class="eyebrow">WhatsApp · ' + esc((MEN.convs || []).length) + ' conversaciones</span>'
+      + '<h2>Elige una <em>conversación.</em></h2><p>Aquí lees lo que os escriben por WhatsApp. Solo se mira: desde aquí no se contesta.</p></div>';
     else {
       h += menCabecera((MEN.convs || []).filter(function(x){ return x.id === MEN.sel.id; })[0]);
       h += '<div class="men-hilo" id="menHilo">';
@@ -132,6 +132,7 @@ function pintarMensajes(){
     h += '</div></div>';
   }
   el.innerHTML = h + '</div>';
+  if(window.__particulas && window.__particulas.refrescar) window.__particulas.refrescar();
 }
 document.addEventListener('click', function(e){
   if(st.folder !== 'MENSAJES') return; var t;

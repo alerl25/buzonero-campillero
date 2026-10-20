@@ -26,7 +26,7 @@ export function limpiarCrm(c, todas) {
   const formularios = (Array.isArray(d.formularios) ? d.formularios : []).map((r) => ({ de: txt(r && r.de, 80), asunto: txt(r && r.asunto, 80) })).filter((r) => r.de || r.asunto).slice(0, 10);
   const id = /^c[0-9a-f]{8}$/.test(c.id || '') ? c.id : 'c' + crypto.randomBytes(4).toString('hex');
   return {
-    id, nombre, cuentas, etapas, integOcultas: (Array.isArray(c.integOcultas) ? c.integOcultas : []).filter((x) => ['ga', 'gbp', 'wa', 'nx', 'mc', 'zr'].includes(x)),
+    id, nombre, cuentas, etapas, integOcultas: (Array.isArray(c.integOcultas) ? c.integOcultas : []).filter((x) => ['ga', 'gbp', 'wa', 'nx', 'zr'].includes(x)),
     deteccion: { activa: !!d.activa, formularios, directo: !!d.directo, palabras: lista(d.palabras, 40, 30), frasesBot: lista(d.frasesBot, 40, 200) },
   };
 }
