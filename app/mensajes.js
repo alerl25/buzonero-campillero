@@ -1,7 +1,7 @@
 /* Buzonero Campillero · WhatsApp (por Zernio)
    Vista «WhatsApp» de la barra lateral: las conversaciones de WhatsApp conectado en Zernio, en una lista, con el chat al lado. Es de SOLO LECTURA: no se puede contestar desde aquí ni se marca nada como leído (en WhatsApp eso manda el doble check azul).
    Habla con /api/zernio (la clave de Zernio vive en el servidor). Se registra en VISTAS (MENSAJES → pintarMensajes). */
-var MEN = { cuentas:null, convs:null, sel:null, msgs:null, cargando:false, error:null, at:0 };
+var MEN = { cuentas:null, convs:null, sel:null, msgs:null, cargando:false, error:null, at:0, contactos:[] };
 var MEN_PLAT = { whatsapp:['WhatsApp', 'ph-whatsapp-logo'], instagram:['Instagram', 'ph-instagram-logo'], facebook:['Facebook', 'ph-facebook-logo'], telegram:['Telegram', 'ph-telegram-logo'], twitter:['X', 'ph-x-logo'], bluesky:['Bluesky', 'ph-butterfly'], reddit:['Reddit', 'ph-reddit-logo'], imessage:['iMessage', 'ph-chat-circle'] };
 
 (function(){
@@ -26,6 +26,7 @@ var MEN_PLAT = { whatsapp:['WhatsApp', 'ph-whatsapp-logo'], instagram:['Instagra
     + '.men-m.yo{align-self:flex-end;background:var(--acc);color:#fff}.men-m small{display:block;opacity:.7;font-size:11px;margin-top:2px}'
     + '.men-cab{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--line)}.men-cab .men-tx b{font-weight:600}.men-cab small{color:var(--faint);font-size:12px}.men-cab .btn{margin-left:auto}'
     + '.men-av .ph{font-size:18px;color:var(--faint)}.men-av.col{color:#fff}'
+    + '.men-barra{display:flex;align-items:center;gap:10px;padding:8px 16px;border-bottom:1px solid var(--line);font-size:13px;color:var(--mute)}.men-barra .ph{font-size:17px;color:var(--faint)}.men-barra .btn{margin-left:auto}.men-barra b{color:var(--text);font-weight:500}'
     + '.men-vacio{margin:auto;text-align:center;color:var(--faint);padding:24px;max-width:420px}.men-vacio a{color:var(--acc)}'
     + '@media(max-width:900px){.men-body{grid-template-columns:minmax(0,1fr)}.men-body.chat-on .men-lista{display:none}.men-body:not(.chat-on) .men-chat{display:none}}';
   document.head.appendChild(css);
@@ -80,6 +81,7 @@ async function cargarMensajes(){
     if(!e.ok){ MEN.error = e.error === 'sin_clave' ? 'sin_clave' : 'fallo'; MEN.cuentas = []; MEN.convs = []; }
     else {
       MEN.cuentas = e.cuentas;
+      MEN.contactos = e.contactos || [];
       MEN.convs = e.cuentas.length ? ((await menApi('/api/zernio?r=conversaciones')).conversaciones || []) : [];
     }
     MEN.at = Date.now();
@@ -106,6 +108,10 @@ function pintarMensajes(){
   if(!MEN.convs && !MEN.cargando){ cargarMensajes(); return; }
   var sub = MEN.cargando ? 'Cargando…' : (MEN.cuentas && MEN.cuentas.length ? 'Solo lectura · por Zernio' : 'Ningún WhatsApp conectado todavía');
   var h = '<div class="vista-esp men">' + cabezaVista('WhatsApp', sub, 'men', MEN.cargando);
+  var barra = MEN.convs && MEN.cuentas && MEN.cuentas.length ? '<div class="men-barra"><i class="ph ph-address-book"></i>' + (MEN.contactos.length
+    ? '<span>Contactos de Google: <b data-notr>' + esc(MEN.contactos.join(', ')) + '</b></span><button type="button" class="btn sm" data-men-ct="quitar">Quitar</button>'
+    : '<span>Pon nombre y foto a los números con tus Contactos de Google</span><button type="button" class="btn sm primary" data-men-ct="conectar"><i class="ph ph-plug"></i> Conectar contactos de Google</button>') + '</div>' : '';
+  h += barra;
   if(!MEN.convs){ h += '<div class="men-vacio">Cargando tus conversaciones…</div>'; }
   else if(MEN.error === 'sin_clave'){ h += '<div class="men-vacio"><h3>Falta la clave de Zernio</h3><p>Hay que añadir <code>ZERNIO_API_KEY</code> en las variables de entorno de Vercel.</p></div>'; }
   else if(MEN.error){ h += '<div class="men-vacio"><h3>No se pudo conectar con Zernio</h3><p>Prueba otra vez en un momento.</p></div>'; }
@@ -136,6 +142,13 @@ function pintarMensajes(){
 }
 document.addEventListener('click', function(e){
   if(st.folder !== 'MENSAJES') return; var t;
+  if((t = e.target.closest('[data-men-ct]'))){
+    if(t.dataset.menCt === 'conectar'){ location.href = '/api/auth/start?fin=contactos'; return; }
+    if(!confirm('¿Quitar los Contactos de Google? Se borra el permiso guardado y los números vuelven a salir sin nombre.')) return;
+    menApi('/api/zernio', { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ accion:'quitar-contactos', email:MEN.contactos[0] }) })
+      .then(function(){ MEN.contactos = []; MEN.convs = null; cargarMensajes(); toast('Contactos de Google quitados'); }).catch(function(){ toast('No se pudo quitar'); });
+    return;
+  }
   if((t = e.target.closest('[data-men-nombre]'))){ menPonerNombre(t.dataset.menNombre); return; }
   if((t = e.target.closest('[data-men]'))){ var p = t.dataset.men.split('|'); abrirConversacion(p[0], p[1]); return; }
   if(e.target.closest('[data-ve="men"]')){ MEN.convs = null; MEN.sel = null; cargarMensajes(); }

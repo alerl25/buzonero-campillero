@@ -3,7 +3,8 @@
 // Una sola función (el plan gratis de Vercel admite 12): ?r= elige la parte.
 // SOLO LECTURA hacia Zernio (decisión del dueño, 20-oct-2026): GET ?r=estado | conversaciones | mensajes. No hay ningún camino para enviar
 // ni para marcar como leído (en WhatsApp eso manda el doble check azul al cliente).
-import { validSession, sameOrigin, noStore, esMaquina, readCrm, updateCrm } from './_lib.js';
+import { validSession, sameOrigin, noStore, esMaquina, readCrm, updateCrm, quitarContactos } from './_lib.js';
+import { agenda, clave9 } from './_agenda.js';
 import { zernio, ID_ZERNIO as ID, nombreConv, soloDigitos } from './_zernio.js';
 
 export default async function handler(req, res) {
@@ -20,7 +21,8 @@ export default async function handler(req, res) {
         const x = await zernio('/accounts');
         if (x.status !== 200) return res.status(200).json({ ok: false, error: 'zernio', status: x.status });
         const cuentas = (x.body.accounts || []).map((a) => ({ id: a._id || a.id, plataforma: a.platform, nombre: a.displayName || a.username || a.name || a.platform, usuario: a.username || '', foto: a.profilePicture || '' }));
-        return res.status(200).json({ ok: true, cuentas });
+        let contactos = []; try { contactos = (await agenda()).emails; } catch (e) {}
+        return res.status(200).json({ ok: true, cuentas, contactos });
       }
       if (r === 'conversaciones') {
         const p = new URLSearchParams({ limit: '50', platform: 'whatsapp' });   // solo WhatsApp (y Gmail aparte): decisión del dueño, 20-oct-2026
@@ -29,7 +31,12 @@ export default async function handler(req, res) {
         const x = await zernio('/inbox/conversations?' + p);
         if (x.status !== 200) return res.status(200).json({ ok: false, error: 'zernio', status: x.status });
         let alias = {}; try { alias = (await readCrm()).waNombres || {}; } catch (e) {}
-        const conversaciones = (x.body.data || []).map((c) => { const n = nombreConv(c, alias); return { ...c, participantName: n.nombre, sinNombre: !n.real, telefono: n.telefono }; });
+        let ag = { m: {} }; try { ag = await agenda(); } catch (e) {}
+        const conversaciones = (x.body.data || []).map((c) => {
+          const n = nombreConv(c, alias), hit = ag.m[clave9(n.telefono)];
+          const sinNombre = !n.real && !(hit && hit[0]);
+          return { ...c, participantName: !n.real && hit && hit[0] ? hit[0] : n.nombre, sinNombre, telefono: n.telefono, participantPicture: (hit && hit[1]) || c.participantPicture || '' };
+        });
         return res.status(200).json({ ok: true, conversaciones, pagina: x.body.pagination || null });
       }
       if (r === 'mensajes') {
@@ -44,6 +51,11 @@ export default async function handler(req, res) {
     if (req.method === 'POST') {
       // Lo único que se escribe: el nombre que TÚ le pones a un número (en nuestro almacén). A Zernio no se le manda nada.
       const b = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+      if (b.accion === 'quitar-contactos') {
+        if (maquina) return res.status(403).json({ error: 'sesion' });   // solo desde la app, con tu sesión
+        await quitarContactos(String(b.email || '').toLowerCase().slice(0, 120));
+        return res.status(200).json({ ok: true });
+      }
       if (b.accion !== 'nombre') return res.status(400).json({ error: 'accion' });
       const tel = soloDigitos(b.numero), nom = String(b.nombre || '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 60);
       if (tel.length < 6 || tel.length > 16) return res.status(400).json({ error: 'numero' });

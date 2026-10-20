@@ -4000,6 +4000,7 @@ async function start(){
   loadList(false);
   KEYS.filter(function(k){ return k !== st.acc; }).forEach(function(k){ loadAccountMeta(k).then(function(){ drawTabs(); }); });
   if(abrirHilo) setTimeout(function(){ openThread(abrirHilo); }, 300);
+  if(qs.get('contactos')){ var cr = qs.get('contactos'); setTimeout(function(){ toast(cr === 'ok' ? 'Contactos de Google conectados' : 'No se pudieron conectar los contactos (' + cr + ')'); }, 1200); }
   if(qs.get('vista') === 'MENSAJES'){ var bm = document.querySelector('#folders [data-f="MENSAJES"]'); if(bm) setTimeout(function(){ bm.click(); }, 500); }
   avisosArranque();
   setTimeout(precargarCuentas, 4000);   // cuando ya está todo pintado

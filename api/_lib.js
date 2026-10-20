@@ -424,3 +424,14 @@ export async function refreshAccess(key, reintento) {
   if (st.caidas && st.caidas[key]) await updateStore((n) => { if (!n.caidas[key]) return false; delete n.caidas[key]; }).catch(() => {});
   return { status: 200, body: { access_token: j.access_token, expires_in: j.expires_in, email: acc.email } };
 }
+
+// ---------- contactos de Google (conexión APARTE, solo lectura de Contactos; no es una cuenta de correo) ----------
+// Se conecta con el botón de la vista WhatsApp. Guarda solo el permiso (cifrado en el almacén, campo «contactos»), nunca los contactos.
+export async function guardarContactos(email, rt) { await updateStore((n) => { n.contactos = n.contactos || {}; n.contactos[email] = { rt, desde: new Date().toISOString() }; }); }
+export async function quitarContactos(email) { await updateStore((n) => { if (!n.contactos || !n.contactos[email]) return false; delete n.contactos[email]; }); }
+export async function emailsContactos() { return Object.keys((await readStore()).contactos || {}); }
+export async function tokenContactos(email) {
+  const rt = (((await readStore()).contactos || {})[email] || {}).rt; if (!rt) return null;
+  const { ok, j } = await googleRefresh(rt);
+  return ok && j.access_token ? j.access_token : null;
+}

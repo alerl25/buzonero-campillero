@@ -1,5 +1,5 @@
 // Vuelta de Google para los dos fines (entrar / reconectar).
-import { LOGIN_EMAILS, allAccounts, addAccount, makeSession, sessionCookie, noStore, readCookie, YEAR, SHORT, saveReconnected, savePhoto } from '../_lib.js';
+import { LOGIN_EMAILS, allAccounts, addAccount, makeSession, sessionCookie, noStore, readCookie, YEAR, SHORT, saveReconnected, savePhoto, guardarContactos } from '../_lib.js';
 import { redirectUri, MAIL_SCOPES, unpackState } from './start.js';
 
 function back(res, query, extraCookies = []) {
@@ -14,7 +14,8 @@ export default async function handler(req, res) {
   const { code, state, error } = req.query || {};
   const st = unpackState(readCookie(req, 'bz_state'));
   const rec = !!(st && st.fin === 'reconectar'), add = !!(st && st.fin === 'anadir');
-  const fail = (m) => back(res, (rec ? 'reconectar=' : add ? 'anadir=' : 'acceso=') + encodeURIComponent(m) + (rec ? '&acc=' + encodeURIComponent(st.acc) : ''));
+  const con = !!(st && st.fin === 'contactos');
+  const fail = (m) => back(res, (con ? 'vista=MENSAJES&contactos=' : rec ? 'reconectar=' : add ? 'anadir=' : 'acceso=') + encodeURIComponent(m) + (rec ? '&acc=' + encodeURIComponent(st.acc) : ''));
   if (error) return fail('cancelado');
   if (!st || !state || !code || st.n !== String(state)) return fail('caducado');
 
@@ -30,6 +31,14 @@ export default async function handler(req, res) {
   const email = String(p.email || '').toLowerCase();
   if (!okIss || p.aud !== process.env.GOOGLE_CLIENT_ID || !(p.exp * 1000 > Date.now()) || p.email_verified !== true) return fail('google');
 
+  if (con) {
+    // solo Contactos: se guarda el permiso (cifrado) y nada más; esta cuenta NO se añade como correo
+    const granted = String(j.scope || '').split(/\s+/);
+    if (!granted.includes('https://www.googleapis.com/auth/contacts.readonly')) return fail('faltan_permisos');
+    if (!j.refresh_token) return fail('sin_permiso_offline');
+    try { await guardarContactos(email, j.refresh_token); } catch { return fail('guardar'); }
+    return back(res, 'vista=MENSAJES&contactos=ok');
+  }
   if (add) {
     // cuenta nueva: la que haya elegido en Google, con todos los permisos y permiso permanente
     const granted = String(j.scope || '').split(/\s+/);

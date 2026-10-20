@@ -2,6 +2,12 @@
 
 Todas las versiones de Buzonero Campillero. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [1.15] · 2026-10-20
+
+### App web
+- **Botón «Conectar contactos de Google» en WhatsApp.** Es una conexión aparte, solo de lectura de Contactos (no es una cuenta de correo: no aparece como pestaña ni se lee su correo). Con ella, los números que no traen nombre sacan su nombre y su foto de esa agenda. El permiso queda guardado cifrado (nunca los contactos) y se quita con un botón.
+- Los teléfonos se cruzan en el servidor y a la pantalla solo llegan el nombre y la foto de quien ha escrito por WhatsApp.
+
 ## [1.14] · 2026-10-20
 
 ### App web
