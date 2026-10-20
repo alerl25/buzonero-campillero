@@ -2,6 +2,11 @@
 
 Todas las versiones de Buzonero Campillero. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [1.11.1] · 2026-10-20
+
+### App web
+- **«Mensajes» (Zernio) pasa a ser opcional y queda oculta por defecto.** Para quien la quiera: poner `localStorage.setItem('buzonero-zernio','1')` en la consola del navegador y recargar.
+
 ## [1.11] · 2026-10-20
 
 ### App web: Mensajes

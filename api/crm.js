@@ -4,7 +4,7 @@
 import { validSession, sameOrigin, noStore, esMaquina, allAccounts, accessToken, readCrm, updateCrm } from './_lib.js';
 import { limpiarCrm, detector, ETIQUETA_NOLEAD } from './_crm.js';
 import { esPropaganda } from './vigia.js';
-import { conectarGA, conectarWA, conectarNX, estadoPublico, nexudusCliente } from './_integ.js';
+import { conectarGA, conectarWA, conectarNX, conectarMC, estadoPublico, nexudusCliente } from './_integ.js';
 
 export default async function handler(req, res) {
   noStore(res);
@@ -101,14 +101,14 @@ export default async function handler(req, res) {
     if (b.accion === 'ocultar') {
       // qué integraciones no quiere ver este CRM (no toca sus claves)
       const svc = String(b.svc || '');
-      if (!['ga', 'gbp', 'wa', 'nx'].includes(svc)) return res.status(400).json({ error: 'svc' });
+      if (!['ga', 'gbp', 'wa', 'nx', 'mc'].includes(svc)) return res.status(400).json({ error: 'svc' });
       await updateCrm((d) => { const c = d.crms[id]; if (!c) return false; const o = new Set(c.integOcultas || []); b.ocultar ? o.add(svc) : o.delete(svc); c.integOcultas = [...o]; });
       return res.status(200).json({ ok: true });
     }
     if (b.accion === 'integrar' || b.accion === 'desintegrar') {
       // conectar (se prueba antes de guardar) o quitar una integración: ga, wa (varios números) o nx
       const svc = String(b.svc || '');
-      if (!['ga', 'wa', 'nx'].includes(svc)) return res.status(400).json({ error: 'svc' });
+      if (!['ga', 'wa', 'nx', 'mc'].includes(svc)) return res.status(400).json({ error: 'svc' });
       if (!(await readCrm()).crms[id]) return res.status(404).json({ error: 'crm' });
       if (b.accion === 'desintegrar') {
         const num = String(b.numero || '');
@@ -116,7 +116,7 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
       let r2;
-      try { r2 = await ({ ga: conectarGA, wa: conectarWA, nx: conectarNX })[svc](b.datos || {}); }
+      try { r2 = await ({ ga: conectarGA, wa: conectarWA, nx: conectarNX, mc: conectarMC })[svc](b.datos || {}); }
       catch (e) { return res.status(400).json({ error: 'integ', mensaje: String(e.message || e).slice(0, 300), pide: e.pide || null }); }
       await updateCrm((d) => {
         d.integ = d.integ || {}; const x = d.integ[id] = d.integ[id] || {};
