@@ -3429,6 +3429,7 @@ async function avisosArranque(){
 }
 if('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', function(e){
   if(!e.data || !e.data.abrir) return; try { var u = new URL(e.data.abrir), ak = u.searchParams.get('acc'), h = u.searchParams.get('hilo');
+    if(u.searchParams.get('vista') === 'MENSAJES'){ var bm2 = document.querySelector('#folders [data-f="MENSAJES"]'); if(bm2) bm2.click(); return; }
     if(ak && ACC[ak]){ var otra = st.acc !== ak; if(otra) setAcc(ak); if(h) setTimeout(function(){ openThread(h); }, otra ? 600 : 50); } } catch(err){}
 });
 
@@ -3999,6 +4000,7 @@ async function start(){
   loadList(false);
   KEYS.filter(function(k){ return k !== st.acc; }).forEach(function(k){ loadAccountMeta(k).then(function(){ drawTabs(); }); });
   if(abrirHilo) setTimeout(function(){ openThread(abrirHilo); }, 300);
+  if(qs.get('vista') === 'MENSAJES'){ var bm = document.querySelector('#folders [data-f="MENSAJES"]'); if(bm) setTimeout(function(){ bm.click(); }, 500); }
   avisosArranque();
   setTimeout(precargarCuentas, 4000);   // cuando ya está todo pintado
   cargarSeg();

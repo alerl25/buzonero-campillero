@@ -435,7 +435,7 @@ const HANDLERS = {
     const r = await servidor('/api/zernio?r=conversaciones'); const j = await r.json().catch(() => ({}));
     if (j.error === 'sin_clave') throw new Error('Tu Buzonero no tiene ZERNIO_API_KEY en Vercel.');
     if (!r.ok || !j.ok) throw new Error('Tu Buzonero no devolvió los mensajes (' + (j.status || r.status) + ').');
-    return (j.conversaciones || []).slice(0, Math.min(Math.max(+max || 20, 1), 50)).map((c) => ({ id: c.id, cuenta: c.accountId, red: c.platform, con: c.participantName || c.whatsappUsername || '', ultimo: c.lastMessage, fecha: c.updatedTime }));
+    return (j.conversaciones || []).slice(0, Math.min(Math.max(+max || 20, 1), 50)).map((c) => ({ id: c.id, cuenta: c.accountId, red: c.platform, con: c.participantName || '', telefono: c.telefono || '', ultimo: c.lastMessage, fecha: c.updatedTime }));
   },
   async leer_conversacion({ id, cuenta }) {
     const r = await servidor('/api/zernio?r=mensajes&id=' + encodeURIComponent(id) + '&cuenta=' + encodeURIComponent(cuenta)); const j = await r.json().catch(() => ({}));

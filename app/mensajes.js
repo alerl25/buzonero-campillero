@@ -25,11 +25,46 @@ var MEN_PLAT = { whatsapp:['WhatsApp', 'ph-whatsapp-logo'], instagram:['Instagra
     + '.men-chat{display:flex;flex-direction:column;min-width:0;min-height:0}.men-hilo{flex:1;min-height:0;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:6px}'
     + '.men-m{max-width:min(520px,80%);padding:8px 12px;border-radius:14px;font-size:14px;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere;background:var(--line);align-self:flex-start}'
     + '.men-m.yo{align-self:flex-end;background:var(--acc);color:#fff}.men-m small{display:block;opacity:.7;font-size:11px;margin-top:2px}'
+    + '.men-cab{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--line)}.men-cab .men-tx b{font-weight:600}.men-cab small{color:var(--faint);font-size:12px}.men-cab .btn{margin-left:auto}'
+    + '.men-av .ph{font-size:18px;color:var(--faint)}.men-av.col{color:#fff}'
     + '.men-vacio{margin:auto;text-align:center;color:var(--faint);padding:24px;max-width:420px}.men-vacio a{color:var(--acc)}'
     + '@media(max-width:900px){.men-body{grid-template-columns:minmax(0,1fr)}.men-body.chat-on .men-lista{display:none}.men-body:not(.chat-on) .men-chat{display:none}}';
   document.head.appendChild(css);
 })();
 
+// ---------- nombres y fotos ----------
+// WhatsApp no da la foto de perfil a las empresas, y el nombre solo si la persona lo puso en su perfil. El servidor da el mejor nombre:
+// el que TÚ pones a mano («Poner nombre»), el de WhatsApp o, si no hay, el número bien escrito. NO se mira ninguna agenda ni Contactos de Google
+// (decisión del dueño, 20-oct-2026: para ver el WhatsApp no se toca nada más).
+function menClave(t){ var d = String(t || '').replace(/\D/g, ''); return d.length >= 7 ? d.slice(-9) : ''; }
+var MEN_COL = ['#7c9a8e', '#b08968', '#8a8fb5', '#c27c7c', '#6f9fb0', '#a88fb0', '#9aa56f', '#c49a6c'];
+function menInfo(c){
+  return { nombre: c.participantName || 'Sin nombre', real: !c.sinNombre, foto: c.participantPicture || '' };
+}
+function menAvatar(c){
+  var i = menInfo(c), h = 0, s = String(c.telefono || c.id); for(var k = 0; k < s.length; k++) h = (h * 31 + s.charCodeAt(k)) % 997;
+  if(i.foto) return '<span class="men-av"><img src="' + esc(i.foto) + '" alt="" referrerpolicy="no-referrer" onerror="this.remove()"></span>';
+  if(!i.real) return '<span class="men-av"><i class="ph ph-user"></i></span>';
+  return '<span class="men-av col" style="background:' + MEN_COL[h % MEN_COL.length] + '">' + esc(i.nombre.replace(/[^\p{L}\p{N}]/gu, '').charAt(0).toUpperCase() || '?') + '</span>';
+}
+function menCabecera(c){
+  if(!c) return '';
+  var i = menInfo(c);
+  return '<div class="men-cab">' + menAvatar(c) + '<span class="men-tx"><b>' + esc(i.nombre) + '</b><small>' + esc(c.telefono ? '+' + String(c.telefono).replace(/\D/g, '') : '') + '</small></span>'
+    + '<button type="button" class="btn sm" data-men-nombre="' + esc(c.id) + '"><i class="ph ph-pencil-simple"></i> ' + (i.real ? 'Cambiar nombre' : 'Poner nombre') + '</button></div>';
+}
+async function menPonerNombre(id){
+  var c = (MEN.convs || []).filter(function(x){ return x.id === id; })[0]; if(!c || !c.telefono) return;
+  var n = window.prompt('Nombre para ' + c.telefono + ' (déjalo vacío para quitarlo):', c.sinNombre ? '' : c.participantName);
+  if(n === null) return;
+  try {
+    var j = await menApi('/api/zernio', { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ accion:'nombre', numero:c.telefono, nombre:n }) });
+    if(!j.ok) throw new Error('no');
+    toast(n.trim() ? 'Nombre guardado' : 'Nombre quitado');
+    var l = await menApi('/api/zernio?r=conversaciones'); if(l.ok) MEN.convs = l.conversaciones;
+  } catch(e){ toast('No se pudo guardar el nombre'); }
+  pintarMensajes();
+}
 function menNoLeidos(){ return (MEN.convs || []).filter(menNuevo).length; }
 function menPlat(p){ return MEN_PLAT[p] || [p || '', 'ph-chat-circle']; }
 function menFecha(t){ if(!t) return ''; var d = new Date(t), h = new Date(); return d.toDateString() === h.toDateString() ? d.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }) : d.toLocaleDateString([], { day:'numeric', month:'short' }); }
@@ -80,14 +115,15 @@ function pintarMensajes(){
     h += '<div class="men-body' + (MEN.sel ? ' chat-on' : '') + '"><div class="men-lista">';
     if(!MEN.convs.length) h += '<div class="men-vacio">No hay conversaciones todavía.</div>';
     MEN.convs.forEach(function(c){
-      var p = menPlat(c.platform), nom = c.participantName || c.whatsappUsername || 'Sin nombre', cur = MEN.sel && MEN.sel.id === c.id;
-      h += '<button type="button" class="men-it" data-men="' + esc(c.id) + '|' + esc(c.accountId) + '" aria-current="' + !!cur + '"><span class="men-av">' + (c.participantPicture ? '<img src="' + esc(c.participantPicture) + '" alt="" referrerpolicy="no-referrer" onerror="this.remove()">' : esc(nom.charAt(0).toUpperCase())) + '</span>'
+      var p = menPlat(c.platform), nom = menInfo(c).nombre, cur = MEN.sel && MEN.sel.id === c.id;
+      h += '<button type="button" class="men-it" data-men="' + esc(c.id) + '|' + esc(c.accountId) + '" aria-current="' + !!cur + '">' + menAvatar(c)
         + '<span class="men-tx"><span class="men-top"><b>' + esc(nom) + '</b><time>' + esc(menFecha(c.updatedTime)) + '</time></span><span class="men-snip">' + esc(c.lastMessage || '') + '</span>'
         + '<span class="men-meta"><i class="ph ' + p[1] + '"></i>' + esc(p[0]) + (c.accountUsername ? ' · ' + esc(c.accountUsername) : '') + (menNuevo(c) ? ' <span class="men-n">nuevo</span>' : '') + '</span></span></button>';
     });
     h += '</div><div class="men-chat">';
     if(!MEN.sel) h += '<div class="men-vacio">Elige una conversación.</div>';
     else {
+      h += menCabecera((MEN.convs || []).filter(function(x){ return x.id === MEN.sel.id; })[0]);
       h += '<div class="men-hilo" id="menHilo">';
       if(!MEN.msgs) h += '<div class="men-vacio">Cargando…</div>';
       else MEN.msgs.forEach(function(m){ h += '<div class="men-m' + (m.direction === 'outgoing' ? ' yo' : '') + '">' + esc(m.message || (m.attachments && m.attachments.length ? '[adjunto]' : '')) + '<small>' + esc(menFecha(m.createdAt)) + '</small></div>'; });
@@ -99,6 +135,7 @@ function pintarMensajes(){
 }
 document.addEventListener('click', function(e){
   if(st.folder !== 'MENSAJES') return; var t;
+  if((t = e.target.closest('[data-men-nombre]'))){ menPonerNombre(t.dataset.menNombre); return; }
   if((t = e.target.closest('[data-men]'))){ var p = t.dataset.men.split('|'); abrirConversacion(p[0], p[1]); return; }
   if(e.target.closest('[data-ve="men"]')){ MEN.convs = null; MEN.sel = null; cargarMensajes(); }
 });

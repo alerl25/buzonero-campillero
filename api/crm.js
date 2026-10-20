@@ -29,7 +29,7 @@ export default async function handler(req, res) {
       }
       if (r === 'leads' && ((dcrm.integ || {})[c.id] || {}).zr) {
         // WhatsApp (Zernio): cada conversación es un lead; la etapa que le diste vive en este almacén, no en Gmail
-        try { out.leads.push(...await leadsWhatsApp(c.etapas, (dcrm.waEtapas || {})[c.id] || {}, ETIQUETA_NOLEAD)); } catch (e) { out.fallos.push('wa'); }
+        try { out.leads.push(...await leadsWhatsApp(c.etapas, (dcrm.waEtapas || {})[c.id] || {}, ETIQUETA_NOLEAD, dcrm.waNombres || {})); } catch (e) { out.fallos.push('wa'); }
       }
       if (r === 'leads') {
         // cada lead: de quién es el turno y qué hay en Nexudus; con reserva o factura pasa solo a «Reserva», y pagada a «Ganado» (nunca hacia atrás)

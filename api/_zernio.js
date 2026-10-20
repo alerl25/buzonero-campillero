@@ -12,14 +12,15 @@ export async function zernio(path) {
 
 // Las conversaciones de WhatsApp como leads del CRM: cada una es un lead (todo lo que llega por WhatsApp lo es).
 // `etapas` = las del CRM; `guardadas` = { idConversación: etapa } que el usuario ya movió; «No es lead» las aparta.
-export async function leadsWhatsApp(etapas, guardadas, noLead) {
+export async function leadsWhatsApp(etapas, guardadas, noLead, alias) {
   const x = await zernio('/inbox/conversations?' + new URLSearchParams({ platform: 'whatsapp', limit: '50' }));
   if (x.status !== 200) throw new Error('zernio ' + x.status);
   const convs = (x.body.data || []).filter((c) => c && c.id && c.accountId);
   const leads = convs.map((c) => {
     const tel = String(c.participantId || '').replace(/\s/g, '');
+    const nc = nombreConv(c, alias);
     return {
-      k: 'wa', canal: 'whatsapp', email: '', nombre: c.participantName || c.whatsappUsername || '', telefono: /^\+?\d{6,}$/.test(tel) ? (tel[0] === '+' ? tel : '+' + tel) : '', empresa: '',
+      k: 'wa', canal: 'whatsapp', email: '', nombre: nc.nombre, telefono: /^\+?\d{6,}$/.test(tel) ? (tel[0] === '+' ? tel : '+' + tel) : '', empresa: '',
       asunto: 'WhatsApp', mensaje: c.lastMessage || '', origen: 'WhatsApp', etapa: guardadas[c.id] || '', fecha: Date.parse(c.updatedTime) || 0,
       hilo: c.id, ids: [c.id], cuenta: c.accountId, turno: '',
     };
@@ -39,4 +40,25 @@ export async function leadsWhatsApp(etapas, guardadas, noLead) {
     }
   }));
   return leads.filter((l) => l.etapa !== noLead);
+}
+
+// ---------- nombres y teléfonos legibles ----------
+// WhatsApp no da la foto de perfil a las empresas, y el nombre solo si la persona lo puso en su perfil: casi siempre llega el número.
+// El nombre sale, por orden, del que se puso a mano (alias, guardado en el almacén del CRM), del que trae WhatsApp o, si no hay, del número bien escrito.
+export const soloDigitos = (v) => String(v == null ? '' : v).replace(/\D/g, '');
+const CC3 = new Set(['212', '213', '216', '351', '352', '353', '505', '506', '507', '591', '593', '595', '598', '971', '972', '973', '974']);
+export function formatoTel(v) {
+  const d = soloDigitos(v);
+  if (d.length < 8 || d.length > 15) return String(v || '');
+  if (/^34\d{9}$/.test(d)) return '+34 ' + d.slice(2, 5) + ' ' + d.slice(5, 7) + ' ' + d.slice(7, 9) + ' ' + d.slice(9);
+  const cc = d[0] === '1' ? 1 : (CC3.has(d.slice(0, 3)) ? 3 : 2), resto = d.slice(cc);
+  return '+' + d.slice(0, cc) + ' ' + (resto.match(/.{1,3}/g) || [resto]).join(' ');
+}
+const pareceTel = (v) => /^\+?[\d\s().-]{6,}$/.test(String(v || '').trim());
+// { nombre, real, telefono } de una conversación; `alias` = { 34600550578: 'María' }
+export function nombreConv(c, alias) {
+  const tel = soloDigitos(c.participantId), propio = (alias || {})[tel];
+  const wa = c.participantName && !pareceTel(c.participantName) ? String(c.participantName) : (c.whatsappUsername ? String(c.whatsappUsername) : '');
+  const nombre = propio || wa;
+  return { nombre: nombre || formatoTel(tel || c.participantName), real: !!nombre, telefono: tel ? '+' + tel : '' };
 }

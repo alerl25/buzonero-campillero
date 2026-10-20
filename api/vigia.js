@@ -6,6 +6,7 @@ import crypto from 'node:crypto';
 // Y, en las cuentas que están en un CRM con la detección activa, marca los leads nuevos («Leads/Nuevo») y avisa «Nuevo lead»;
 // cuando la cuenta contesta en un hilo de la primera etapa, lo pasa a la segunda («Respondido»).
 import { allAccounts, accessToken, readStore, updateStore, readSeg, updateSeg, readEnv, updateEnv, readCrm, pushTodos, noStore } from './_lib.js';
+import { zernio, hayZernio, nombreConv } from './_zernio.js';
 import { crmDeCuenta, detector } from './_crm.js';
 
 const MAX_POR_CUENTA = 4;   // si entran más de golpe, el resto va en un aviso de resumen
@@ -37,7 +38,7 @@ export default async function handler(req, res) {
   // envíos pulsados en la app que la app no llegó a mandar (se cerró o se apagó): 20 s de margen sobre su hora
   const pendEnv = Object.values(await readEnv().catch(() => ({}))).filter((e) => e && e.tras + 20000 <= Date.now());
   // los CRM con la detección de leads activa: sus cuentas se miran aunque no haya móviles
-  const crms = (await readCrm().catch(() => ({ crms: {} }))).crms || {};
+  const crmFull = await readCrm().catch(() => ({ crms: {} })), crms = crmFull.crms || {};
   const todas = await allAccounts(), nuevosH = {}, avisos = [], hist = st0.hist || {};
   const crmDe = {}; Object.keys(todas).forEach((k) => { const c = crmDeCuenta(crms, k); if (c && c.deteccion && c.deteccion.activa && c.etapas && c.etapas.length >= 2) crmDe[k] = c; });
   if (!hayMoviles && !vencidos.length && !pendEnv.length && !Object.keys(crmDe).length) return res.status(200).json({ ok: true, sinMoviles: true });
@@ -139,6 +140,28 @@ export default async function handler(req, res) {
     } catch (err) {}
   }
   if (envHechos.length) await updateEnv((env) => { envHechos.forEach((e) => { const c = e.k + '|' + e.draft, x = env[c]; if (x && x.puesto === e.puesto) delete env[c]; }); }).catch(() => {});
+  // WhatsApp (Zernio): un aviso por conversación que haya recibido algo desde la última pasada. El punto es la fecha de
+  // actividad más reciente vista (no el reloj de aquí), y la primera vez solo se apunta. Si el último mensaje es nuestro, no avisa.
+  let wa = 0;
+  if (hayMoviles && hayZernio()) {
+    try {
+      const x = await zernio('/inbox/conversations?' + new URLSearchParams({ platform: 'whatsapp', limit: '20' }));
+      if (x.status === 200) {
+        const convs = (x.body.data || []).filter((c) => c && c.id && c.accountId && Date.parse(c.updatedTime));
+        const punto = Number(hist._wa) || 0, maxT = convs.reduce((m, c) => Math.max(m, Date.parse(c.updatedTime)), punto);
+        if (punto) {
+          for (const c of convs.filter((c) => Date.parse(c.updatedTime) > punto).slice(0, 5)) {
+            const m = await zernio('/inbox/conversations/' + encodeURIComponent(c.id) + '/messages?' + new URLSearchParams({ accountId: c.accountId, limit: '1', sortOrder: 'desc' }));
+            const u = ((m.body && m.body.messages) || [])[0];
+            if (!u || u.direction === 'outgoing') continue;
+            wa++;
+            avisos.push({ title: 'WhatsApp · ' + nombreConv(c, crmFull.waNombres || {}).nombre, body: String(u.message || c.lastMessage || '(adjunto)').slice(0, 200), tag: 'wa-' + c.id, url: '/app?vista=MENSAJES' });
+          }
+        }
+        if (maxT > punto) nuevosH._wa = maxT;
+      }
+    } catch (e) {}
+  }
   if (Object.keys(nuevosH).length) await updateStore((n) => { Object.assign(n.hist, nuevosH); });
   // se borran solo los que se han mirado y no se han vuelto a poner mientras tanto
   if (segHechos.length) await updateSeg((seg) => { segHechos.forEach((s) => { const c = s.k + '|' + s.hilo, a = seg[c]; if (a && a.puesto === s.puesto) delete seg[c]; }); }).catch(() => {});
@@ -152,5 +175,5 @@ export default async function handler(req, res) {
   }
   const enviados = [];
   if (hayMoviles) for (const a of avisos) enviados.push(await pushTodos(a));
-  return res.status(200).json({ ok: true, avisos: avisos.length, entregas: enviados.flat().filter((c) => c >= 200 && c < 300).length, puntos: Object.keys(nuevosH).length, seguimientos: segHechos.length, enviosServidor: envHechos.length, leads });
+  return res.status(200).json({ ok: true, avisos: avisos.length, entregas: enviados.flat().filter((c) => c >= 200 && c < 300).length, puntos: Object.keys(nuevosH).length, whatsapp: wa, seguimientos: segHechos.length, enviosServidor: envHechos.length, leads });
 }

@@ -1,10 +1,10 @@
 // Mensajes: la bandeja unificada de Zernio (WhatsApp, Instagram, Facebook, Telegram, X…) dentro de Buzonero.
 // La clave (ZERNIO_API_KEY) vive solo en las variables de Vercel: el navegador nunca la ve.
 // Una sola función (el plan gratis de Vercel admite 12): ?r= elige la parte.
-// SOLO LECTURA (decisión del dueño, 20-oct-2026): GET ?r=estado | conversaciones | mensajes. No hay ningún camino para enviar
+// SOLO LECTURA hacia Zernio (decisión del dueño, 20-oct-2026): GET ?r=estado | conversaciones | mensajes. No hay ningún camino para enviar
 // ni para marcar como leído (en WhatsApp eso manda el doble check azul al cliente).
-import { validSession, sameOrigin, noStore, esMaquina } from './_lib.js';
-import { zernio, ID_ZERNIO as ID } from './_zernio.js';
+import { validSession, sameOrigin, noStore, esMaquina, readCrm, updateCrm } from './_lib.js';
+import { zernio, ID_ZERNIO as ID, nombreConv, soloDigitos } from './_zernio.js';
 
 export default async function handler(req, res) {
   noStore(res);
@@ -23,12 +23,14 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true, cuentas });
       }
       if (r === 'conversaciones') {
-        const p = new URLSearchParams({ limit: '50' });
+        const p = new URLSearchParams({ limit: '50', platform: 'whatsapp' });   // solo WhatsApp (y Gmail aparte): decisión del dueño, 20-oct-2026
         if (q.cuenta && ID.test(String(q.cuenta))) p.set('accountId', String(q.cuenta));
         if (q.cursor && ID.test(String(q.cursor))) p.set('cursor', String(q.cursor));
         const x = await zernio('/inbox/conversations?' + p);
         if (x.status !== 200) return res.status(200).json({ ok: false, error: 'zernio', status: x.status });
-        return res.status(200).json({ ok: true, conversaciones: x.body.data || [], pagina: x.body.pagination || null });
+        let alias = {}; try { alias = (await readCrm()).waNombres || {}; } catch (e) {}
+        const conversaciones = (x.body.data || []).map((c) => { const n = nombreConv(c, alias); return { ...c, participantName: n.nombre, sinNombre: !n.real, telefono: n.telefono }; });
+        return res.status(200).json({ ok: true, conversaciones, pagina: x.body.pagination || null });
       }
       if (r === 'mensajes') {
         const c = String(q.id || ''), a = String(q.cuenta || '');
@@ -38,6 +40,15 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true, mensajes: x.body.messages || [] });
       }
       return res.status(400).json({ error: 'r' });
+    }
+    if (req.method === 'POST') {
+      // Lo único que se escribe: el nombre que TÚ le pones a un número (en nuestro almacén). A Zernio no se le manda nada.
+      const b = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+      if (b.accion !== 'nombre') return res.status(400).json({ error: 'accion' });
+      const tel = soloDigitos(b.numero), nom = String(b.nombre || '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 60);
+      if (tel.length < 6 || tel.length > 16) return res.status(400).json({ error: 'numero' });
+      await updateCrm((d) => { d.waNombres = d.waNombres || {}; if (nom) d.waNombres[tel] = nom; else delete d.waNombres[tel]; });
+      return res.status(200).json({ ok: true });
     }
     return res.status(405).json({ error: 'metodo' });
   } catch (e) {

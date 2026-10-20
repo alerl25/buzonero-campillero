@@ -2,6 +2,13 @@
 
 Todas las versiones de Buzonero Campillero. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [1.13] · 2026-10-20
+
+### App web
+- **WhatsApp: nombres legibles.** Cada conversación muestra el nombre que TÚ le pongas («Poner nombre», se guarda en tu almacén cifrado y lo ven también el CRM, los avisos y el MCP), el que traiga WhatsApp o, si no hay, el número bien escrito (+34 600 55 05 78) en vez de una fila de dígitos. Sin foto de WhatsApp: iniciales con color (WhatsApp no da las fotos de perfil a las empresas).
+- **Avisos al móvil de WhatsApp nuevo:** el vigía mira también las conversaciones y avisa solo de lo que escribe el cliente (no de vuestras respuestas). Al tocar el aviso se abre «Mensajes».
+- No se consulta ninguna agenda ni los Contactos de Google para sacar nombres.
+
 ## [1.12] · 2026-10-20
 
 ### App web
