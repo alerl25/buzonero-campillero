@@ -156,7 +156,7 @@ export async function mcPosts(blogId, desde, hasta) {
     }
   } catch (e) { return errMcp(e); }
   return { ok: true, posts: lista.map((p) => ({
-    id: String(p.id), texto: String(p.text || '').slice(0, 600), fecha: (p.publicationDate && p.publicationDate.dateTime) || '', borrador: !!p.draft,
+    id: String(p.id), texto: String(p.text || '').slice(0, 2000), fecha: (p.publicationDate && p.publicationDate.dateTime) || '', borrador: !!p.draft,
     redes: (p.providers || []).map((v) => ({ red: v.network, estado: v.status || '', url: v.publicUrl || '' })), media: (p.media || []).length, enlace: p.plannerUrl || '',
   })) };
 }

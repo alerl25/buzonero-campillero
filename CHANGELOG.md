@@ -2,6 +2,13 @@
 
 Todas las versiones de Buzonero Campillero. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [1.17] · 2026-10-20
+
+### App web
+- **«Redes sociales» ahora es un planificador como el de Metricool:** calendario semanal (lunes a domingo, 24 horas) con cada publicación programada en su día y su hora, color por red y la línea de la hora actual; «Esta semana», flechas y selector de marca. Pulsar un hueco libre crea una publicación a esa hora; pulsar una publicación la abre. Las que se pisan se reparten en columnas. Hay también vista «Listado».
+- Crear publicación y ver una publicación se abren en una ventana.
+- Comprobado con una cuenta real por MCP: lee las programadas de las 5 marcas (15 en una de ellas).
+
 ## [1.16] · 2026-10-20
 
 ### App web
