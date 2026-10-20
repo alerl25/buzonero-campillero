@@ -104,7 +104,10 @@ async function abrirConversacion(id, cuenta){
 // «visto» se guarda solo en este navegador: la lista marca lo que ha cambiado desde la última vez que lo abriste
 var MEN_V = (function(){ try { return JSON.parse(localStorage.getItem('buzonero-men-vistos') || '{}') || {}; } catch(e){ return {}; } })();
 function menVisto(id){ var c = (MEN.convs || []).filter(function(x){ return x.id === id; })[0]; MEN_V[id] = c ? c.updatedTime : new Date().toISOString(); try { localStorage.setItem('buzonero-men-vistos', JSON.stringify(MEN_V)); } catch(e){} drawSide(); }
-function menNuevo(c){ return !!c.updatedTime && (!MEN_V[c.id] || Date.parse(c.updatedTime) > Date.parse(MEN_V[c.id])); }
+// «nuevo» = una conversación que ha cambiado DESPUÉS de empezar a usar esta vista en este navegador y que aún no has abierto.
+// Todo lo anterior cuenta como ya visto: si no, la primera vez saldrían como «nuevas» las 50 conversaciones viejas y ya cerradas.
+var MEN_BASE = (function(){ try { var b = +localStorage.getItem('buzonero-men-base'); if(!b){ b = Date.now(); localStorage.setItem('buzonero-men-base', String(b)); } return b; } catch(e){ return Date.now(); } })();
+function menNuevo(c){ var t = Date.parse(c.updatedTime); if(!t || t <= MEN_BASE) return false; return !MEN_V[c.id] || t > Date.parse(MEN_V[c.id]); }
 function pintarMensajes(){
   var el = $('rows'); if(!el) return;
   // al repintar se conserva dónde estaba la lista y el chat; si el chat estaba abajo, sigue abajo (lo nuevo se ve)

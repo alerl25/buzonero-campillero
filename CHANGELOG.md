@@ -2,6 +2,12 @@
 
 Todas las versiones de Buzonero Campillero. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [1.17.3] · 2026-10-20
+
+### App web
+- **WhatsApp: se acabó el «nuevo» en todo.** Solo sale «nuevo» (y el globo de la barra lateral) en las conversaciones que cambian después de empezar a usar la vista; lo anterior cuenta como visto.
+- **CRM: las conversaciones de WhatsApp viejas y cerradas ya no engordan el tablero.** Solo entran como lead las que han tenido movimiento en los últimos 7 días (`DIAS_WA` en `api/_zernio.js`); si una antigua vuelve a escribir, vuelve al tablero.
+
 ## [1.17.2] · 2026-10-20
 
 ### App web

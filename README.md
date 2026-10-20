@@ -184,7 +184,7 @@ env = { BUZONERO_URL = "https://TU-APP.vercel.app" }
 - **Tablero por etapas** (Nuevo, Respondido, Propuesta, Reserva, Ganado, Perdido; las cambias tú) y arrastrar tarjetas entre ellas. Cada tarjeta dice si **te toca** contestar o si estás **esperando**.
 - **Un CRM por negocio**, con sus cuentas de correo. Pestañas: Tablero, Clientes, Integraciones y Ajustes.
 - **Detecta los leads solo**: formularios de tu web, correos directos de personas nuevas y palabras clave que eliges; aparta los bots y tiene «No es lead». La etapa de cada lead es una etiqueta de tu Gmail (`Leads/…`), así que también la ves desde Gmail.
-- **Todo lo que llega por WhatsApp es un lead**, sin filtrar (integración «WhatsApp (Zernio)»).
+- **Todo lo que llega por WhatsApp es un lead**, sin filtrar (integración «WhatsApp (Zernio)»); solo cuentan las conversaciones con movimiento en los últimos 7 días, para que las viejas y cerradas no engorden el tablero.
 - **Etapas automáticas**: si contestas, pasa a Respondido; con [Nexudus](https://www.nexudus.com) conectado, una reserva lo pasa a Reserva y una factura pagada a Ganado.
 - «Añadir al CRM» en cualquier correo.
 

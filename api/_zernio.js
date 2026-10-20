@@ -3,6 +3,7 @@
 const BASE = 'https://zernio.com/api/v1';
 export const ID_ZERNIO = /^[A-Za-z0-9_.:@=+\-]{1,200}$/;   // ids opacos de Zernio: solo caracteres seguros
 export const hayZernio = () => !!process.env.ZERNIO_API_KEY;
+export const DIAS_WA = 7;   // días de actividad para que una conversación de WhatsApp cuente como lead del CRM
 
 export async function zernio(path) {
   const r = await fetch(BASE + path, { headers: { Authorization: 'Bearer ' + process.env.ZERNIO_API_KEY, Accept: 'application/json' } });
@@ -15,7 +16,9 @@ export async function zernio(path) {
 export async function leadsWhatsApp(etapas, guardadas, noLead, alias) {
   const x = await zernio('/inbox/conversations?' + new URLSearchParams({ platform: 'whatsapp', limit: '50' }));
   if (x.status !== 200) throw new Error('zernio ' + x.status);
-  const convs = (x.body.data || []).filter((c) => c && c.id && c.accountId);
+  // solo las que han tenido movimiento en los últimos DIAS_WA días: las viejas y ya cerradas no son leads (si vuelven a escribir, vuelven al tablero)
+  const desde = Date.now() - DIAS_WA * 86400000;
+  const convs = (x.body.data || []).filter((c) => c && c.id && c.accountId && Date.parse(c.updatedTime) >= desde);
   const leads = convs.map((c) => {
     const tel = String(c.participantId || '').replace(/\s/g, '');
     const nc = nombreConv(c, alias);
