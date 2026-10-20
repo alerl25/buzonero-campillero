@@ -1522,7 +1522,7 @@ function drawSide(){
     // CRM a la vista (19-oct-2026, el dueño): en el sitio de «Categorías», que ya están arriba de la lista
     + crmSide(st.acc)
     // vistas de las cuatro cuentas a la vez (18-oct-2026): lo que viene de camino y la basura que paran los filtros
-    + '<li class="nav-sub">Todas las cuentas</li>' + [['CALENDARIO', 'Calendario', 'ph-calendar-blank', 0], ['PAQUETES', 'Paquetes', 'ph-package', paqActivos()], ['SUSCRIP', 'Suscripciones', 'ph-newspaper', susPendientes()], ['AHORRO', 'Basura parada', 'ph-shield-check', ahorroSemana()]].map(function(f){ var cur = !st.q && !st.label && st.folder === f[0];
+    + '<li class="nav-sub">Todas las cuentas</li>' + [['CALENDARIO', 'Calendario', 'ph-calendar-blank', 0], ['MENSAJES', 'Mensajes', 'ph-chats-circle', (window.menNoLeidos ? menNoLeidos() : 0)], ['PAQUETES', 'Paquetes', 'ph-package', paqActivos()], ['SUSCRIP', 'Suscripciones', 'ph-newspaper', susPendientes()], ['AHORRO', 'Basura parada', 'ph-shield-check', ahorroSemana()]].map(function(f){ var cur = !st.q && !st.label && st.folder === f[0];
       return '<li><button data-f="'+f[0]+'" title="'+f[1]+'" aria-current="'+cur+'"><i class="ph '+f[2]+'"></i><span>'+f[1]+'</span><span class="n">'+(f[3] ? fmtN(f[3]) : '')+'</span></button></li>'; }).join('');
   var labs = (c.labels || []).filter(function(l){ return !esEtqCrm(l.name); });   // las del CRM se ven en su sección
   $('labels').innerHTML = labs.length ? labs.map(function(l){
@@ -3538,7 +3538,7 @@ $('micBtn').addEventListener('click', function(){ dic ? pararDictado() : empezar
 $('dicFin').addEventListener('click', function(){ pararDictado(); if(ed) ed.focus(); });
 
 /* ---------------- vistas de todas las cuentas (barra lateral) ---------------- */
-var VISTAS = { CALENDARIO:function(){ pintarCalendario(); }, PAQUETES:function(){ pintarPaquetes(); }, AHORRO:function(){ pintarAhorro(); }, SUSCRIP:function(){ pintarSus(); } };
+var VISTAS = { CALENDARIO:function(){ pintarCalendario(); }, MENSAJES:function(){ pintarMensajes(); }, PAQUETES:function(){ pintarPaquetes(); }, AHORRO:function(){ pintarAhorro(); }, SUSCRIP:function(){ pintarSus(); } };
 function enVista(){ return !!VISTAS[st.folder] && !st.q && !st.label; }
 function guardarLocal(clave, v){ try { localStorage.setItem(clave, JSON.stringify(v)); } catch(e){} }
 function leerLocal(clave){ try { return JSON.parse(localStorage.getItem(clave) || 'null'); } catch(e){ return null; } }
@@ -4012,5 +4012,6 @@ if(innerWidth < 900) $('q').placeholder = 'Buscar';
 </script>
 <script src="/app/crm.js"></script>
 <script src="/app/calendario.js"></script>
+<script src="/app/mensajes.js"></script>
 </body>
 </html>

@@ -2,6 +2,13 @@
 
 Todas las versiones de Buzonero Campillero. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [1.11] · 2026-10-20
+
+### App web: Mensajes
+- **Nueva vista «Mensajes»** en «Todas las cuentas»: las conversaciones de WhatsApp, Instagram, Facebook, Telegram y X que tengas conectadas en [Zernio](https://zernio.com), en una sola lista, con el chat al lado.
+- Contestar desde la app (solo se envía al pulsar «Enviar»); se marcan como leídas al abrirlas y la lista se refresca cada minuto.
+- La clave de Zernio vive solo en el servidor (variable `ZERNIO_API_KEY`); el navegador nunca la ve. Función nueva `api/zernio.js`.
+
 ## [1.10.1] · 2026-10-20
 
 ### App web
