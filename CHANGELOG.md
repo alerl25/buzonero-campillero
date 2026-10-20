@@ -2,6 +2,11 @@
 
 Todas las versiones de Buzonero Campillero. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [1.10.1] · 2026-10-20
+
+### App web
+- **Corregido:** al abrir el CRM con el Calendario a la vista, el CRM salía debajo del calendario, cortado, en vez de ocupar su sitio. Ahora el calendario se esconde y el CRM ocupa la pantalla, como desde cualquier carpeta.
+
 ## [1.10] · 2026-10-19
 
 ### App web: el calendario, como Google Calendar

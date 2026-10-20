@@ -20,7 +20,8 @@ var CAL_ZONA = (function(){ try { return Intl.DateTimeFormat().resolvedOptions()
     + '.shell:has(.cal),.shell.reading:has(.cal){grid-template-columns:236px minmax(0,1fr)}.shell:has(.cal)>.read{display:none}'
     + '@media(max-width:1180px){.shell:has(.cal),.shell.reading:has(.cal){grid-template-columns:72px minmax(0,1fr)}}'
     + '@media(max-width:900px){.shell:has(.cal),.shell.reading:has(.cal){grid-template-columns:minmax(0,1fr)}}'
-    + '.shell:has(.cal)>.list{overflow:hidden;display:flex;flex-direction:column}.shell:has(.cal) .rows{flex:1;min-height:0;overflow:hidden}'
+    // :not(.crm-on): con el CRM abierto encima del calendario, la lista tiene que esconderse (si no, el CRM caía debajo, en otra fila)
+    + '.shell:not(.crm-on):has(.cal)>.list{overflow:hidden;display:flex;flex-direction:column}.shell:has(.cal) .rows{flex:1;min-height:0;overflow:hidden}'
     + '.vista-esp.cal{display:flex;flex-direction:column;height:100%;min-height:0;position:relative;padding:0}.shell:has(.cal) .rows{padding-bottom:0}'
     + '.cal-top{display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}'
     + '.cal-top h2{margin:0 6px;font-size:19px;font-weight:600;white-space:nowrap}.cal-top h2::first-letter,.cal-mini-h span:first-child::first-letter{text-transform:uppercase}'
