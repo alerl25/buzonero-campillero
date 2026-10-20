@@ -1522,7 +1522,7 @@ function drawSide(){
     // CRM a la vista (19-oct-2026, el dueño): en el sitio de «Categorías», que ya están arriba de la lista
     + crmSide(st.acc)
     // vistas de las cuatro cuentas a la vez (18-oct-2026): lo que viene de camino y la basura que paran los filtros
-    + '<li class="nav-sub">Todas las cuentas</li>' + [['CALENDARIO', 'Calendario', 'ph-calendar-blank', 0], ['MENSAJES', 'WhatsApp', 'ph-whatsapp-logo', (window.menNoLeidos ? menNoLeidos() : 0)], ['PAQUETES', 'Paquetes', 'ph-package', paqActivos()], ['SUSCRIP', 'Suscripciones', 'ph-newspaper', susPendientes()], ['AHORRO', 'Basura parada', 'ph-shield-check', ahorroSemana()]].filter(Boolean).map(function(f){ var cur = !st.q && !st.label && st.folder === f[0];
+    + '<li class="nav-sub">Todas las cuentas</li>' + [['CALENDARIO', 'Calendario', 'ph-calendar-blank', 0], (integOn('wa') ? ['MENSAJES', 'WhatsApp', 'ph-whatsapp-logo', (window.menNoLeidos ? menNoLeidos() : 0)] : null), (integOn('mc') ? ['REDES', 'Redes sociales', 'ph-share-network', 0] : null), ['PAQUETES', 'Paquetes', 'ph-package', paqActivos()], ['SUSCRIP', 'Suscripciones', 'ph-newspaper', susPendientes()], ['AHORRO', 'Basura parada', 'ph-shield-check', ahorroSemana()], ['INTEGRACIONES', 'Integraciones', 'ph-plugs-connected', 0]].filter(Boolean).map(function(f){ var cur = !st.q && !st.label && st.folder === f[0];
       return '<li><button data-f="'+f[0]+'" title="'+f[1]+'" aria-current="'+cur+'"><i class="ph '+f[2]+'"></i><span>'+f[1]+'</span><span class="n">'+(f[3] ? fmtN(f[3]) : '')+'</span></button></li>'; }).join('');
   var labs = (c.labels || []).filter(function(l){ return !esEtqCrm(l.name); });   // las del CRM se ven en su sección
   $('labels').innerHTML = labs.length ? labs.map(function(l){
@@ -3429,7 +3429,7 @@ async function avisosArranque(){
 }
 if('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', function(e){
   if(!e.data || !e.data.abrir) return; try { var u = new URL(e.data.abrir), ak = u.searchParams.get('acc'), h = u.searchParams.get('hilo');
-    if(u.searchParams.get('vista') === 'MENSAJES'){ var bm2 = document.querySelector('#folders [data-f="MENSAJES"]'); if(bm2) bm2.click(); return; }
+    var vp = u.searchParams.get('vista'); if(vp === 'MENSAJES' || vp === 'INTEGRACIONES' || vp === 'REDES'){ var bm2 = document.querySelector('#folders [data-f="' + vp + '"]'); if(bm2) bm2.click(); return; }
     if(ak && ACC[ak]){ var otra = st.acc !== ak; if(otra) setAcc(ak); if(h) setTimeout(function(){ openThread(h); }, otra ? 600 : 50); } } catch(err){}
 });
 
@@ -3539,7 +3539,17 @@ $('micBtn').addEventListener('click', function(){ dic ? pararDictado() : empezar
 $('dicFin').addEventListener('click', function(){ pararDictado(); if(ed) ed.focus(); });
 
 /* ---------------- vistas de todas las cuentas (barra lateral) ---------------- */
-var VISTAS = { CALENDARIO:function(){ pintarCalendario(); }, MENSAJES:function(){ pintarMensajes(); }, PAQUETES:function(){ pintarPaquetes(); }, AHORRO:function(){ pintarAhorro(); }, SUSCRIP:function(){ pintarSus(); } };
+// Lo que está conectado decide qué entradas lleva la barra lateral: «WhatsApp» solo con un WhatsApp conectado (Zernio) y «Redes sociales» solo con Metricool conectado.
+var INTEG_ON = (function(){ try { return JSON.parse(localStorage.getItem('buzonero-integ-on') || 'null') || { wa:false, mc:false }; } catch(e){ return { wa:false, mc:false }; } })();
+function integOn(k){ return !!INTEG_ON[k]; }
+function integActualizar(j){
+  var nuevo = { wa: !!(j.zernio && j.zernio.whatsapp > 0), mc: !!(j.metricool && j.metricool.conectado) }, cambio = nuevo.wa !== INTEG_ON.wa || nuevo.mc !== INTEG_ON.mc;
+  INTEG_ON = nuevo; try { localStorage.setItem('buzonero-integ-on', JSON.stringify(nuevo)); } catch(e){}
+  if(nuevo.wa && window.cargarMensajes && window.MEN && !MEN.convs && !MEN.cargando) cargarMensajes();
+  if(cambio || nuevo.wa) drawSide();
+}
+async function integCargar(){ try { var r = await fetch('/api/zernio?r=integraciones', { cache:'no-store', credentials:'same-origin' }); if(!r.ok) return; var j = await r.json(); if(j && j.ok) integActualizar(j); } catch(e){} }
+var VISTAS = { CALENDARIO:function(){ pintarCalendario(); }, REDES:function(){ pintarRedes(); }, INTEGRACIONES:function(){ pintarHub(); }, MENSAJES:function(){ pintarMensajes(); }, PAQUETES:function(){ pintarPaquetes(); }, AHORRO:function(){ pintarAhorro(); }, SUSCRIP:function(){ pintarSus(); } };
 function enVista(){ return !!VISTAS[st.folder] && !st.q && !st.label; }
 function guardarLocal(clave, v){ try { localStorage.setItem(clave, JSON.stringify(v)); } catch(e){} }
 function leerLocal(clave){ try { return JSON.parse(localStorage.getItem(clave) || 'null'); } catch(e){ return null; } }
@@ -4001,8 +4011,11 @@ async function start(){
   KEYS.filter(function(k){ return k !== st.acc; }).forEach(function(k){ loadAccountMeta(k).then(function(){ drawTabs(); }); });
   if(abrirHilo) setTimeout(function(){ openThread(abrirHilo); }, 300);
   if(qs.get('contactos')){ var cr = qs.get('contactos'); setTimeout(function(){ toast(cr === 'ok' ? 'Contactos de Google conectados' : 'No se pudieron conectar los contactos (' + cr + ')'); }, 1200); }
-  if(qs.get('vista') === 'MENSAJES'){ var bm = document.querySelector('#folders [data-f="MENSAJES"]'); if(bm) setTimeout(function(){ bm.click(); }, 500); }
+  var vistaPedida = qs.get('vista');
+  if(vistaPedida === 'MENSAJES' || vistaPedida === 'INTEGRACIONES' || vistaPedida === 'REDES'){ setTimeout(function(){ var bm = document.querySelector('#folders [data-f="' + vistaPedida + '"]'); if(bm) bm.click(); }, 900); }
+  if(qs.get('metricool')){ var mr = qs.get('metricool'); setTimeout(function(){ toast(mr === 'ok' ? 'Metricool conectado' : 'No se pudo conectar Metricool (' + mr + ')'); if(mr === 'ok') integCargar(); }, 1400); }
   avisosArranque();
+  integCargar();
   setTimeout(precargarCuentas, 4000);   // cuando ya está todo pintado
   cargarSeg();
   // los contadores de Paquetes y Basura parada, sin prisa: cuando ya se ha precargado lo demás
@@ -4016,5 +4029,7 @@ if(innerWidth < 900) $('q').placeholder = 'Buscar';
 <script src="/app/crm.js"></script>
 <script src="/app/calendario.js"></script>
 <script src="/app/mensajes.js"></script>
+<script src="/app/integraciones.js"></script>
+<script src="/app/redes.js"></script>
 </body>
 </html>

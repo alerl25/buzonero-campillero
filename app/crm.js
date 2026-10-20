@@ -16,7 +16,8 @@ function fecha(t){ if(!t) return ''; var d = new Date(t), hoy = new Date();
 function nombreDe(x){ return x.nombre || x.email || '—'; }
 function iniciales(x){ var n = (x.nombre || x.email || '?').replace(/@.*/, '').trim().split(/[\s._-]+/); return ((n[0] || '?')[0] + ((n[1] || '')[0] || '')).toUpperCase(); }
 
-window.abrirVistaCrm = async function(){
+window.abrirVistaCrm = async function(tab){
+  if(typeof tab === 'string'){ CV.tab = tab; CV.wiz = null; CV.sel = null; }
   shell.classList.add('crm-on'); vista.hidden = false; closeDrawer();
   if(!CRMS) { vista.innerHTML = '<div class="cv-vacio">Cargando…</div>'; try { await crmCargar(); } catch(e){ vista.innerHTML = '<div class="cv-vacio">No se pudieron leer los CRM. Prueba otra vez en un momento.</div>'; return; } }
   if(!CV.id || !CRMS[CV.id]){ var mio = crmDeK(st.acc, ''); CV.id = mio ? mio.id : ((crmsLista()[0] || {}).id || null); CV.leads = CV.clientes = null; }

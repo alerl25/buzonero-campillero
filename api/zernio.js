@@ -1,22 +1,37 @@
-// Mensajes: la bandeja unificada de Zernio (WhatsApp, Instagram, Facebook, Telegram, X…) dentro de Buzonero.
-// La clave (ZERNIO_API_KEY) vive solo en las variables de Vercel: el navegador nunca la ve.
-// Una sola función (el plan gratis de Vercel admite 12): ?r= elige la parte.
-// SOLO LECTURA hacia Zernio (decisión del dueño, 20-oct-2026): GET ?r=estado | conversaciones | mensajes. No hay ningún camino para enviar
-// ni para marcar como leído (en WhatsApp eso manda el doble check azul al cliente).
+// Enrutador de integraciones de la app (una sola función: el plan gratis de Vercel admite 12 y esta es la última):
+//  · WhatsApp por Zernio, SOLO LECTURA (decisión del dueño, 20-oct-2026): GET ?r=estado | conversaciones | mensajes.
+//    No hay ningún camino para enviar ni para marcar como leído (en WhatsApp eso manda el doble check azul al cliente).
+//    La clave (ZERNIO_API_KEY) vive solo en las variables de Vercel.
+//  · Panel de integraciones: GET ?r=integraciones (qué está conectado, sin claves).
+//  · Metricool con el token de cada persona: GET ?r=mc-posts · POST { accion: 'mc-conectar' | 'mc-actualizar' | 'mc-quitar' | 'mc-publicar' | 'mc-borrar' }.
+//    Solo con sesión de la app (nunca con la llave del conector).
+//  · Nombres de números de WhatsApp y permiso de Contactos de Google: POST { accion: 'nombre' | 'quitar-contactos' }.
 import { validSession, sameOrigin, noStore, esMaquina, readCrm, updateCrm, quitarContactos } from './_lib.js';
 import { agenda, clave9 } from './_agenda.js';
-import { zernio, ID_ZERNIO as ID, nombreConv, soloDigitos } from './_zernio.js';
+import { zernio, hayZernio, ID_ZERNIO as ID, nombreConv, soloDigitos } from './_zernio.js';
+import { mcEstado, mcConectar, mcActualizar, mcQuitar, mcPosts, mcPublicar, mcBorrar } from './_metricool.js';
 
 export default async function handler(req, res) {
   noStore(res);
   const maquina = esMaquina(req);
   if (!maquina && !validSession(req)) return res.status(401).json({ error: 'sesion' });
   if (!maquina && !sameOrigin(req)) return res.status(403).json({ error: 'origen' });
-  if (!process.env.ZERNIO_API_KEY) return res.status(200).json({ ok: false, error: 'sin_clave' });
   try {
     const q = req.query || {};
     if (req.method === 'GET') {
       const r = String(q.r || '');
+      if (r === 'integraciones') {
+        // para el panel y para saber qué entradas lleva la barra lateral: nada de claves
+        const out = { ok: true, zernio: { clave: hayZernio(), whatsapp: 0 }, metricool: await mcEstado().catch(() => ({ conectado: false })), contactos: [], agenda: { n: 0, fotos: 0, fallos: [] } };
+        if (hayZernio()) { try { const x = await zernio('/accounts'); out.zernio.whatsapp = x.status === 200 ? (x.body.accounts || []).filter((a) => a.platform === 'whatsapp').length : 0; } catch (e) {} }
+        try { const g = await agenda(); out.contactos = g.emails; out.agenda = { n: g.n, fotos: g.fotos, fallos: g.fallos }; } catch (e) {}
+        return res.status(200).json(out);
+      }
+      if (r === 'mc-posts') {
+        if (maquina) return res.status(403).json({ error: 'sesion' });
+        return res.status(200).json(await mcPosts(String(q.blogId || ''), String(q.desde || ''), String(q.hasta || '')));
+      }
+      if (!hayZernio()) return res.status(200).json({ ok: false, error: 'sin_clave' });
       if (r === 'estado') {
         const x = await zernio('/accounts');
         if (x.status !== 200) return res.status(200).json({ ok: false, error: 'zernio', status: x.status });
@@ -49,13 +64,23 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'r' });
     }
     if (req.method === 'POST') {
-      // Lo único que se escribe: el nombre que TÚ le pones a un número (en nuestro almacén). A Zernio no se le manda nada.
       const b = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+      // Metricool: solo desde la app, con tu sesión
+      if (String(b.accion || '').startsWith('mc-')) {
+        if (maquina) return res.status(403).json({ error: 'sesion' });
+        if (b.accion === 'mc-conectar') { const r = await mcConectar(b); return res.status(r.ok ? 200 : 400).json(r.ok ? { ok: true, marcas: r.marcas } : { ok: false, error: 'conectar', mensaje: r.error }); }
+        if (b.accion === 'mc-actualizar') { const r = await mcActualizar(); return res.status(r.ok ? 200 : 400).json(r.ok ? r : { ok: false, ...r }); }
+        if (b.accion === 'mc-quitar') { await mcQuitar(); return res.status(200).json({ ok: true }); }
+        if (b.accion === 'mc-publicar') { const r = await mcPublicar(b); return res.status(r.ok ? 200 : 400).json(r.ok ? r : { ok: false, ...r }); }
+        if (b.accion === 'mc-borrar') { const r = await mcBorrar(b.blogId, b.id); return res.status(r.ok ? 200 : 400).json(r.ok ? r : { ok: false, ...r }); }
+        return res.status(400).json({ error: 'accion' });
+      }
       if (b.accion === 'quitar-contactos') {
         if (maquina) return res.status(403).json({ error: 'sesion' });   // solo desde la app, con tu sesión
         await quitarContactos(String(b.email || '').toLowerCase().slice(0, 120));
         return res.status(200).json({ ok: true });
       }
+      // Lo único que se escribe del WhatsApp: el nombre que TÚ le pones a un número (en nuestro almacén). A Zernio no se le manda nada.
       if (b.accion !== 'nombre') return res.status(400).json({ error: 'accion' });
       const tel = soloDigitos(b.numero), nom = String(b.nombre || '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 60);
       if (tel.length < 6 || tel.length > 16) return res.status(400).json({ error: 'numero' });

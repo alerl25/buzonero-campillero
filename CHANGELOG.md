@@ -2,6 +2,15 @@
 
 Todas las versiones de Buzonero Campillero. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [1.16] · 2026-10-20
+
+### App web
+- **Botón «Integraciones» en la barra lateral:** todo lo que se puede conectar, en un solo sitio: cuentas de Google (correo y calendario), Contactos de Google, WhatsApp (Zernio), el CRM con sus integraciones (Analytics, WhatsApp, Nexudus…) y Metricool.
+- **«Redes sociales» (Metricool):** vista nueva con las publicaciones programadas de cada marca (7, 30 o 90 días) y un formulario para programar (texto, redes de la marca, día y hora, imágenes o vídeos por enlace). Pide confirmación y nunca publica nada por su cuenta. Solo sale en la barra lateral cuando Metricool está conectado.
+- **Metricool se conecta de dos maneras:** con tu cuenta de Metricool por su MCP (OAuth con PKCE, vale en cualquier plan, sin token) o con el token de la API (planes Advanced o Custom). El permiso o el token se guardan cifrados.
+- **«WhatsApp» solo sale en la barra lateral si hay un WhatsApp conectado.**
+- Metricool ya no está entre las integraciones del CRM.
+
 ## [1.15.1] · 2026-10-20
 
 ### App web

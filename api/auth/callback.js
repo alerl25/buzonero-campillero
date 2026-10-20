@@ -1,6 +1,7 @@
-// Vuelta de Google para los dos fines (entrar / reconectar).
+// Vuelta de Google (entrar / reconectar / añadir / contactos) y de Metricool por MCP.
 import { LOGIN_EMAILS, allAccounts, addAccount, makeSession, sessionCookie, noStore, readCookie, YEAR, SHORT, saveReconnected, savePhoto, guardarContactos } from '../_lib.js';
 import { redirectUri, MAIL_SCOPES, unpackState } from './start.js';
+import { mcpTerminar } from '../_metricool.js';
 
 function back(res, query, extraCookies = []) {
   res.statusCode = 302;
@@ -15,9 +16,15 @@ export default async function handler(req, res) {
   const st = unpackState(readCookie(req, 'bz_state'));
   const rec = !!(st && st.fin === 'reconectar'), add = !!(st && st.fin === 'anadir');
   const con = !!(st && st.fin === 'contactos');
-  const fail = (m) => back(res, (con ? 'vista=MENSAJES&contactos=' : rec ? 'reconectar=' : add ? 'anadir=' : 'acceso=') + encodeURIComponent(m) + (rec ? '&acc=' + encodeURIComponent(st.acc) : ''));
+  const mcf = !!(st && st.fin === 'metricool');
+  const fail = (m) => back(res, (mcf ? 'vista=INTEGRACIONES&metricool=' : con ? 'vista=MENSAJES&contactos=' : rec ? 'reconectar=' : add ? 'anadir=' : 'acceso=') + encodeURIComponent(m) + (rec ? '&acc=' + encodeURIComponent(st.acc) : ''));
   if (error) return fail('cancelado');
   if (!st || !state || !code || st.n !== String(state)) return fail('caducado');
+  if (mcf) {
+    // Metricool por MCP: el código se cambia por el permiso (no pasa por Google)
+    try { await mcpTerminar(redirectUri(req), String(code), String(st.v || '')); } catch { return fail('conectar'); }
+    return back(res, 'vista=INTEGRACIONES&metricool=ok');
+  }
 
   const r = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
