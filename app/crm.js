@@ -174,6 +174,19 @@ var INTEG = [
       ['La contraseña no se guarda: Buzonero guarda un pase de solo lectura que dura unas semanas y te avisa para renovarlo.', '', ''],
     ],
     campos:[['espacio', 'Dirección de tu espacio', 'text', 'tuespacio.spaces.nexudus.com'], ['token', 'Token de la API (si ya lo tienes: entonces no hace falta nada más)', 'password', ''], ['usuario', 'Correo del usuario', 'text', ''], ['clave', 'Contraseña', 'password', ''], ['codigo', 'Código de 6 cifras (si te lo pide)', 'text', '123456']] },
+  { id:'zr', nombre:'WhatsApp (Zernio)', icono:'ph-whatsapp-logo', que:'Todo lo que llega por WhatsApp entra como lead en el tablero, sin filtrar. Solo lectura: nunca contesta ni marca como leído.',
+    pasos:[
+      ['Entra en zernio.com y conecta tu número de WhatsApp (una sola vez).', 'https://zernio.com', 'Abrir Zernio'],
+      ['Pulsa Probar y guardar: Buzonero comprueba que Zernio tiene un WhatsApp conectado y, desde ese momento, sus conversaciones aparecen en el tablero de este CRM. Puedes moverlas de etapa o apartarlas con «No es lead».', '', ''],
+    ],
+    campos:[] },
+  { id:'mc', nombre:'Metricool', icono:'ph-chart-line-up', que:'Conecta tu cuenta de Metricool con su token de la API (hace falta un plan Advanced o Custom).',
+    pasos:[
+      ['En Metricool: Ajustes → pestaña API → copia el token de acceso. Si no ves esa pestaña, tu plan no incluye la API.', 'https://app.metricool.com/', 'Abrir Metricool'],
+      ['Tu userId es el número que sale en la dirección de Metricool después de «userId=».', '', ''],
+      ['Pega el token y el userId y pulsa Probar y guardar. El token se guarda cifrado en tu Buzonero; nunca va en el código.', '', ''],
+    ],
+    campos:[['token', 'Token de la API', 'password', ''], ['userId', 'userId', 'text', '1234567']] },
 ];
 function integDe(c){ return ((window.CRM_INTEG || {})[c.id]) || {}; }
 function estadoInteg(c, x){
@@ -181,6 +194,8 @@ function estadoInteg(c, x){
   if(!e || (Array.isArray(e) && !e.length)) return '';
   if(x.id === 'ga') return '<div class="cv-int-ok"><i class="ph-fill ph-check-circle"></i><span><span>Propiedad</span> <span data-notr>' + esc(e.propiedad) + '</span></span><button type="button" class="btn sm" data-int-quitar="ga">Quitar</button></div>';
   if(x.id === 'nx') return '<div class="cv-int-ok"><i class="ph-fill ph-check-circle"></i><span data-notr>' + esc(e.espacio) + '</span><small><span>Caduca el</span> ' + esc(new Date(e.caduca).toLocaleDateString(BZ.loc)) + '</small><button type="button" class="btn sm" data-int-quitar="nx">Quitar</button></div>';
+  if(x.id === 'zr') return '<div class="cv-int-ok"><i class="ph-fill ph-check-circle"></i><span data-notr>' + esc((e.cuentas || []).join(', ') || 'WhatsApp') + '</span><button type="button" class="btn sm" data-int-quitar="zr">Quitar</button></div>';
+  if(x.id === 'mc') return '<div class="cv-int-ok"><i class="ph-fill ph-check-circle"></i><span><span data-notr>' + esc(String((e.marcas || []).length)) + '</span> <span>marcas</span></span><button type="button" class="btn sm" data-int-quitar="mc">Quitar</button></div>';
   if(x.id === 'wa') return e.map(function(n){ return '<div class="cv-int-ok"><i class="ph-fill ph-check-circle"></i><span data-notr>' + esc(n.nombre) + ' · ' + esc(n.numero || n.id) + '</span><button type="button" class="btn sm" data-int-quitar="wa" data-num="' + esc(n.id) + '">Quitar</button></div>'; }).join('');
   return '';
 }
@@ -257,7 +272,7 @@ function pintarFicha(c){
         + (x.nexudus.facturas || []).map(function(f){ return '<div class="cv-nx-f"><span data-notr>' + esc(f.numero) + '</span><span>' + esc(fecha(Date.parse(f.fecha))) + '</span><span data-notr>' + esc(Number(f.total || 0).toLocaleString(BZ.loc, { style:'currency', currency:'EUR' })) + '</span><span class="cv-chip ' + (f.pagada ? 'bien' : 'mal') + '">' + (f.pagada ? 'Pagada' : 'Pendiente') + '</span></div>'; }).join('')
         + (x.nexudus.reservas || []).map(function(b){ return '<div class="cv-nx-f"><span data-notr>' + esc(String(b.sala || '').replace(/^\[[^\]]*\]\s*/, '')) + '</span><span>' + esc(fecha(Date.parse(b.desde))) + '</span><span></span><span class="cv-chip">' + (b.tentativa ? 'Provisional' : 'Reserva') + '</span></div>'; }).join('')
         + '</div>' : '')
-    + '<div class="cv-ficha-acc">' + (x.lead ? '<button class="btn" type="button" data-cv="nolead" title="Lo quita del tablero (propuestas de colaboración, proveedores…)"><i class="ph ph-prohibit"></i> No es lead</button>' : '') + '<button class="btn" type="button" data-cv="abrir-correo"><i class="ph ph-envelope-open"></i> Abrir el correo</button>' + (x.email ? '<button class="btn primary" type="button" data-cv="escribir"><i class="ph ph-pencil-simple-line"></i> Escribir</button>' : '') + '</div></aside>';
+    + '<div class="cv-ficha-acc">' + (x.lead ? '<button class="btn" type="button" data-cv="nolead" title="Lo quita del tablero (propuestas de colaboración, proveedores…)"><i class="ph ph-prohibit"></i> No es lead</button>' : '') + (x.k === 'wa' ? '<button class="btn primary" type="button" data-cv="abrir-wa"><i class="ph ph-whatsapp-logo"></i> Ver la conversación</button>' : '<button class="btn" type="button" data-cv="abrir-correo"><i class="ph ph-envelope-open"></i> Abrir el correo</button>') + (x.email ? '<button class="btn primary" type="button" data-cv="escribir"><i class="ph ph-pencil-simple-line"></i> Escribir</button>' : '') + '</div></aside>';
 }
 
 /* ---------- acciones ---------- */
@@ -289,6 +304,7 @@ vista.addEventListener('click', function(e){
   if(t.dataset.cvEd){ crmEd = JSON.parse(JSON.stringify(CRMS[t.dataset.cvEd])); crmEd.deteccion = crmEd.deteccion || { formularios:[] }; crmEd.deteccion.formularios = crmEd.deteccion.formularios || []; $('crmDlg').showModal(); pintarCrmForm(); return; }
   if(cv === 'cerrar-ficha'){ CV.sel = null; pintar(); return; }
   if(cv === 'abrir-correo' && CV.sel){ abrirCorreo(CV.sel); return; }
+  if(cv === 'abrir-wa' && CV.sel){ var w = CV.sel; cerrarVistaCrm(); var bf = document.querySelector('#folders [data-f="MENSAJES"]'); if(bf) bf.click(); setTimeout(function(){ if(window.abrirConversacion) abrirConversacion(w.hilo, w.cuenta); }, 700); return; }
   if(cv === 'nolead' && CV.sel && CV.sel.lead){ var l0 = CV.sel; CV.sel = null; moverLead(l0, 'No es lead'); return; }
   if(cv === 'escribir' && CV.sel){ openCompose({ k:CV.sel.k, to:CV.sel.email }); return; }
   if(t.dataset.int){ CV.wiz = t.dataset.int; CV.wizDatos = {}; CV.wizError = ''; pintar(); vista.querySelector('.cv-body').scrollTop = 0; return; }

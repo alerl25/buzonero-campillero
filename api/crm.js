@@ -4,7 +4,8 @@
 import { validSession, sameOrigin, noStore, esMaquina, allAccounts, accessToken, readCrm, updateCrm } from './_lib.js';
 import { limpiarCrm, detector, ETIQUETA_NOLEAD } from './_crm.js';
 import { esPropaganda } from './vigia.js';
-import { conectarGA, conectarWA, conectarNX, conectarMC, estadoPublico, nexudusCliente } from './_integ.js';
+import { leadsWhatsApp, ID_ZERNIO } from './_zernio.js';
+import { conectarGA, conectarWA, conectarNX, conectarMC, conectarZR, estadoPublico, nexudusCliente } from './_integ.js';
 
 export default async function handler(req, res) {
   noStore(res);
@@ -25,6 +26,10 @@ export default async function handler(req, res) {
           if (r === 'leads') { const p = await d.pipeline(); out.leads.push(...p.leads); out.bots += p.bots; }
           else out.clientes.push(...await d.clientes());
         } catch (e) { out.fallos.push(k); }
+      }
+      if (r === 'leads' && ((dcrm.integ || {})[c.id] || {}).zr) {
+        // WhatsApp (Zernio): cada conversación es un lead; la etapa que le diste vive en este almacén, no en Gmail
+        try { out.leads.push(...await leadsWhatsApp(c.etapas, (dcrm.waEtapas || {})[c.id] || {}, ETIQUETA_NOLEAD)); } catch (e) { out.fallos.push('wa'); }
       }
       if (r === 'leads') {
         // cada lead: de quién es el turno y qué hay en Nexudus; con reserva o factura pasa solo a «Reserva», y pagada a «Ganado» (nunca hacia atrás)
@@ -83,6 +88,17 @@ export default async function handler(req, res) {
     }
     if (b.accion === 'mover' || b.accion === 'anadir') {
       // cambiar de etapa (tablero) o meter en el CRM un correo cualquiera («Añadir al CRM»)
+      if (b.accion === 'mover' && b.k === 'wa') {
+        // lead de WhatsApp: la etapa se guarda aquí (en Gmail no hay hilo al que ponerle etiqueta)
+        const dd = await readCrm(), cw = dd.crms[id];
+        if (!cw || !((dd.integ || {})[id] || {}).zr) return res.status(404).json({ error: 'crm' });
+        const et = String(b.etapa || '');
+        if (!cw.etapas.includes(et) && et !== ETIQUETA_NOLEAD) return res.status(400).json({ error: 'etapa' });
+        const cids = (Array.isArray(b.ids) ? b.ids : []).map(String).filter((x) => ID_ZERNIO.test(x)).slice(0, 50);
+        if (!cids.length) return res.status(400).json({ error: 'ids' });
+        await updateCrm((d) => { d.waEtapas = d.waEtapas || {}; const m = d.waEtapas[id] = d.waEtapas[id] || {}; cids.forEach((x) => { m[x] = et; }); });
+        return res.status(200).json({ ok: true });
+      }
       const c = (await readCrm()).crms[id], k = String(b.k || '');
       if (!c || !c.cuentas.includes(k)) return res.status(404).json({ error: 'crm' });
       const etapa = String(b.etapa || c.etapas[0]);
@@ -101,14 +117,14 @@ export default async function handler(req, res) {
     if (b.accion === 'ocultar') {
       // qué integraciones no quiere ver este CRM (no toca sus claves)
       const svc = String(b.svc || '');
-      if (!['ga', 'gbp', 'wa', 'nx', 'mc'].includes(svc)) return res.status(400).json({ error: 'svc' });
+      if (!['ga', 'gbp', 'wa', 'nx', 'mc', 'zr'].includes(svc)) return res.status(400).json({ error: 'svc' });
       await updateCrm((d) => { const c = d.crms[id]; if (!c) return false; const o = new Set(c.integOcultas || []); b.ocultar ? o.add(svc) : o.delete(svc); c.integOcultas = [...o]; });
       return res.status(200).json({ ok: true });
     }
     if (b.accion === 'integrar' || b.accion === 'desintegrar') {
       // conectar (se prueba antes de guardar) o quitar una integración: ga, wa (varios números) o nx
       const svc = String(b.svc || '');
-      if (!['ga', 'wa', 'nx', 'mc'].includes(svc)) return res.status(400).json({ error: 'svc' });
+      if (!['ga', 'wa', 'nx', 'mc', 'zr'].includes(svc)) return res.status(400).json({ error: 'svc' });
       if (!(await readCrm()).crms[id]) return res.status(404).json({ error: 'crm' });
       if (b.accion === 'desintegrar') {
         const num = String(b.numero || '');
@@ -116,7 +132,7 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
       let r2;
-      try { r2 = await ({ ga: conectarGA, wa: conectarWA, nx: conectarNX, mc: conectarMC })[svc](b.datos || {}); }
+      try { r2 = await ({ ga: conectarGA, wa: conectarWA, nx: conectarNX, mc: conectarMC, zr: conectarZR })[svc](b.datos || {}); }
       catch (e) { return res.status(400).json({ error: 'integ', mensaje: String(e.message || e).slice(0, 300), pide: e.pide || null }); }
       await updateCrm((d) => {
         d.integ = d.integ || {}; const x = d.integ[id] = d.integ[id] || {};

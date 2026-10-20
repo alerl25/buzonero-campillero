@@ -2,6 +2,16 @@
 
 Todas las versiones de Buzonero Campillero. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [1.12] · 2026-10-20
+
+### App web
+- **«Mensajes» vuelve a verse y es de solo lectura:** las conversaciones de WhatsApp (por Zernio) en una lista con el chat al lado. No se puede contestar desde ahí ni se marca nada como leído (en WhatsApp eso enviaría el doble check azul al cliente); «nuevo» se recuerda solo en tu navegador.
+- **El WhatsApp entra al CRM:** nueva integración «WhatsApp (Zernio)» en el CRM (Integraciones). Cada conversación es un lead del tablero, sin filtrar; se mueve de etapa o se aparta con «No es lead», y la ficha lleva a su conversación. Si el último mensaje es vuestro, entra en la 2.ª etapa y no sale «Te toca».
+- **Integración «Metricool»** (token de la API + userId de cada persona, guardado cifrado).
+
+### MCP (1.2.0)
+- Herramientas nuevas, solo lectura: `mensajes` (conversaciones de WhatsApp) y `leer_conversacion`.
+
 ## [1.11.1] · 2026-10-20
 
 ### App web

@@ -1,8 +1,8 @@
 /* Buzonero Campillero · Mensajes (bandeja unificada de Zernio)
    Vista «Mensajes» de la barra lateral: las conversaciones de WhatsApp, Instagram, Facebook, Telegram y X que tengas
-   conectadas en Zernio, en una sola lista, con el chat al lado. Solo se envía al pulsar «Enviar».
+   conectadas en Zernio, en una sola lista, con el chat al lado. Es de SOLO LECTURA: no se puede contestar desde aquí ni se marca nada como leído (en WhatsApp eso manda el doble check azul).
    Habla con /api/zernio (la clave de Zernio vive en el servidor). Se registra en VISTAS (MENSAJES → pintarMensajes). */
-var MEN = { cuentas:null, convs:null, sel:null, msgs:null, cargando:false, error:null, enviando:false, at:0, borrador:'' };
+var MEN = { cuentas:null, convs:null, sel:null, msgs:null, cargando:false, error:null, at:0 };
 var MEN_PLAT = { whatsapp:['WhatsApp', 'ph-whatsapp-logo'], instagram:['Instagram', 'ph-instagram-logo'], facebook:['Facebook', 'ph-facebook-logo'], telegram:['Telegram', 'ph-telegram-logo'], twitter:['X', 'ph-x-logo'], bluesky:['Bluesky', 'ph-butterfly'], reddit:['Reddit', 'ph-reddit-logo'], imessage:['iMessage', 'ph-chat-circle'] };
 
 (function(){
@@ -25,13 +25,12 @@ var MEN_PLAT = { whatsapp:['WhatsApp', 'ph-whatsapp-logo'], instagram:['Instagra
     + '.men-chat{display:flex;flex-direction:column;min-width:0;min-height:0}.men-hilo{flex:1;min-height:0;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:6px}'
     + '.men-m{max-width:min(520px,80%);padding:8px 12px;border-radius:14px;font-size:14px;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere;background:var(--line);align-self:flex-start}'
     + '.men-m.yo{align-self:flex-end;background:var(--acc);color:#fff}.men-m small{display:block;opacity:.7;font-size:11px;margin-top:2px}'
-    + '.men-form{display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--line)}.men-form textarea{flex:1;font:inherit;border:1px solid var(--line-strong);border-radius:var(--r-sm);padding:8px 10px;background:var(--bg);color:var(--text);resize:none;min-height:40px;max-height:140px}'
     + '.men-vacio{margin:auto;text-align:center;color:var(--faint);padding:24px;max-width:420px}.men-vacio a{color:var(--acc)}'
     + '@media(max-width:900px){.men-body{grid-template-columns:minmax(0,1fr)}.men-body.chat-on .men-lista{display:none}.men-body:not(.chat-on) .men-chat{display:none}}';
   document.head.appendChild(css);
 })();
 
-function menNoLeidos(){ return (MEN.convs || []).reduce(function(t, c){ return t + (c.unreadCount || 0); }, 0); }
+function menNoLeidos(){ return (MEN.convs || []).filter(menNuevo).length; }
 function menPlat(p){ return MEN_PLAT[p] || [p || '', 'ph-chat-circle']; }
 function menFecha(t){ if(!t) return ''; var d = new Date(t), h = new Date(); return d.toDateString() === h.toDateString() ? d.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }) : d.toLocaleDateString([], { day:'numeric', month:'short' }); }
 async function menApi(url, opt){
@@ -54,30 +53,20 @@ async function cargarMensajes(){
   finally { MEN.cargando = false; drawSide(); if(st.folder === 'MENSAJES') pintarMensajes(); }
 }
 async function abrirConversacion(id, cuenta){
-  MEN.sel = { id:id, cuenta:cuenta }; MEN.msgs = null; MEN.borrador = ''; pintarMensajes();
+  MEN.sel = { id:id, cuenta:cuenta }; MEN.msgs = null; pintarMensajes();
   try {
     var j = await menApi('/api/zernio?r=mensajes&id=' + encodeURIComponent(id) + '&cuenta=' + encodeURIComponent(cuenta));
     if(!MEN.sel || MEN.sel.id !== id) return;
     MEN.msgs = j.ok ? j.mensajes : []; if(!j.ok) toast('No se pudieron leer los mensajes');
-    var c = (MEN.convs || []).filter(function(x){ return x.id === id; })[0];
-    if(c && c.unreadCount){ c.unreadCount = 0; drawSide(); menApi('/api/zernio', { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ accion:'leido', id:id, cuenta:cuenta }) }).catch(function(){}); }
+    menVisto(id);
   } catch(e){ MEN.msgs = []; toast('No se pudieron leer los mensajes'); }
   pintarMensajes();
   var h = document.getElementById('menHilo'); if(h) h.scrollTop = h.scrollHeight;
 }
-async function enviarMensaje(){
-  var ta = document.getElementById('menTexto'), t = ta ? ta.value.trim() : ''; if(!t || !MEN.sel || MEN.enviando) return;
-  MEN.enviando = true; pintarMensajes();
-  try {
-    var j = await menApi('/api/zernio', { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ accion:'enviar', id:MEN.sel.id, cuenta:MEN.sel.cuenta, texto:t }) });
-    if(!j.ok) throw new Error(j.detalle || 'no enviado');
-    MEN.borrador = ''; toast('Mensaje enviado');
-    var s = MEN.sel, j2 = await menApi('/api/zernio?r=mensajes&id=' + encodeURIComponent(s.id) + '&cuenta=' + encodeURIComponent(s.cuenta));
-    if(j2.ok) MEN.msgs = j2.mensajes;
-  } catch(e){ MEN.borrador = t; toast('No se pudo enviar: ' + e.message); }
-  MEN.enviando = false; pintarMensajes();
-  var h = document.getElementById('menHilo'); if(h) h.scrollTop = h.scrollHeight;
-}
+// «visto» se guarda solo en este navegador: la lista marca lo que ha cambiado desde la última vez que lo abriste
+var MEN_V = (function(){ try { return JSON.parse(localStorage.getItem('buzonero-men-vistos') || '{}') || {}; } catch(e){ return {}; } })();
+function menVisto(id){ var c = (MEN.convs || []).filter(function(x){ return x.id === id; })[0]; MEN_V[id] = c ? c.updatedTime : new Date().toISOString(); try { localStorage.setItem('buzonero-men-vistos', JSON.stringify(MEN_V)); } catch(e){} drawSide(); }
+function menNuevo(c){ return !!c.updatedTime && (!MEN_V[c.id] || Date.parse(c.updatedTime) > Date.parse(MEN_V[c.id])); }
 function pintarMensajes(){
   var el = $('rows'); if(!el) return;
   if(!MEN.convs && !MEN.cargando){ cargarMensajes(); return; }
@@ -94,7 +83,7 @@ function pintarMensajes(){
       var p = menPlat(c.platform), nom = c.participantName || c.whatsappUsername || 'Sin nombre', cur = MEN.sel && MEN.sel.id === c.id;
       h += '<button type="button" class="men-it" data-men="' + esc(c.id) + '|' + esc(c.accountId) + '" aria-current="' + !!cur + '"><span class="men-av">' + (c.participantPicture ? '<img src="' + esc(c.participantPicture) + '" alt="" referrerpolicy="no-referrer" onerror="this.remove()">' : esc(nom.charAt(0).toUpperCase())) + '</span>'
         + '<span class="men-tx"><span class="men-top"><b>' + esc(nom) + '</b><time>' + esc(menFecha(c.updatedTime)) + '</time></span><span class="men-snip">' + esc(c.lastMessage || '') + '</span>'
-        + '<span class="men-meta"><i class="ph ' + p[1] + '"></i>' + esc(p[0]) + (c.accountUsername ? ' · ' + esc(c.accountUsername) : '') + (c.unreadCount ? ' <span class="men-n">' + c.unreadCount + '</span>' : '') + '</span></span></button>';
+        + '<span class="men-meta"><i class="ph ' + p[1] + '"></i>' + esc(p[0]) + (c.accountUsername ? ' · ' + esc(c.accountUsername) : '') + (menNuevo(c) ? ' <span class="men-n">nuevo</span>' : '') + '</span></span></button>';
     });
     h += '</div><div class="men-chat">';
     if(!MEN.sel) h += '<div class="men-vacio">Elige una conversación.</div>';
@@ -102,7 +91,7 @@ function pintarMensajes(){
       h += '<div class="men-hilo" id="menHilo">';
       if(!MEN.msgs) h += '<div class="men-vacio">Cargando…</div>';
       else MEN.msgs.forEach(function(m){ h += '<div class="men-m' + (m.direction === 'outgoing' ? ' yo' : '') + '">' + esc(m.message || (m.attachments && m.attachments.length ? '[adjunto]' : '')) + '<small>' + esc(menFecha(m.createdAt)) + '</small></div>'; });
-      h += '</div><form class="men-form" id="menForm"><textarea id="menTexto" rows="1" placeholder="Escribe un mensaje…"' + (MEN.enviando ? ' disabled' : '') + '>' + esc(MEN.borrador) + '</textarea><button class="btn primary" type="submit"' + (MEN.enviando ? ' disabled' : '') + '>Enviar</button></form>';
+      h += '</div>';
     }
     h += '</div></div>';
   }
@@ -113,8 +102,5 @@ document.addEventListener('click', function(e){
   if((t = e.target.closest('[data-men]'))){ var p = t.dataset.men.split('|'); abrirConversacion(p[0], p[1]); return; }
   if(e.target.closest('[data-ve="men"]')){ MEN.convs = null; MEN.sel = null; cargarMensajes(); }
 });
-document.addEventListener('submit', function(e){ if(e.target && e.target.id === 'menForm'){ e.preventDefault(); enviarMensaje(); } });
-document.addEventListener('keydown', function(e){ if(e.target && e.target.id === 'menTexto' && e.key === 'Enter' && !e.shiftKey && !e.isComposing){ e.preventDefault(); enviarMensaje(); } });
-document.addEventListener('input', function(e){ if(e.target && e.target.id === 'menTexto') MEN.borrador = e.target.value; });
 // se refresca solo cada minuto mientras la vista está abierta (sin pisar lo que se escribe)
-setInterval(function(){ if(st.folder === 'MENSAJES' && !MEN.cargando && !MEN.enviando && !MEN.borrador && document.visibilityState === 'visible'){ var s = MEN.sel; menApi('/api/zernio?r=conversaciones').then(function(j){ if(j.ok){ MEN.convs = j.conversaciones; drawSide(); if(!MEN.borrador) pintarMensajes(); } }).catch(function(){}); } }, 60000);
+setInterval(function(){ if(st.folder === 'MENSAJES' && !MEN.cargando && document.visibilityState === 'visible'){ menApi('/api/zernio?r=conversaciones').then(function(j){ if(j.ok){ MEN.convs = j.conversaciones; drawSide(); pintarMensajes(); } }).catch(function(){}); } }, 60000);

@@ -17,7 +17,7 @@ import path from 'node:path';
 import dns from 'node:dns/promises';
 import net from 'node:net';
 
-const VERSION = '1.1.0';
+const VERSION = '1.2.0';
 const BASE = String(process.env.BUZONERO_URL || '').replace(/\/+$/, '');
 const DIRECT_MAX = 25 * 1024 * 1024;
 const DIA = 864e5;
@@ -267,6 +267,8 @@ const TOOLS = [
   T('crear_etiqueta', 'Crea una etiqueta con el color que elijas (si no, uno que no use ninguna otra). Admite subetiquetas con «/» (Clientes/Acme).', { cuenta: CUENTA, nombre: { type: 'string' }, color: { type: 'string', enum: Object.keys(COLORES) } }, ['cuenta', 'nombre']),
   T('color_etiqueta', 'Cambia el color de una etiqueta.', { cuenta: CUENTA, etiqueta: { type: 'string', description: 'Nombre o id.' }, color: { type: 'string', enum: Object.keys(COLORES) } }, ['cuenta', 'etiqueta', 'color']),
   T('avisame_si_no_contesta', '«Avísame si no contesta»: si en ese plazo nadie responde en el hilo, el hilo vuelve a Recibidos sin leer con la etiqueta «Sin respuesta» y llega un aviso al móvil.', { cuenta: CUENTA, hilo_id: { type: 'string' }, dias: { type: 'number', description: '1-60 (1 = mañana, 3, 7, 14…).' } }, ['cuenta', 'hilo_id', 'dias']),
+  T('mensajes', 'Las conversaciones de WhatsApp (y otras redes con mensajes) que llegan por Zernio, las más recientes primero: con quién, último mensaje y fecha. SOLO LECTURA.', { max: { type: 'number', description: '1-50, por defecto 20.' } }),
+  T('leer_conversacion', 'Lee los mensajes de una conversación de «mensajes» (usa su id y su cuenta). SOLO LECTURA: no marca nada como leído, así que el cliente no ve el doble check azul.', { id: { type: 'string' }, cuenta: { type: 'string', description: 'El campo «cuenta» que devolvió «mensajes».' } }, ['id', 'cuenta']),
   T('avisos_pendientes', 'Los «Avísame si no contesta» puestos en todas las cuentas y cuándo vence cada uno.'),
   T('quitar_aviso', 'Quita un «Avísame si no contesta».', { cuenta: CUENTA, hilo_id: { type: 'string' } }, ['cuenta', 'hilo_id']),
   T('paquetes', 'Pedidos y envíos de TODAS las cuentas (Amazon, Correos, SEUR, AliExpress, Shein…): tienda, estado aproximado (pedido, en camino, hoy, entregado, cancelado), número de seguimiento si aparece y el hilo.', { dias: { type: 'number', description: 'Cuántos días atrás (por defecto 30, máximo 120).' } }),
@@ -428,6 +430,17 @@ const HANDLERS = {
     const r = await servidor('/api/seguir', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo) });
     if (!r.ok) throw new Error('Tu Buzonero no guardó el aviso (' + r.status + ').');
     return { puesto: true, cuenta: ACC[k].name, asunto: cuerpo.asunto, avisa: fecha(cuerpo.vence), si: 'nadie responde en el hilo antes de esa fecha' };
+  },
+  async mensajes({ max }) {
+    const r = await servidor('/api/zernio?r=conversaciones'); const j = await r.json().catch(() => ({}));
+    if (j.error === 'sin_clave') throw new Error('Tu Buzonero no tiene ZERNIO_API_KEY en Vercel.');
+    if (!r.ok || !j.ok) throw new Error('Tu Buzonero no devolvió los mensajes (' + (j.status || r.status) + ').');
+    return (j.conversaciones || []).slice(0, Math.min(Math.max(+max || 20, 1), 50)).map((c) => ({ id: c.id, cuenta: c.accountId, red: c.platform, con: c.participantName || c.whatsappUsername || '', ultimo: c.lastMessage, fecha: c.updatedTime }));
+  },
+  async leer_conversacion({ id, cuenta }) {
+    const r = await servidor('/api/zernio?r=mensajes&id=' + encodeURIComponent(id) + '&cuenta=' + encodeURIComponent(cuenta)); const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.ok) throw new Error('Tu Buzonero no devolvió la conversación (' + (j.status || r.status) + ').');
+    return (j.mensajes || []).map((m) => ({ de: m.direction === 'outgoing' ? 'nosotros' : (m.senderName || 'cliente'), fecha: m.createdAt, texto: m.message || (m.attachments && m.attachments.length ? '[adjunto]' : '') }));
   },
   async avisos_pendientes() {
     const r = await servidor('/api/seguir'); const j = await r.json().catch(() => ({}));

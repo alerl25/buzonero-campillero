@@ -95,11 +95,25 @@ export async function conectarMC(d) {
   return { guardar: { token, userId, marcas, conectado: new Date().toISOString() }, estado: { userId, marcas: marcas.length, resumen: marcas.length + ' marca' + (marcas.length === 1 ? '' : 's') } };
 }
 
+// ---------- WhatsApp por Zernio (solo lectura) ----------
+// No lleva claves del usuario: usa la ZERNIO_API_KEY del servidor. Se activa por CRM; sus conversaciones entran como leads.
+export async function conectarZR() {
+  if (!process.env.ZERNIO_API_KEY) throw new Error('Este Buzonero no tiene ZERNIO_API_KEY (variable de entorno de Vercel).');
+  const r = await fetch('https://zernio.com/api/v1/accounts', { headers: { Authorization: 'Bearer ' + process.env.ZERNIO_API_KEY } });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error('Zernio no acepta la clave (' + r.status + ').');
+  const wa = (j.accounts || []).filter((a) => a.platform === 'whatsapp');
+  if (!wa.length) throw new Error('Zernio no tiene ningún WhatsApp conectado: conéctalo en zernio.com y vuelve a probar.');
+  const nombres = wa.map((a) => String(a.displayName || a.username || a.name || 'WhatsApp').slice(0, 60));
+  return { guardar: { conectado: new Date().toISOString(), cuentas: nombres }, estado: { cuentas: nombres, resumen: nombres.join(', ') } };
+}
+
 // Lo que la app puede ver de cada integración: nunca claves ni tokens
 export function estadoPublico(integ) {
   const i = integ || {}, out = {};
   if (i.ga) out.ga = { propiedad: i.ga.propiedad, cuenta: (i.ga.sa || {}).client_email, conectado: i.ga.conectado };
   if (Array.isArray(i.wa) && i.wa.length) out.wa = i.wa.map((n) => ({ id: n.id, nombre: n.nombre, numero: n.numero, verificado: n.verificado, conectado: n.conectado }));
+  if (i.zr) out.zr = { cuentas: i.zr.cuentas || [], conectado: i.zr.conectado };
   if (i.mc) out.mc = { userId: i.mc.userId, marcas: i.mc.marcas || [], conectado: i.mc.conectado };
   if (i.nx) out.nx = { espacio: i.nx.espacio, usuario: i.nx.usuario, caduca: i.nx.caduca, conectado: i.nx.conectado };
   return out;

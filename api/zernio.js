@@ -1,22 +1,10 @@
 // Mensajes: la bandeja unificada de Zernio (WhatsApp, Instagram, Facebook, Telegram, X…) dentro de Buzonero.
 // La clave (ZERNIO_API_KEY) vive solo en las variables de Vercel: el navegador nunca la ve.
 // Una sola función (el plan gratis de Vercel admite 12): ?r= elige la parte.
-// GET  ?r=estado | conversaciones | mensajes · POST { accion: 'enviar' | 'leido' }
-import crypto from 'node:crypto';
+// SOLO LECTURA (decisión del dueño, 20-oct-2026): GET ?r=estado | conversaciones | mensajes. No hay ningún camino para enviar
+// ni para marcar como leído (en WhatsApp eso manda el doble check azul al cliente).
 import { validSession, sameOrigin, noStore, esMaquina } from './_lib.js';
-
-const BASE = 'https://zernio.com/api/v1';
-const ID = /^[A-Za-z0-9_.:@=+\-]{1,200}$/;   // ids opacos de Zernio: solo caracteres seguros
-
-async function zernio(path, opt = {}) {
-  const r = await fetch(BASE + path, {
-    method: opt.method || 'GET',
-    headers: Object.assign({ Authorization: 'Bearer ' + process.env.ZERNIO_API_KEY, 'Content-Type': 'application/json' }, opt.headers || {}),
-    body: opt.json !== undefined ? JSON.stringify(opt.json) : undefined,
-  });
-  const j = await r.json().catch(() => ({}));
-  return { status: r.status, body: j };
-}
+import { zernio, ID_ZERNIO as ID } from './_zernio.js';
 
 export default async function handler(req, res) {
   noStore(res);
@@ -50,27 +38,6 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true, mensajes: x.body.messages || [] });
       }
       return res.status(400).json({ error: 'r' });
-    }
-    if (req.method === 'POST') {
-      const b = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
-      const c = String(b.id || ''), a = String(b.cuenta || '');
-      if (!ID.test(c) || !ID.test(a)) return res.status(400).json({ error: 'id' });
-      if (b.accion === 'leido') {
-        const x = await zernio('/inbox/conversations/' + encodeURIComponent(c) + '/read', { method: 'POST', json: { accountId: a } });
-        return res.status(200).json({ ok: x.status < 300 });
-      }
-      if (b.accion === 'enviar') {
-        // Enviar solo con la orden explícita de quien usa la app (o de Claude con confirmado: true a petición del dueño)
-        if (maquina && b.confirmado !== true) return res.status(400).json({ error: 'confirmado' });
-        const texto = String(b.texto || '').trim();
-        if (!texto || texto.length > 4000) return res.status(400).json({ error: 'texto' });
-        const x = await zernio('/inbox/conversations/' + encodeURIComponent(c) + '/messages', {
-          method: 'POST', json: { accountId: a, message: texto }, headers: { 'Idempotency-Key': crypto.randomUUID() },
-        });
-        if (x.status >= 300) return res.status(200).json({ ok: false, error: 'zernio', status: x.status, detalle: (x.body && (x.body.error || x.body.message)) || '' });
-        return res.status(200).json({ ok: true });
-      }
-      return res.status(400).json({ error: 'accion' });
     }
     return res.status(405).json({ error: 'metodo' });
   } catch (e) {
