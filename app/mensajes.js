@@ -86,6 +86,7 @@ async function cargarMensajes(){
       MEN.convs = e.cuentas.length ? ((await menApi('/api/zernio?r=conversaciones')).conversaciones || []) : [];
     }
     MEN.at = Date.now();
+    MEN_FIRMA = menFirmaConvs(MEN.convs);
   } catch(err){ MEN.error = 'fallo'; if(!MEN.convs) MEN.convs = []; }
   finally { MEN.cargando = false; drawSide(); if(st.folder === 'MENSAJES') pintarMensajes(); }
 }
@@ -106,6 +107,9 @@ function menVisto(id){ var c = (MEN.convs || []).filter(function(x){ return x.id
 function menNuevo(c){ return !!c.updatedTime && (!MEN_V[c.id] || Date.parse(c.updatedTime) > Date.parse(MEN_V[c.id])); }
 function pintarMensajes(){
   var el = $('rows'); if(!el) return;
+  // al repintar se conserva dónde estaba la lista y el chat; si el chat estaba abajo, sigue abajo (lo nuevo se ve)
+  var ant = { l:0, h:0, abajo:true }, l0 = el.querySelector('.men-lista'), h0 = document.getElementById('menHilo');
+  if(l0) ant.l = l0.scrollTop; if(h0){ ant.h = h0.scrollTop; ant.abajo = h0.scrollHeight - h0.scrollTop - h0.clientHeight < 80; }
   if(!MEN.convs && !MEN.cargando){ cargarMensajes(); return; }
   var sub = MEN.cargando ? 'Cargando…' : (MEN.cuentas && MEN.cuentas.length ? 'Solo lectura · por Zernio' : 'Ningún WhatsApp conectado todavía');
   var h = '<div class="vista-esp men">' + cabezaVista('WhatsApp', sub, 'men', MEN.cargando);
@@ -139,6 +143,8 @@ function pintarMensajes(){
     h += '</div></div>';
   }
   el.innerHTML = h + '</div>';
+  var l1 = el.querySelector('.men-lista'), h1 = document.getElementById('menHilo');
+  if(l1) l1.scrollTop = ant.l; if(h1) h1.scrollTop = ant.abajo ? h1.scrollHeight : ant.h;
   if(window.__particulas && window.__particulas.refrescar) window.__particulas.refrescar();
 }
 document.addEventListener('click', function(e){
@@ -154,5 +160,29 @@ document.addEventListener('click', function(e){
   if((t = e.target.closest('[data-men]'))){ var p = t.dataset.men.split('|'); abrirConversacion(p[0], p[1]); return; }
   if(e.target.closest('[data-ve="men"]')){ MEN.convs = null; MEN.sel = null; cargarMensajes(); }
 });
-// se refresca solo cada minuto mientras la vista está abierta (sin pisar lo que se escribe)
-setInterval(function(){ if(st.folder === 'MENSAJES' && !MEN.cargando && document.visibilityState === 'visible'){ menApi('/api/zernio?r=conversaciones').then(function(j){ if(j.ok){ MEN.convs = j.conversaciones; drawSide(); pintarMensajes(); } }).catch(function(){}); } }, 60000);
+// Se actualiza SOLO, como el correo: cada 10 s con la vista abierta (la lista y la conversación que estás leyendo), y cada 30 s desde otra
+// vista, para que el globo de la barra lateral esté al día. Solo repinta si algo ha cambiado, y no toca lo que estás escribiendo ni dónde estabas.
+var MEN_FIRMA = '', menTic = 0, menOcupado = false;
+function menFirmaConvs(l){ return (l || []).map(function(c){ return c.id + '|' + c.updatedTime + '|' + c.lastMessage + '|' + (c.participantName || ''); }).join('~'); }
+function menFirmaMsgs(m){ var n = (m || []).length, u = n ? m[n - 1] : {}; return n + '|' + (u.id || '') + '|' + (u.createdAt || ''); }
+async function menRefrescar(){
+  if(menOcupado || MEN.cargando) return; menOcupado = true;
+  try {
+    var j = await menApi('/api/zernio?r=conversaciones');
+    if(j.ok){
+      var f = menFirmaConvs(j.conversaciones), cambio = f !== MEN_FIRMA;
+      if(cambio){ MEN_FIRMA = f; MEN.convs = j.conversaciones; drawSide(); }
+      if(MEN.sel && st.folder === 'MENSAJES'){
+        var m = await menApi('/api/zernio?r=mensajes&id=' + encodeURIComponent(MEN.sel.id) + '&cuenta=' + encodeURIComponent(MEN.sel.cuenta));
+        if(m.ok && menFirmaMsgs(m.mensajes) !== menFirmaMsgs(MEN.msgs)){ MEN.msgs = m.mensajes; cambio = true; menVisto(MEN.sel.id); }
+      }
+      if(cambio && st.folder === 'MENSAJES') pintarMensajes();
+    }
+  } catch(e){}
+  menOcupado = false;
+}
+setInterval(function(){
+  if(document.visibilityState !== 'visible' || !window.INTEG_ON || !INTEG_ON.wa) return;
+  menTic++; if(st.folder === 'MENSAJES' || menTic % 3 === 0) menRefrescar();
+}, 10000);
+document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'visible' && window.INTEG_ON && INTEG_ON.wa) menRefrescar(); });

@@ -195,6 +195,7 @@ env = { BUZONERO_URL = "https://TU-APP.vercel.app" }
 - Lista de conversaciones con el chat al lado. **Es de solo lectura por diseño**: no hay en el servidor ningún camino para enviar, y no marca los mensajes como leídos (en WhatsApp eso mandaría el doble check azul al cliente).
 - **Nombres legibles**: el nombre que tú pones («Poner nombre»), el que trae WhatsApp o, si no hay, el número bien escrito (`+34 600 55 05 78`).
 - **Fotos de perfil**: WhatsApp no las da a las empresas. Si conectas tus **Contactos de Google**, salen el nombre y la foto de quien tengas en tu agenda; si no, unas iniciales de color.
+- **Se actualiza solo**, como el correo: cada 10 segundos con la vista abierta, también la conversación que estás leyendo, sin saltos de pantalla.
 - **Aviso al móvil** cuando entra un WhatsApp nuevo (solo de lo que escribe el cliente, no de tus respuestas).
 - El panel vacío lleva un icono de partículas, como el sobre del correo.
 - Solo sale en la barra lateral si tienes un WhatsApp conectado.

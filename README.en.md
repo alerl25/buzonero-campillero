@@ -152,6 +152,7 @@ claude mcp add buzonero --scope user -e BUZONERO_URL=https://YOUR-APP.vercel.app
 - Conversation list with the chat beside it. **Read-only by design**: the server has no path to send, and it never marks messages as read.
 - **Readable names**: the name you give a number, the one WhatsApp provides, or a nicely formatted number.
 - **Profile photos**: WhatsApp doesn't give them to businesses. If you connect your **Google Contacts**, names and photos come from your address book; otherwise you get coloured initials.
+- **Updates by itself**, like mail: every 10 seconds while the view is open, including the conversation you are reading, with no jumping around.
 - **Phone alert** for each new incoming WhatsApp message (never for your own replies).
 - It only appears in the sidebar when a WhatsApp number is connected.
 

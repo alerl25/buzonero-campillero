@@ -2,6 +2,11 @@
 
 Todas las versiones de Buzonero Campillero. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [1.17.2] · 2026-10-20
+
+### App web
+- **WhatsApp se actualiza solo**, como el correo: cada 10 segundos con la vista abierta (la lista y también la conversación que estás leyendo) y cada 30 desde otra vista, para que el globo de la barra lateral esté al día. Solo repinta si algo ha cambiado y no te mueve la pantalla: si estabas leyendo más arriba, te deja donde estabas; si estabas abajo, se queda abajo y ves lo nuevo. Se actualiza también al volver a la pestaña.
+
 ## [1.17.1] · 2026-10-20
 
 ### Documentación
