@@ -1,7 +1,7 @@
 /* Buzonero Campillero · WhatsApp (por Zernio)
    Vista «WhatsApp» de la barra lateral: las conversaciones de WhatsApp conectado en Zernio, en una lista, con el chat al lado. Es de SOLO LECTURA: no se puede contestar desde aquí ni se marca nada como leído (en WhatsApp eso manda el doble check azul).
    Habla con /api/zernio (la clave de Zernio vive en el servidor). Se registra en VISTAS (MENSAJES → pintarMensajes). */
-var MEN = { cuentas:null, convs:null, sel:null, msgs:null, cargando:false, error:null, at:0, contactos:[] };
+var MEN = { cuentas:null, convs:null, sel:null, msgs:null, cargando:false, error:null, at:0, contactos:[], agenda:{ n:0, fotos:0, fallos:[] } };
 var MEN_PLAT = { whatsapp:['WhatsApp', 'ph-whatsapp-logo'], instagram:['Instagram', 'ph-instagram-logo'], facebook:['Facebook', 'ph-facebook-logo'], telegram:['Telegram', 'ph-telegram-logo'], twitter:['X', 'ph-x-logo'], bluesky:['Bluesky', 'ph-butterfly'], reddit:['Reddit', 'ph-reddit-logo'], imessage:['iMessage', 'ph-chat-circle'] };
 
 (function(){
@@ -82,6 +82,7 @@ async function cargarMensajes(){
     else {
       MEN.cuentas = e.cuentas;
       MEN.contactos = e.contactos || [];
+      MEN.agenda = e.agenda || { n:0, fotos:0, fallos:[] };
       MEN.convs = e.cuentas.length ? ((await menApi('/api/zernio?r=conversaciones')).conversaciones || []) : [];
     }
     MEN.at = Date.now();
@@ -109,7 +110,7 @@ function pintarMensajes(){
   var sub = MEN.cargando ? 'Cargando…' : (MEN.cuentas && MEN.cuentas.length ? 'Solo lectura · por Zernio' : 'Ningún WhatsApp conectado todavía');
   var h = '<div class="vista-esp men">' + cabezaVista('WhatsApp', sub, 'men', MEN.cargando);
   var barra = MEN.convs && MEN.cuentas && MEN.cuentas.length ? '<div class="men-barra"><i class="ph ph-address-book"></i>' + (MEN.contactos.length
-    ? '<span>Contactos de Google: <b data-notr>' + esc(MEN.contactos.join(', ')) + '</b></span><button type="button" class="btn sm" data-men-ct="quitar">Quitar</button>'
+    ? '<span>Contactos de Google: <b data-notr>' + esc(MEN.contactos.join(', ')) + '</b> · ' + (MEN.agenda.fallos.length ? '<span style="color:var(--acc)">Google no los deja leer (' + esc(MEN.agenda.fallos.join(', ')) + ')</span>' : MEN.agenda.n ? esc(MEN.agenda.n) + ' teléfonos leídos, ' + esc(MEN.agenda.fotos) + ' con foto' : '<span style="color:var(--acc)">esa cuenta no tiene teléfonos guardados en Contactos</span>') + '</span><button type="button" class="btn sm" data-men-ct="quitar">Quitar</button>'
     : '<span>Pon nombre y foto a los números con tus Contactos de Google</span><button type="button" class="btn sm primary" data-men-ct="conectar"><i class="ph ph-plug"></i> Conectar contactos de Google</button>') + '</div>' : '';
   h += barra;
   if(!MEN.convs){ h += '<div class="men-vacio">Cargando tus conversaciones…</div>'; }
@@ -127,7 +128,7 @@ function pintarMensajes(){
     });
     h += '</div><div class="men-chat">';
     if(!MEN.sel) h += '<div class="empty tel"><div class="halo"><i class="ph ph-whatsapp-logo"></i></div><span class="eyebrow">WhatsApp · ' + esc((MEN.convs || []).length) + ' conversaciones</span>'
-      + '<h2>Elige una <em>conversación.</em></h2><p>Aquí lees lo que os escriben por WhatsApp. Solo se mira: desde aquí no se contesta.</p></div>';
+      + '<h2>Elige una <em>conversación.</em></h2><p>Solo lectura: no se contesta desde aquí.</p></div>';
     else {
       h += menCabecera((MEN.convs || []).filter(function(x){ return x.id === MEN.sel.id; })[0]);
       h += '<div class="men-hilo" id="menHilo">';

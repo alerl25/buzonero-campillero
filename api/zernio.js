@@ -21,8 +21,8 @@ export default async function handler(req, res) {
         const x = await zernio('/accounts');
         if (x.status !== 200) return res.status(200).json({ ok: false, error: 'zernio', status: x.status });
         const cuentas = (x.body.accounts || []).map((a) => ({ id: a._id || a.id, plataforma: a.platform, nombre: a.displayName || a.username || a.name || a.platform, usuario: a.username || '', foto: a.profilePicture || '' }));
-        let contactos = []; try { contactos = (await agenda()).emails; } catch (e) {}
-        return res.status(200).json({ ok: true, cuentas, contactos });
+        let contactos = [], ag = { n: 0, fotos: 0, fallos: [] }; try { const g = await agenda(); contactos = g.emails; ag = { n: g.n, fotos: g.fotos, fallos: g.fallos }; } catch (e) {}
+        return res.status(200).json({ ok: true, cuentas, contactos, agenda: ag });
       }
       if (r === 'conversaciones') {
         const p = new URLSearchParams({ limit: '50', platform: 'whatsapp' });   // solo WhatsApp (y Gmail aparte): decisión del dueño, 20-oct-2026

@@ -429,7 +429,7 @@ export async function refreshAccess(key, reintento) {
 // Se conecta con el botón de la vista WhatsApp. Guarda solo el permiso (cifrado en el almacén, campo «contactos»), nunca los contactos.
 export async function guardarContactos(email, rt) { await updateStore((n) => { n.contactos = n.contactos || {}; n.contactos[email] = { rt, desde: new Date().toISOString() }; }); }
 export async function quitarContactos(email) { await updateStore((n) => { if (!n.contactos || !n.contactos[email]) return false; delete n.contactos[email]; }); }
-export async function emailsContactos() { return Object.keys((await readStore()).contactos || {}); }
+export async function emailsContactos() { return Object.keys((await readStore(true)).contactos || {}); }   // fresco: lo conectado hace un segundo en otra función tiene que verse
 export async function tokenContactos(email) {
   const rt = (((await readStore()).contactos || {})[email] || {}).rt; if (!rt) return null;
   const { ok, j } = await googleRefresh(rt);

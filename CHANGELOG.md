@@ -2,6 +2,13 @@
 
 Todas las versiones de Buzonero Campillero. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [1.15.1] · 2026-10-20
+
+### App web
+- **Corregido:** el icono de partículas del panel vacío de WhatsApp no se veía (el panel de la vista, opaco, tapaba el lienzo que va por detrás). Ahora solo la lista de conversaciones queda opaca.
+- La barra de contactos de Google dice cuántos teléfonos ha leído y si Google falla; el estado se lee siempre fresco al volver de conectar.
+- Frase del panel vacío más corta.
+
 ## [1.15] · 2026-10-20
 
 ### App web

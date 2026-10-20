@@ -158,6 +158,9 @@ body {
 .particulas-sobre .men-chat > .empty .halo { width:180px; height:132px; margin-bottom:26px; background:none; }
 .particulas-sobre .men-chat > .empty .halo i { opacity:0; }
 .men-chat > .empty { max-width:420px; }
+/* las partículas van detrás de todo: en WhatsApp el panel .rows (opaco) las tapaba. Ahora solo la lista de conversaciones queda opaca */
+.rows:has(.vista-esp.men) { background:transparent; }
+.vista-esp.men .men-lista { background:var(--bg); }
 
 /* ---------- capas flotantes ---------- */
 .menu, .sugg, .tb-pop, .notif { background:var(--card); border-color:var(--card-line); }
