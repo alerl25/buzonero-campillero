@@ -39,7 +39,7 @@ export async function leadsWhatsApp(etapas, guardadas, noLead, alias) {
         if (u) { l.turno = u.direction === 'outgoing' ? 'suyo' : 'tuyo'; l.ultimo = Date.parse(u.createdAt) || l.fecha; }
       } catch (e) {}
       if (!l.turno) l.turno = 'desconocido';   // truthy: que el tablero no lo tome por «te toca»
-      if (!l.etapa) l.etapa = l.turno === 'suyo' && etapas[1] ? etapas[1] : etapas[0];
+      if (!l.etapa) l.etapa = l.turno === 'suyo' && etapas.find((e) => /^respondido$/i.test(e)) ? etapas.find((e) => /^respondido$/i.test(e)) : etapas[0];
     }
   }));
   return leads.filter((l) => l.etapa !== noLead);

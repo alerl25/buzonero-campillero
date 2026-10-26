@@ -670,6 +670,24 @@
   .cv-tools { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
   .cv-tools input { flex:1; max-width:420px; font:inherit; font-size:14px; border:1px solid var(--line-strong); border-radius:var(--pill); padding:8px 14px; background:var(--bg); color:var(--text); }
   .cv-cuenta { color:var(--mute); font-size:13px; }
+  .cv-meses { border:1px solid var(--line); border-radius:var(--r); overflow:auto; }
+  .cv-fm { display:grid; grid-template-columns:minmax(150px,1.5fr) 140px 56px 70px minmax(100px,1fr) minmax(180px,2.4fr) 100px 96px; gap:10px; align-items:center; padding:8px 14px; border-top:1px solid var(--line); font-size:13px; min-width:860px; }
+  .cv-fm.cv-th { background:var(--surface); color:var(--mute); font-size:12px; font-weight:600; border-top:0; }
+  .cv-fm > span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .cv-fm-c small { display:block; color:var(--faint); font-size:11px; }
+  .cv-fm-o { color:var(--mute); } .cv-fm-i { text-align:right; font-variant-numeric:tabular-nums; font-weight:600; }
+  .cv-fm.e-g { background:rgba(31,157,85,.10); } .cv-fm.e-p { background:rgba(214,40,40,.12); } .cv-fm.e-n { background:rgba(214,160,0,.07); }
+  .cv-lin { font-size:11px; padding:3px 6px; border-radius:var(--pill); background:var(--surface-2, var(--surface)); }
+  .cv-fm select { font:inherit; font-size:12.5px; border:1px solid var(--line-strong); border-radius:var(--r-sm); padding:4px 6px; background:var(--bg); color:var(--text); max-width:100%; }
+  .cv-fm select.cv-sel-g { background:rgba(31,157,85,.18); } .cv-fm select.cv-sel-p { background:rgba(214,40,40,.20); color:#a31717; font-weight:600; }
+  .cv-fm-b { display:flex; align-items:center; justify-content:flex-end; gap:4px; }
+  .cv-del { width:28px; height:28px; color:var(--faint); } .cv-del:hover { color:#c0211b; }
+  .cv-col[data-etapa="Perdido"] { background:rgba(214,40,40,.10); } .cv-col[data-etapa="Perdido"] .cv-col-h b { color:#b01e1e; }
+  .cv-col[data-etapa="Ganado"] { background:rgba(31,157,85,.10); } .cv-fm select.cv-sel-n { background:rgba(214,160,0,.14); }
+  .cv-mes-h { display:flex; gap:14px; align-items:center; padding:9px 14px; background:#1c1f26; color:#fff; font-size:13px; border-top:1px solid var(--line); min-width:860px; }
+  .cv-mes-r { flex:1; opacity:.8; font-size:12.5px; } .cv-mes-t { font-variant-numeric:tabular-nums; }
+  .cv-mes-tt { display:flex; justify-content:space-between; padding:8px 14px; border-top:1px solid var(--line); font-size:13px; min-width:860px; } .cv-mes-tt.tot { background:rgba(31,157,85,.14); font-weight:700; }
+  .cv-mes-tt b { font-variant-numeric:tabular-nums; }
   .cv-tabla { display:flex; flex-direction:column; border:1px solid var(--line); border-radius:var(--r); overflow:hidden; }
   .cv-fila { display:grid; grid-template-columns:minmax(0,2.2fr) minmax(0,1.2fr) 150px minmax(0,1.6fr) 80px; gap:12px; align-items:center; padding:9px 14px; border-top:1px solid var(--line); font-size:13.5px; }
   .cv-fila:first-child { border-top:0; }
@@ -1417,7 +1435,9 @@ async function notifyNew(k){
 }
 // propaganda de cualquier empresa: no avisa (la misma regla que el vigía del servidor, api/vigia.js)
 var IMPORTA = /pedido|env[ií]o|enviado|entrega|reparto|paquete|factura|recibo|pago|cobro|reembolso|devoluci|reserva|cita\b|c[oó]digo|verifica|contraseña|seguridad|inicio de sesi[oó]n|tu cuenta|order|shipped|deliver|invoice|receipt|payment|password|security|verification|formulario|form submission|presupuesto|consulta|solicitud/i;
+var PROMO_ASUNTO = /opin(a|i[oó]n)|valora|rese[ñn]a|expectativas|tu experiencia|experiencia del servicio|encuesta|recordatorio de opini|descubr|recomendaci|no te lo pierdas|cup[oó]n|b[aá]sicos de/i;
 function esPropaganda(labels, baja, asunto){
+  if(PROMO_ASUNTO.test(asunto || '')) return true;
   var cat = (labels || []).some(function(l){ return l === 'CATEGORY_PROMOTIONS' || l === 'CATEGORY_SOCIAL' || l === 'CATEGORY_FORUMS'; });
   return (cat || !!baja) && !IMPORTA.test(asunto || '');
 }
@@ -1817,18 +1837,47 @@ function frameDoc(html, sencillo){
 }
 /* Modo oscuro dentro del correo: en tema oscuro TODOS los correos se pintan con los colores del tema (fondos fuera,
    texto claro, enlaces con el acento), también los de maqueta propia: nada de tarjeta blanca. Las imágenes se quedan. */
-function estiloOscuro(){
-  if(document.documentElement.dataset.theme !== 'dark') return '';
+function estiloOscuro(forzar){
+  if(!forzar && document.documentElement.dataset.theme !== 'dark') return '';
   var cs = getComputedStyle(document.documentElement), v = function(n, d){ return cs.getPropertyValue(n).trim() || d; };
-  return 'html,body{color:' + v('--text', '#e9e6e6') + '}'
-    + 'body *{color:inherit!important;background-color:transparent!important;border-color:' + v('--line-strong', '#3a3f47') + '!important}'
+  // html y body también: la maqueta del correo les pone su propio fondo (crema, degradado) y el texto claro del tema no se leía
+  return 'html,body{color:' + v('--text', '#e9e6e6') + '!important;background:transparent!important;background-image:none!important}'
+    + 'body *{color:inherit!important;background-color:transparent!important;background-image:none!important;border-color:' + v('--line-strong', '#3a3f47') + '!important}'
     + 'blockquote{color:' + v('--mute', '#a7a1a1') + '!important}'
     + 'a,a *{color:' + v('--acc-vivo', '#ff2a1f') + '!important}';
 }
 // al cambiar de tema o de claro a oscuro, los correos abiertos se repintan sin volver a cargarlos
 new MutationObserver(function(){
-  [].slice.call(document.querySelectorAll('.frame-wrap.sencillo iframe')).forEach(function(f){ try { var s = f.contentDocument.getElementById('tema'); if(s) s.textContent = estiloOscuro(); } catch(e){} });
+  [].slice.call(document.querySelectorAll('.frame-wrap.sencillo iframe')).forEach(function(f){ try { var s = f.contentDocument.getElementById('tema'); if(s) s.textContent = estiloOscuro(f.parentNode.classList.contains('rescatado')); } catch(e){} });
 }).observe(document.documentElement, { attributes:true, attributeFilter:['data-theme', 'data-paleta'] });
+/* Red de seguridad de legibilidad: da igual el tema o la maqueta del correo, si una parte grande del texto queda sin contraste
+   con lo que tiene detrás (texto blanco sobre crema, negro sobre negro), se le aplican los colores del tema y se lee. */
+function lumCss(c){
+  var m = (c || '').match(/[\d.]+/g); if(!m || m.length < 3) return null; if(m.length > 3 && +m[3] === 0) return null;
+  var r = [0, 1, 2].map(function(i){ var x = m[i] / 255; return x <= .03928 ? x / 12.92 : Math.pow((x + .055) / 1.055, 2.4); });
+  return .2126 * r[0] + .7152 * r[1] + .0722 * r[2];
+}
+function sinContraste(d){
+  var w = d.defaultView, base = lumCss(getComputedStyle(document.body).backgroundColor);
+  if(base === null) base = document.documentElement.dataset.theme === 'dark' ? .01 : .9;
+  var tw = d.createTreeWalker(d.body, NodeFilter.SHOW_TEXT), n, total = 0, malos = 0;
+  while((n = tw.nextNode()) && total < 400){
+    if(!n.nodeValue.trim() || !n.parentElement) continue;
+    var el = n.parentElement, cs = w.getComputedStyle(el);
+    if(cs.display === 'none' || cs.visibility === 'hidden') continue;
+    var t = lumCss(cs.color); if(t === null) continue;
+    total++;
+    var bg = base, conImagen = false;
+    for(var a = el; a; a = a.parentElement){
+      var s = w.getComputedStyle(a);
+      if(s.backgroundImage !== 'none'){ conImagen = true; break; }
+      var l = lumCss(s.backgroundColor); if(l !== null){ bg = l; break; }
+    }
+    if(conImagen) continue;
+    if((Math.max(t, bg) + .05) / (Math.min(t, bg) + .05) < 2.2) malos++;
+  }
+  return total > 0 && malos / total > .25;
+}
 function esBorrador(m){ return (m.labels || []).indexOf('DRAFT') >= 0; }
 // el último correo de verdad del hilo (sin contar el borrador de una respuesta a medias)
 function ultimoReal(c){ for(var i = c.msgs.length - 1; i >= 0; i--) if(!esBorrador(c.msgs[i])) return i; return c.msgs.length - 1; }
@@ -1992,6 +2041,7 @@ async function fillFrame(f, m, k){
     // los enlaces del correo se abren aparte y sin acceso a esta pestaña (rel="opener" en el correo no vale); fuera javascript: y compañía
     [].slice.call(d.querySelectorAll('a[href], area[href]')).forEach(function(a){ var u = (a.getAttribute('href') || '').trim(); if(/^(https?:|mailto:|tel:|#)/i.test(u)){ a.setAttribute('target', '_blank'); a.setAttribute('rel', 'noopener noreferrer'); } else a.removeAttribute('href'); });
     var fit = function(){ var de = d.documentElement, w = f.clientWidth; de.style.zoom = ''; var sw = de.scrollWidth, z = 1; if(sw > w + 4 && w > 0 && w / sw >= 0.9){ z = w / sw; de.style.zoom = z.toFixed(3); } var wide = sw * z - de.clientWidth * z > 24; f.style.height = (de.getBoundingClientRect().height * z + (wide ? 22 : 6)) + 'px'; f.scrolling = wide ? 'yes' : 'no'; f.parentNode.classList.toggle('wide', wide); }; fit();
+    try { if(f.parentNode.classList.contains('rescatado') || sinContraste(d)){ f.parentNode.classList.add('rescatado'); var st0 = d.getElementById('tema'); if(st0) st0.textContent = estiloOscuro(true); fit(); } } catch(e){}
     if(window.ResizeObserver) new ResizeObserver(fit).observe(d.body); [].slice.call(d.images).forEach(function(im){ im.addEventListener('load', fit); }); } catch(e){} });
 }
 // adjunto → Blob (se guarda el último para no bajarlo dos veces al ver y luego descargar)
@@ -3192,7 +3242,7 @@ $('temasX').addEventListener('click', function(){ $('temasDlg').close(); });
    La definición vive cifrada en el Drive de la cuenta ancla (/api/crm). Cada lead es un hilo con la etiqueta de su etapa
    («Leads/Nuevo»…): el vigía la pone al llegar el correo y la cambia a la segunda etapa cuando contestas. */
 var CRMS = null, crmEd = null;
-var CRM_ETAPAS = ['Nuevo', 'Respondido', 'Propuesta', 'Reserva', 'Ganado', 'Perdido'];
+var CRM_ETAPAS = ['En negociación', 'Ganado', 'Perdido'];
 var CRM_PALABRAS = ['presupuesto', 'precio', 'tarifa', 'información', 'reserva', 'disponibilidad', 'alquiler', 'contratar', 'visita', 'quote', 'pricing', 'booking', 'availability'];
 async function crmCargar(){ var r = await fetch('/api/crm', { cache:'no-store' }); if(!r.ok) throw new Error('crm ' + r.status); var j = await r.json(); CRMS = j.crms || {}; window.CRM_INTEG = j.integ || {}; return CRMS; }
 function abrirCrm(){

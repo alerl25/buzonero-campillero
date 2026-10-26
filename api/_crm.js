@@ -6,7 +6,10 @@ import crypto from 'node:crypto';
 export const PREFIJO = 'Leads';
 export const ETIQUETA_BOT = 'Posible bot';
 export const ETIQUETA_NOLEAD = 'No es lead';   // lo que se aparta a mano del tablero (propuestas de colaboración, proveedores…)
-export const ETAPAS_DEF = ['Nuevo', 'Respondido', 'Propuesta', 'Reserva', 'Ganado', 'Perdido'];
+export const ETAPAS_DEF = ['En negociación', 'Ganado', 'Perdido'];
+// etapa a la que pasa un lead cuando le contestas: «Respondido» si el CRM la tiene; si no, se queda en la primera (En negociación)
+export const etapaRespondido = (crm) => (crm.etapas || []).find((e) => /^respondido$/i.test(e)) || crm.etapas[0];
+export const ETAPAS_VIEJAS = ['Nuevo', 'Respondido', 'Propuesta', 'Reserva'];
 export const PALABRAS_DEF = ['presupuesto', 'precio', 'tarifa', 'información', 'reserva', 'disponibilidad', 'alquiler', 'contratar', 'visita', 'quote', 'pricing', 'booking', 'availability'];
 export const etiquetaEtapa = (nombre) => PREFIJO + '/' + nombre;
 
@@ -182,7 +185,7 @@ export function detector(tk, crm, todas, k, esPropaganda) {
           if (g.email === f.email && g.nombre && g.nombre.toLowerCase() !== f.nombre.toLowerCase()) { motivo = 'mismo correo con otro nombre'; break; }
         }
       }
-      const etapa = motivo ? ETIQUETA_BOT : (contestadoA(msgs, yoM.internalDate, f.email) || await escritoDespues(f.email, yoM.internalDate) ? crm.etapas[1] : crm.etapas[0]);
+      const etapa = motivo ? ETIQUETA_BOT : (contestadoA(msgs, yoM.internalDate, f.email) || await escritoDespues(f.email, yoM.internalDate) ? etapaRespondido(crm) : crm.etapas[0]);
       const lid = await idEtiqueta(etiquetaEtapa(etapa));
       if (lid) await etiquetar(ids, [lid], motivo ? ['UNREAD', 'INBOX'] : []);   // los bots, además, se archivan (el dueño, 19-oct): siguen en «Leads/Posible bot»
       return { hilo: m.threadId, ids, f, origen, motivo, etapa };
@@ -190,6 +193,7 @@ export function detector(tk, crm, todas, k, esPropaganda) {
     // la cuenta ha escrito en el hilo: los leads de la primera etapa a los que ha contestado pasan a la segunda («Respondido»)
     async contestado(hilo) {
       const n1 = (await etiquetas()).find((l) => l.name === etiquetaEtapa(crm.etapas[0])); if (!n1) return false;
+      if (etapaRespondido(crm) === crm.etapas[0]) return false;   // sin etapa «Respondido»: no hay a dónde mover
       const msgs = await hiloMeta(hilo);
       const cands = msgs.filter((x) => (x.labelIds || []).includes(n1.id) && correoDe(cab(x, 'from')) !== yo).slice(0, 6);
       const mover = [];
@@ -198,7 +202,7 @@ export function detector(tk, crm, todas, k, esPropaganda) {
         if (contestadoA(msgs, c.internalDate, email)) mover.push(c.id);
       }
       if (!mover.length) return false;
-      const n2 = await idEtiqueta(etiquetaEtapa(crm.etapas[1])); if (!n2) return false;
+      const n2 = await idEtiqueta(etiquetaEtapa(etapaRespondido(crm))); if (!n2) return false;
       await etiquetar(mover, [n2], [n1.id]);
       return true;
     },
@@ -207,6 +211,7 @@ export function detector(tk, crm, todas, k, esPropaganda) {
       const m = await J('messages/' + id + '?format=metadata&metadataHeaders=To&metadataHeaders=Cc');
       let n = (await this.contestado(m.threadId)) ? 1 : 0;
       const n1 = (await etiquetas()).find((l) => l.name === etiquetaEtapa(crm.etapas[0])); if (!n1) return n;
+      if (etapaRespondido(crm) === crm.etapas[0]) return n;
       const dest = [...new Set((cab(m, 'to') + ',' + cab(m, 'cc')).split(',').map(correoDe).filter((e) => e && e !== yo && !propios.includes(e.split('@')[1])))].slice(0, 5);
       const mover = [];
       for (const e of dest) {
@@ -214,7 +219,7 @@ export function detector(tk, crm, todas, k, esPropaganda) {
         (j.messages || []).forEach((x) => { if (!mover.includes(x.id)) mover.push(x.id); });
       }
       if (!mover.length) return n;
-      const n2 = await idEtiqueta(etiquetaEtapa(crm.etapas[1])); if (!n2) return n;
+      const n2 = await idEtiqueta(etiquetaEtapa(etapaRespondido(crm))); if (!n2) return n;
       await etiquetar(mover, [n2], [n1.id]);
       return n + mover.length;
     },
@@ -259,6 +264,22 @@ export function detector(tk, crm, todas, k, esPropaganda) {
       const quitar = ls.filter((l) => nombres.includes(l.name) && l.name !== etiquetaEtapa(etapa)).map((l) => l.id);
       const lid = await idEtiqueta(etiquetaEtapa(etapa)); if (!lid) throw new Error('etiqueta');
       await etiquetar(ids, [lid], quitar);
+    },
+    // migración de etapas: todo lo que lleva una etapa vieja pasa a la nueva (los mensajes, no los hilos) y la etiqueta vieja se borra
+    async fusionar(viejas, nueva) {
+      const ls = await etiquetas(), destino = await idEtiqueta(etiquetaEtapa(nueva)); let n = 0;
+      if (!destino) throw new Error('etiqueta');
+      for (const v of viejas) {
+        const l = ls.find((x) => x.name === etiquetaEtapa(v)); if (!l || l.id === destino) continue;
+        let tok = '';
+        do {
+          const j = await J('messages?maxResults=500&labelIds=' + l.id + (tok ? '&pageToken=' + tok : '')); tok = j.nextPageToken || '';
+          const ids = (j.messages || []).map((x) => x.id);
+          for (let i = 0; i < ids.length; i += 100) { await etiquetar(ids.slice(i, i + 100), [destino], [l.id]); n += Math.min(100, ids.length - i); }
+        } while (tok);
+        await G('labels/' + l.id, { method: 'DELETE' }).catch(() => null);
+      }
+      return n;
     },
     // «Añadir al CRM» desde un correo: marca el primer mensaje de la otra persona (o el primero, si empezaste tú)
     async anadir(hilo, etapa) {

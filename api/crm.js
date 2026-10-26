@@ -2,7 +2,19 @@
 // Una sola función para todo el CRM (el plan gratis de Vercel admite 12 funciones): ?r= elige la parte.
 // GET → la lista · POST { accion: 'guardar' | 'borrar' | 'importar' }
 import { validSession, sameOrigin, noStore, esMaquina, allAccounts, accessToken, readCrm, updateCrm } from './_lib.js';
-import { limpiarCrm, detector, ETIQUETA_NOLEAD } from './_crm.js';
+import { limpiarCrm, detector, ETIQUETA_NOLEAD, ETAPAS_VIEJAS } from './_crm.js';
+
+// Las filas de la tabla «por meses» (la hoja HOT LEADS y lo que se añade a mano): se guardan en el almacén del CRM, no en Gmail
+const tx = (v, n) => String(v == null ? '' : v).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, n);
+function limpiarFila(f, etapas) {
+  f = f || {};
+  const cliente = tx(f.cliente, 80); if (!cliente) return null;
+  const etapa = etapas.includes(f.etapa) ? f.etapa : etapas[0];
+  const fecha = /^\d{4}-\d{2}-\d{2}$/.test(f.fecha || '') ? f.fecha : '';
+  const mes = /^\d{4}-\d{2}$/.test(f.mes || '') ? f.mes : (fecha ? fecha.slice(0, 7) : '');
+  const imp = Number(f.presupuesto); 
+  return { ref: tx(f.ref, 60) || cliente.toLowerCase(), cliente, owner: tx(f.owner, 40), etapa, linea: tx(f.linea, 8).toUpperCase(), fecha, mes, espacio: tx(f.espacio, 80), obs: tx(f.obs, 600), presupuesto: isFinite(imp) && f.presupuesto !== '' && f.presupuesto != null ? Math.round(imp * 100) / 100 : null, email: tx(f.email, 80).toLowerCase(), fuente: tx(f.fuente, 12) || 'mano' };
+}
 import { esPropaganda } from './vigia.js';
 import { leadsWhatsApp, ID_ZERNIO } from './_zernio.js';
 import { conectarGA, conectarWA, conectarNX, conectarZR, estadoPublico, nexudusCliente } from './_integ.js';
@@ -32,7 +44,7 @@ export default async function handler(req, res) {
         try { out.leads.push(...await leadsWhatsApp(c.etapas, (dcrm.waEtapas || {})[c.id] || {}, ETIQUETA_NOLEAD, dcrm.waNombres || {})); } catch (e) { out.fallos.push('wa'); }
       }
       if (r === 'leads') {
-        // cada lead: de quién es el turno y qué hay en Nexudus; con reserva o factura pasa solo a «Reserva», y pagada a «Ganado» (nunca hacia atrás)
+        // cada lead: de quién es el turno y qué hay en Nexudus; con factura (pagada o no) pasa solo a «Ganado», y con solo reserva a «Reserva» si el CRM la tiene (nunca hacia atrás)
         const nx = ((dcrm.integ || {})[c.id] || {}).nx, nxOk = nx && nx.token && nx.caduca > Date.now();
         const pos = (n) => c.etapas.findIndex((e) => e.toLowerCase() === n);
         const iRes = pos('reserva'), iGan = pos('ganado');
@@ -49,13 +61,17 @@ export default async function handler(req, res) {
               const fs = n.facturas.filter((f) => Date.parse(f.fecha) >= desde), rs = n.reservas.filter((b) => Date.parse(b.desde) >= desde);
               l.nexudus = { facturas: n.facturas.slice(0, 8), reservas: n.reservas.slice(0, 8) };
               const cur = c.etapas.indexOf(l.etapa);
-              const obj = fs.some((f) => f.pagada) && iGan >= 0 ? iGan : ((fs.length || rs.length) && iRes >= 0 ? iRes : -1);
+              const obj = fs.length && iGan >= 0 ? iGan : (rs.length && iRes >= 0 ? iRes : -1);   // con factura (pagada o no) ya es un cliente: Ganado (el dueño, 21-oct)
               if (obj > cur && d) { await d.mover(l.ids, c.etapas[obj]); l.etapa = c.etapas[obj]; l.auto = 'Nexudus'; }
             } catch (e) {}
           }
         }));
       }
       return res.status(200).json(out);
+    }
+    if (req.method === 'GET' && r === 'hot') {
+      const dh = await readCrm(); if (!dh.crms[String(req.query.id || '')]) return res.status(404).json({ error: 'crm' });
+      return res.status(200).json({ ok: true, filas: (dh.hot || {})[String(req.query.id)] || [] });
     }
     if (req.method === 'GET') {
       // la lista de CRM y, de cada uno, qué integraciones tiene (sin claves ni tokens)
@@ -113,6 +129,29 @@ export default async function handler(req, res) {
       if (!ids.length) return res.status(400).json({ error: 'ids' });
       await d.mover(ids, etapa);
       return res.status(200).json({ ok: true });
+    }
+    if (b.accion === 'hot-guardar') {
+      // reemplaza las filas de una fuente (la hoja) o añade/cambia una a mano; con borrar:true quita una por su ref
+      const dh = await readCrm(), ch = dh.crms[id]; if (!ch) return res.status(404).json({ error: 'crm' });
+      const filas = (Array.isArray(b.filas) ? b.filas : []).slice(0, 400).map((f) => limpiarFila(f, ch.etapas)).filter(Boolean);
+      await updateCrm((d) => {
+        d.hot = d.hot || {}; let cur = d.hot[id] || [];
+        if (b.reemplazar) cur = cur.filter((x) => x.fuente !== String(b.reemplazar).slice(0, 12));
+        if (b.borrar) cur = cur.filter((x) => !filas.some((f) => f.ref === x.ref));
+        else filas.forEach((f) => { const i = cur.findIndex((x) => x.ref === f.ref); if (i >= 0) cur[i] = f; else cur.push(f); });
+        d.hot[id] = cur.slice(0, 600);
+      });
+      return res.status(200).json({ ok: true, filas: filas.length });
+    }
+    if (b.accion === 'migrar') {
+      // pasa a la primera etapa del CRM todo lo que lleva las etapas viejas (Nuevo, Respondido, Propuesta, Reserva)
+      const cm = (await readCrm()).crms[id]; if (!cm) return res.status(404).json({ error: 'crm' });
+      const viejas = ETAPAS_VIEJAS.filter((e) => !cm.etapas.includes(e)), dest = cm.etapas[0], tot = { mensajes: 0, whatsapp: 0 }, fallos = [];
+      for (const k of cm.cuentas) {
+        try { const tk = await accessToken(k); if (!tk) { fallos.push(k); continue; } tot.mensajes += await detector(tk, cm, todas, k, esPropaganda).fusionar(viejas, dest); } catch (e) { fallos.push(k); }
+      }
+      await updateCrm((d) => { const m = (d.waEtapas || {})[id]; if (!m) return false; Object.keys(m).forEach((x) => { if (viejas.includes(m[x])) { m[x] = dest; tot.whatsapp++; } }); });
+      return res.status(200).json({ ok: true, ...tot, fallos });
     }
     if (b.accion === 'ocultar') {
       // qué integraciones no quiere ver este CRM (no toca sus claves)

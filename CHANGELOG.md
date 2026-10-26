@@ -2,6 +2,23 @@
 
 Todas las versiones de Buzonero Campillero. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [1.18.2] · 2026-10-26
+
+### App web
+- **Correos con maqueta propia legibles en tema oscuro.** `html` y `body` del correo también se pintan con los colores del tema y pierden fondo e imagen de fondo (antes un fondo crema o blanco dejaba el texto claro ilegible, o el texto oscuro sobre oscuro). Red de seguridad: si más de una cuarta parte del texto queda sin contraste con su fondo, se le aplican los colores del tema.
+- **Sin aviso de reseñas, encuestas y recomendaciones** aunque el asunto hable de «pedido» o «entrega», ni de remitentes tipo `novedades@`, `marketing@` o `@msg.` (vigía y app).
+
+## [1.18.1] · 2026-10-21
+
+### App web
+- **CRM, «Por meses»: borrar filas y Perdido en rojo.** Cada fila lleva una papelera: borra la fila de la hoja del almacén, o aparta de CRM («No es lead») un lead vivo (el correo no se toca). Perdido sale en rojo en la tabla y en el tablero, Ganado en verde.
+
+## [1.18.0] · 2026-10-21
+
+### App web
+- **CRM: pestaña «Por meses», como la hoja HOT LEADS.** Tabla agrupada por mes (cabecera con «Ganados · En negociación · Perdidos» y total ganado en €), filas en verde (Ganado), ámbar (En negociación) y gris (Perdido), con línea (COW, EVE, SALA), espacio, observaciones y presupuesto; al final, «Total ganado por mes». Junta las filas guardadas de la hoja con los leads vivos de Gmail y WhatsApp (las salas incluidas; su importe sale de las facturas de Nexudus). Etapas por defecto: En negociación, Ganado y Perdido. El tablero sigue como segunda pestaña.
+- API `/api/crm`: `?r=hot`, `hot-guardar` (filas por fuente) y `migrar` (las etapas viejas Nuevo/Respondido/Propuesta/Reserva pasan a la primera etapa del CRM). Sin una etapa «Respondido», contestar a un lead ya no lo mueve.
+
 ## [1.17.3] · 2026-10-20
 
 ### App web

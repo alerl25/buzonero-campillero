@@ -21,7 +21,12 @@ const correoDe = (from) => { const m = /<([^>]+)>/.exec(from || ''); return ((m 
 // Propaganda de cualquier empresa: sin aviso (también en cuentas sin pestañas de Gmail, por la cabecera List-Unsubscribe).
 // Es propaganda si trae «darse de baja» (List-Unsubscribe) o va a Promociones/Social/Foros; salvo si habla de algo suyo de verdad.
 const IMPORTA = /pedido|env[ií]o|enviado|entrega|reparto|paquete|factura|recibo|pago|cobro|reembolso|devoluci|reserva|cita\b|c[oó]digo|verifica|contraseña|seguridad|inicio de sesi[oó]n|tu cuenta|order|shipped|deliver|invoice|receipt|payment|password|security|verification|formulario|form submission|presupuesto|consulta|solicitud/i;
+// Propaganda aunque el asunto hable de «pedido» o «entrega»: reseñas, ofertas y recomendaciones, o remitentes de novedades
+// (Amazon «novedades@», «msg.» de Amazon Music…). Pasa por delante de IMPORTA (26-oct-2026).
+const PROMO_ASUNTO = /opin(a|i[oó]n)|valora|rese[ñn]a|expectativas|tu experiencia|experiencia del servicio|encuesta|recordatorio de opini|descubr|recomendaci|no te lo pierdas|cup[oó]n|b[aá]sicos de/i;
+const PROMO_DE = /(novedades|marketing|promo|promociones|ofertas|newsletter|invitations)@|@(msg|mail|email|news|e)\./i;
 export function esPropaganda(labels, H) {
+  if (PROMO_ASUNTO.test(H.subject || '') || PROMO_DE.test(H.from || '')) return true;
   if ((labels || []).some((l) => l === 'CATEGORY_PROMOTIONS' || l === 'CATEGORY_SOCIAL' || l === 'CATEGORY_FORUMS')) return !IMPORTA.test(H.subject || '');
   return !!H['list-unsubscribe'] && !IMPORTA.test(H.subject || '');
 }

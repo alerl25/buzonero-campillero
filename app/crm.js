@@ -3,7 +3,7 @@
    Usa lo del script principal (ACC, KEYS, st, gm, esc, toast, setAcc, openThread, openCompose, CRMS, crmCargar, crmDeK…). */
 (function(){
 'use strict';
-var CV = { id:null, tab:'tablero', leads:null, clientes:null, bots:0, sel:null, q:'', cargando:{}, wiz:null, wizDatos:{}, wizError:'', wizProbando:false };
+var CV = { id:null, tab:'meses', hot:null, mesVista:[], leads:null, clientes:null, bots:0, sel:null, q:'', cargando:{}, wiz:null, wizDatos:{}, wizError:'', wizProbando:false };
 var shell = document.querySelector('.shell');
 var vista = document.createElement('section');
 vista.className = 'crm-view'; vista.id = 'crmView'; vista.hidden = true; vista.setAttribute('aria-label', 'CRM');
@@ -33,14 +33,14 @@ window.cvRefrescar = function(){ if(CRMS && CV.id && !CRMS[CV.id]) CV.id = null;
 
 async function cargar(force){
   var c = crmActual(); if(!c) return;
-  var que = CV.tab === 'clientes' ? ['leads', 'clientes'] : (CV.tab === 'tablero' ? ['leads'] : []);
+  var que = CV.tab === 'clientes' ? ['leads', 'clientes'] : (CV.tab === 'tablero' ? ['leads'] : (CV.tab === 'meses' ? ['leads', 'hot'] : []));
   for(var i = 0; i < que.length; i++){
     var r = que[i]; if(CV[r] && !force) continue; if(CV.cargando[r]) continue;
     CV.cargando[r] = true; pintar();
     try {
       var j = await (await fetch('/api/crm?r=' + r + '&id=' + encodeURIComponent(c.id), { cache:'no-store' })).json();
       if(!j.ok) throw new Error('crm');
-      if(r === 'leads'){ CV.leads = j.leads || []; CV.bots = j.bots || 0; } else CV.clientes = j.clientes || [];
+      if(r === 'leads'){ CV.leads = j.leads || []; CV.bots = j.bots || 0; } else if(r === 'hot') CV.hot = j.filas || []; else CV.clientes = j.clientes || [];
       if((j.fallos || []).length) toast('Una cuenta del CRM necesita reconectar');
     } catch(e){ toast('No se pudo leer el CRM'); }
     CV.cargando[r] = false;
@@ -55,16 +55,87 @@ function pintar(){
     + (ls.length > 1 ? '<select id="cvSel" aria-label="CRM" data-notr>' + ls.map(function(x){ return '<option value="' + esc(x.id) + '"' + (c && x.id === c.id ? ' selected' : '') + '>' + esc(x.nombre) + '</option>'; }).join('') + '</select>'
        : '<b data-notr>' + esc(c ? c.nombre : 'CRM') + '</b>')
     + '</div><div class="cv-tabs" role="tablist">'
-    + [['tablero', 'Tablero', 'ph-columns'], ['clientes', 'Clientes', 'ph-address-book'], ['integraciones', 'Integraciones', 'ph-plugs-connected'], ['ajustes', 'Ajustes', 'ph-gear-six']].map(function(t){
+    + [['meses', 'Por meses', 'ph-calendar-blank'], ['tablero', 'Tablero', 'ph-columns'], ['clientes', 'Clientes', 'ph-address-book'], ['integraciones', 'Integraciones', 'ph-plugs-connected'], ['ajustes', 'Ajustes', 'ph-gear-six']].map(function(t){
         return '<button type="button" role="tab" data-cvtab="' + t[0] + '" aria-selected="' + (CV.tab === t[0]) + '"><i class="ph ' + t[2] + '"></i><span>' + t[1] + '</span></button>'; }).join('')
     + '</div><button class="icon-btn" type="button" data-cv="recargar" aria-label="Actualizar" title="Actualizar"><i class="ph ph-arrows-clockwise"></i></button></div>';
   var cuerpo;
   if(!c) cuerpo = '<div class="cv-vacio"><p>Aún no tienes ningún CRM. Crea uno por negocio: eliges sus cuentas de correo y Buzonero aparta sus leads.</p><button class="btn primary" type="button" data-cv="crear"><i class="ph ph-plus"></i> Crear CRM</button></div>';
+  else if(CV.tab === 'meses') cuerpo = pintarMeses(c);
   else if(CV.tab === 'tablero') cuerpo = pintarTablero(c);
   else if(CV.tab === 'clientes') cuerpo = pintarClientes(c);
   else if(CV.tab === 'integraciones') cuerpo = pintarIntegraciones(c);
   else cuerpo = pintarAjustes(c);
   vista.innerHTML = cab + '<div class="cv-body">' + cuerpo + '</div>' + (CV.sel ? pintarFicha(c) : '');
+}
+
+
+/* ---------- Por meses: la tabla de la hoja HOT LEADS (filas guardadas + leads vivos) ---------- */
+function norm(s){ return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim(); }
+function toks(s){ return norm(s).split(' ').filter(function(w){ return w.length > 3; }).map(function(w){ return w.slice(0, 5); }); }
+// ¿es la misma persona o empresa? (nombre o correo en común)
+function mismo(fila, l){
+  if(fila.email && l.email && fila.email === l.email) return true;
+  var a = toks(fila.cliente + ' ' + (fila.obs || '').slice(0, 80)), b = toks((l.nombre || '') + ' ' + ((l.email || '').split('@')[0]) + ' ' + (l.empresa || ''));
+  var n = 0; b.forEach(function(w){ if(a.indexOf(w) >= 0) n++; });
+  return n >= 2 || (b.length === 1 && n === 1 && b[0].length >= 5);
+}
+function lineaDe(l){ var t = norm((l.asunto || '') + ' ' + (l.mensaje || '')); if(/\bsala|evento|taller|reunion|formacion/.test(t)) return 'SALA'; return 'COW'; }
+function importeNx(l){ var f = (l.nexudus && l.nexudus.facturas) || []; if(!f.length) return null; var v = f.filter(function(x){ return Date.parse(x.fecha) >= (l.fecha || 0) - 7 * 86400000; }); return v.length ? v.reduce(function(s, x){ return s + (+x.total || 0); }, 0) : null; }
+function mesDe(f){ if(f.mes) return f.mes; var d = new Date(f.ms || 0); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2); }
+function eur(v){ return (v || 0).toLocaleString('es-ES', { minimumFractionDigits:2, maximumFractionDigits:2 }) + ' €'; }
+function filasMeses(c){
+  var hot = (CV.hot || []).map(function(f){ var ms = f.fecha ? Date.parse(f.fecha) : 0; return { src:'hot', f:f, cliente:f.cliente, etapa:f.etapa, linea:f.linea, fecha:f.fecha, ms:ms, mes:mesDe({ mes:f.mes, ms:ms }), espacio:f.espacio, obs:f.obs, imp:f.presupuesto }; });
+  var vivos = [];
+  (CV.leads || []).forEach(function(l){
+    if(l.etapa === 'No es lead' || hot.some(function(h){ return mismo(h.f, l); })) return;
+    vivos.push({ src:'lead', l:l, cliente:nombreDe(l), etapa:l.etapa, linea:lineaDe(l), ms:l.fecha, fecha:'', mes:mesDe({ ms:l.fecha }), espacio:'', obs:(l.asunto ? l.asunto + ' · ' : '') + (l.mensaje || '').slice(0, 160), imp:importeNx(l) });
+  });
+  return hot.concat(vivos);
+}
+function pintarMeses(c){
+  if(!CV.leads || !CV.hot) return '<div class="cv-vacio">' + (CV.cargando.leads || CV.cargando.hot ? 'Cargando…' : '') + '</div>';
+  var q = norm(CV.q), orden = {}; ['Ganado', 'En negociación', 'Perdido'].forEach(function(e, i){ orden[e] = i; });
+  var filas = filasMeses(c).filter(function(r){ return !q || norm(r.cliente + ' ' + r.obs + ' ' + r.espacio).indexOf(q) >= 0; });
+  var por = {}; filas.forEach(function(r){ (por[r.mes] = por[r.mes] || []).push(r); });
+  var meses = Object.keys(por).sort();
+  CV.mesVista = [];
+  var nom = function(m){ var p = m.split('-'); return new Date(+p[0], +p[1] - 1, 1).toLocaleDateString('es-ES', { month:'long', year:'numeric' }).toUpperCase(); };
+  var cls = function(e){ return e === 'Ganado' ? 'g' : (e === 'Perdido' ? 'p' : 'n'); };
+  var opts = function(sel){ return c.etapas.map(function(e){ return '<option value="' + esc(e) + '"' + (e === sel ? ' selected' : '') + ' data-notr>' + esc(e) + '</option>'; }).join(''); };
+  var totales = [], global = 0;
+  var cuerpo = meses.map(function(m){
+    var rs = por[m].sort(function(a, b){ return (orden[a.etapa] == null ? 1 : orden[a.etapa]) - (orden[b.etapa] == null ? 1 : orden[b.etapa]) || (a.ms || 9e15) - (b.ms || 9e15); });
+    var g = rs.filter(function(r){ return r.etapa === 'Ganado'; }), n = rs.filter(function(r){ return r.etapa !== 'Ganado' && r.etapa !== 'Perdido'; }), p = rs.filter(function(r){ return r.etapa === 'Perdido'; });
+    var tot = g.reduce(function(s, r){ return s + (r.imp || 0); }, 0); totales.push([m, tot]); global += tot;
+    return '<div class="cv-mes-h"><b>' + esc(nom(m)) + '</b><span class="cv-mes-r">Ganados: ' + g.length + ' · En negociación: ' + n.length + ' · Perdidos: ' + p.length + '</span><b class="cv-mes-t">' + eur(tot) + '</b></div>'
+      + rs.map(function(r){ var i = CV.mesVista.push(r) - 1;
+          return '<div class="cv-fm e-' + cls(r.etapa) + '" role="row">'
+            + '<span class="cv-fm-c"><b data-notr>' + esc(r.cliente) + '</b>' + (r.src === 'lead' ? '<small>Lead vivo</small>' : '') + '</span>'
+            + '<span><select data-mes-etapa="' + i + '" aria-label="Etapa" class="cv-sel-' + cls(r.etapa) + '">' + opts(r.etapa) + '</select></span>'
+            + '<span><span class="cv-lin">' + esc(r.linea || '') + '</span></span>'
+            + '<span>' + (r.fecha ? esc(new Date(r.fecha).toLocaleDateString('es-ES', { day:'numeric', month:'short' })) : (r.src === 'lead' ? esc(fecha(r.ms)) : '')) + '</span>'
+            + '<span data-notr>' + esc(r.espacio || '') + '</span>'
+            + '<span class="cv-fm-o" data-notr title="' + esc(r.obs || '') + '">' + esc(r.obs || '') + '</span>'
+            + '<span class="cv-fm-i">' + (r.imp != null ? esc(eur(r.imp)) : '') + '</span>'
+            + '<span class="cv-fm-b">' + (r.src === 'lead' ? '<button type="button" class="btn sm" data-mes-abrir="' + i + '">Abrir</button>' : '') + '<button type="button" class="icon-btn cv-del" data-mes-del="' + i + '" aria-label="Borrar" title="' + (r.src === 'lead' ? 'Quitar del CRM' : 'Borrar fila') + '"><i class="ph ph-trash"></i></button></span></div>'; }).join('');
+  }).join('');
+  var pie = '<div class="cv-mes-h cv-mes-pie"><b>TOTAL GANADO POR MES (IVA incl.)</b></div>' + totales.map(function(t){ return '<div class="cv-mes-tt"><span>' + esc(nom(t[0])) + '</span><b>' + eur(t[1]) + '</b></div>'; }).join('') + '<div class="cv-mes-tt tot"><span>TOTAL</span><b>' + eur(global) + '</b></div>';
+  return '<div class="cv-tools"><input type="search" id="cvQ" placeholder="Buscar cliente u observación" value="' + esc(CV.q) + '"><span class="cv-cuenta"><span>' + filas.length + ' filas</span></span></div>'
+    + '<div class="cv-meses"><div class="cv-fm cv-th"><span>Cliente</span><span>Etapa</span><span>Línea</span><span>Fecha</span><span>Espacio</span><span>Estado / Observaciones</span><span>Presupuesto</span><span></span></div>' + (cuerpo || '<div class="cv-vacio">Sin filas</div>') + pie + '</div>';
+}
+// borrar una fila: las de la hoja se quitan del almacén; un lead vivo se aparta del CRM («No es lead»), el correo no se toca
+async function borrarFilaMes(r){
+  var c = crmActual(); if(!c) return;
+  if(r.src === 'lead'){ if(!confirm('¿Quitar «' + r.cliente + '» del CRM? El correo no se borra.')) return; moverLead(r.l, 'No es lead'); return; }
+  if(!confirm('¿Borrar «' + r.cliente + '» de la tabla?')) return;
+  try { var x = await fetch('/api/crm', { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ accion:'hot-guardar', id:c.id, borrar:true, filas:[r.f] }) }); if(!x.ok) throw 0; CV.hot = CV.hot.filter(function(h){ return h.ref !== r.f.ref; }); pintar(); toast('Fila borrada'); }
+  catch(e){ toast('No se pudo borrar'); }
+}
+async function cambiarEtapaMes(r, etapa){
+  if(r.src === 'lead') return moverLead(r.l, etapa);
+  var c = crmActual(), antes = r.f.etapa; r.f.etapa = etapa; r.etapa = etapa; pintar();
+  try { var x = await fetch('/api/crm', { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ accion:'hot-guardar', id:c.id, filas:[r.f] }) }); if(!x.ok) throw 0; toast('Movido a ' + etapa); }
+  catch(e){ r.f.etapa = antes; r.etapa = antes; pintar(); toast('No se pudo cambiar la etapa'); }
 }
 
 /* ---------- Tablero ---------- */
@@ -292,7 +363,7 @@ vista.addEventListener('click', function(e){
   var t = e.target.closest('button, a'); if(!t) return;
   if(t.dataset.cvtab){ CV.tab = t.dataset.cvtab; CV.sel = null; CV.wiz = null; pintar(); cargar(); return; }
   var cv = t.dataset.cv;
-  if(cv === 'recargar'){ CV.leads = CV.clientes = null; cargar(true); return; }
+  if(cv === 'recargar'){ CV.leads = CV.clientes = CV.hot = null; cargar(true); return; }
   if(cv === 'crear'){ crmEd = { id:'', nombre:'', cuentas:crmDeK(st.acc, '') ? [] : [st.acc], etapas:CRM_ETAPAS.slice(), deteccion:{ activa:true, directo:false, palabras:[], frasesBot:[], formularios:[{ de:'', asunto:'' }] } }; $('crmDlg').showModal(); pintarCrmForm(); return; }
   if(t.dataset.cvEd){ crmEd = JSON.parse(JSON.stringify(CRMS[t.dataset.cvEd])); crmEd.deteccion = crmEd.deteccion || { formularios:[] }; crmEd.deteccion.formularios = crmEd.deteccion.formularios || []; $('crmDlg').showModal(); pintarCrmForm(); return; }
   if(cv === 'cerrar-ficha'){ CV.sel = null; pintar(); return; }
@@ -306,6 +377,8 @@ vista.addEventListener('click', function(e){
   if(t.dataset.intQuitar){ quitarInteg(t.dataset.intQuitar, t.dataset.num); return; }
   if(t.dataset.intOcultar || t.dataset.intMostrar){ ocultarInteg(t.dataset.intOcultar || t.dataset.intMostrar, !!t.dataset.intOcultar); return; }
   if(t.dataset.lead){ CV.sel = CV.leads[+t.dataset.lead]; CV.sel.lead = true; pintar(); return; }
+  if(t.dataset.mesDel){ var rd = CV.mesVista[+t.dataset.mesDel]; if(rd) borrarFilaMes(rd); return; }
+  if(t.dataset.mesAbrir){ var rm = CV.mesVista[+t.dataset.mesAbrir]; if(rm && rm.l){ CV.sel = rm.l; CV.sel.lead = true; pintar(); } return; }
   if(t.dataset.cliAbrir){ CV.sel = CV.clientesVista[+t.dataset.cliAbrir]; pintar(); return; }
 });
 vista.addEventListener('change', function(e){
@@ -313,10 +386,11 @@ vista.addEventListener('change', function(e){
   // la clave .json de Google: se lee en el navegador y se pega en su caja
   if(t.dataset.wizFich && t.files && t.files[0]){ var fr = new FileReader(), campo = t.dataset.wizFich; fr.onload = function(){ var ta = vista.querySelector('[data-wiz="' + campo + '"]'); if(ta) ta.value = String(fr.result || ''); CV.wizDatos[campo] = String(fr.result || ''); }; fr.readAsText(t.files[0]); return; }
   if(t.id === 'cvSel'){ CV.id = t.value; CV.leads = CV.clientes = null; CV.sel = null; pintar(); cargar(); return; }
+  if(t.dataset.mesEtapa){ var rr = CV.mesVista[+t.dataset.mesEtapa]; if(rr && t.value !== rr.etapa) cambiarEtapaMes(rr, t.value); return; }
   if(t.dataset.cliEtapa){ cambiarEtapa(CV.clientesVista[+t.dataset.cliEtapa], t.value); return; }
   if(t.hasAttribute('data-ficha-etapa') && CV.sel){ cambiarEtapa(CV.sel, t.value); return; }
 });
-vista.addEventListener('input', function(e){ if(e.target.dataset && e.target.dataset.wiz){ CV.wizDatos[e.target.dataset.wiz] = e.target.value; return; } if(e.target.id === 'cvQ'){ CV.q = e.target.value; var pos = e.target.selectionStart; CV.clientesVista = []; pintar(); var q = $('cvQ'); if(q){ q.focus(); try { q.setSelectionRange(pos, pos); } catch(err){} } } });
+vista.addEventListener('input', function(e){ if(e.target.dataset && e.target.dataset.wiz){ CV.wizDatos[e.target.dataset.wiz] = e.target.value; return; } if(e.target.id === 'cvQ'){ CV.q = e.target.value; var pos = e.target.selectionStart; CV.clientesVista = []; CV.mesVista = []; pintar(); var q = $('cvQ'); if(q){ q.focus(); try { q.setSelectionRange(pos, pos); } catch(err){} } } });
 // arrastrar tarjetas entre etapas (ordenador)
 vista.addEventListener('dragstart', function(e){ var t = e.target.closest && e.target.closest('[data-lead]'); if(!t) return; e.dataTransfer.setData('text/plain', t.dataset.lead); e.dataTransfer.effectAllowed = 'move'; t.classList.add('arr'); });
 vista.addEventListener('dragend', function(e){ var t = e.target.closest && e.target.closest('[data-lead]'); if(t) t.classList.remove('arr'); [].slice.call(vista.querySelectorAll('.cv-col.sobre')).forEach(function(x){ x.classList.remove('sobre'); }); });

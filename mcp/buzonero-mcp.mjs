@@ -129,6 +129,8 @@ async function uploadDrive(k, file, people) {
 
 // construye el mensaje: responder dentro de un hilo, reenviar uno (con sus adjuntos) y adjuntos del disco (>25 MB, por Drive al enviar)
 async function buildMessage(k, a, opts = {}) {
+  a = { ...a };
+  for (const [ruta, campo] of [['html_ruta', 'html'], ['cuerpo_ruta', 'cuerpo']]) if (a[ruta]) { const f = path.resolve(String(a[ruta])); if (!fs.existsSync(f)) throw new Error('No existe el archivo: ' + f); a[campo] = fs.readFileSync(f, 'utf8'); }
   const me = await sendAs(k);
   let threadId = null, inReplyTo = '', refs = '', subject = a.asunto || '', cita = '', citaHtml = '';
   const enMemoria = [];
@@ -162,26 +164,30 @@ async function buildMessage(k, a, opts = {}) {
   const links = [];
   if (toDrive.size && opts.uploadDrive) { const people = splitAddrs([a.para, a.cc, a.cco].filter(Boolean).join(',')).map((x) => parseAddr(x).email); for (const f of toDrive) links.push(await uploadDrive(k, f, people)); }
   const body = String(a.cuerpo || '');
-  const text = body + (links.length ? '\n\n' + links.map((l) => l.nombre + ': ' + l.url).join('\n') : '') + (me.sig ? '\n\n-- \n' + htmlToText(me.sig) : '') + cita;
-  const html = '<div dir="ltr">' + esc(body).replace(/\n/g, '<br>') + '</div>' + (links.length ? '<div style="margin:14px 0">' + links.map((l) => '<div><a href="' + esc(l.url) + '">' + esc(l.nombre) + '</a> (en Google Drive)</div>').join('') + '</div>' : '') + (me.sig ? '<br><div class="gmail_signature">' + me.sig + '</div>' : '') + citaHtml;
+  const propio = typeof a.html === 'string' && a.html.length > 0; // HTML ya hecho: va tal cual, sin firma añadida
+  const text = body + (links.length ? '\n\n' + links.map((l) => l.nombre + ': ' + l.url).join('\n') : '') + (me.sig && !propio ? '\n\n-- \n' + htmlToText(me.sig) : '') + cita;
+  const html = propio ? a.html : '<div dir="ltr">' + esc(body).replace(/\n/g, '<br>') + '</div>' + (links.length ? '<div style="margin:14px 0">' + links.map((l) => '<div><a href="' + esc(l.url) + '">' + esc(l.nombre) + '</a> (en Google Drive)</div>').join('') + '</div>' : '') + (me.sig ? '<br><div class="gmail_signature">' + me.sig + '</div>' : '') + citaHtml;
   const H = ['From: ' + (me.name ? encName(me.name) + ' <' + ACC[k].email + '>' : ACC[k].email)];
   if (a.para) H.push('To: ' + encList(sinCRLF(a.para))); if (a.cc) H.push('Cc: ' + encList(sinCRLF(a.cc))); if (a.cco) H.push('Bcc: ' + encList(sinCRLF(a.cco)));
   H.push('Subject: ' + encH(sinCRLF(subject)), 'MIME-Version: 1.0');
   if (inReplyTo) H.push('In-Reply-To: ' + inReplyTo, 'References: ' + ((refs ? refs + ' ' : '') + inReplyTo).trim());
   const alt = 'alt' + Date.now().toString(36), mix = 'mix' + Math.random().toString(36).slice(2);
   const altPart = ['Content-Type: multipart/alternative; boundary="' + alt + '"', '', '--' + alt, 'Content-Type: text/plain; charset="UTF-8"', 'Content-Transfer-Encoding: base64', '', wrap76(Buffer.from(text).toString('base64')), '--' + alt, 'Content-Type: text/html; charset="UTF-8"', 'Content-Transfer-Encoding: base64', '', wrap76(Buffer.from(html).toString('base64')), '--' + alt + '--'].join('\r\n');
+  const inl = (a.imagenes_inline || []).map((i) => { const f = path.resolve(String(i.ruta)); if (!fs.existsSync(f)) throw new Error('No existe la imagen: ' + f); return { cid: String(i.cid).replace(/[<>\s]/g, ''), nombre: path.basename(f), tipo: mimeOf(f), buf: fs.readFileSync(f) }; });
+  let cuerpoMsg = altPart;
+  if (inl.length) { const rel = 'rel' + Math.random().toString(36).slice(2); const ps = ['--' + rel, altPart]; for (const i of inl) ps.push('--' + rel, 'Content-Type: ' + i.tipo + '; name="' + encH(i.nombre) + '"', 'Content-ID: <' + i.cid + '>', 'Content-Disposition: inline; filename="' + encH(i.nombre) + '"', 'Content-Transfer-Encoding: base64', '', wrap76(i.buf.toString('base64'))); ps.push('--' + rel + '--'); cuerpoMsg = 'Content-Type: multipart/related; type="multipart/alternative"; boundary="' + rel + '"\r\n\r\n' + ps.join('\r\n'); }
   const direct = files.filter((f) => !toDrive.has(f));
   const partes = direct.map((f) => ({ nombre: path.basename(f), tipo: mimeOf(f), buf: fs.readFileSync(f) })).concat(enMemoria);
   let raw;
-  if (!partes.length) raw = H.join('\r\n') + '\r\n' + altPart;
+  if (!partes.length) raw = H.join('\r\n') + '\r\n' + cuerpoMsg;
   else {
-    const parts = ['--' + mix, altPart];
+    const parts = ['--' + mix, cuerpoMsg];
     for (const p of partes) parts.push('--' + mix, 'Content-Type: ' + p.tipo + '; name="' + encH(p.nombre.replace(/"/g, '')) + '"', 'Content-Disposition: attachment; filename="' + encH(p.nombre.replace(/"/g, '')) + '"', 'Content-Transfer-Encoding: base64', '', wrap76(p.buf.toString('base64')));
     parts.push('--' + mix + '--');
     raw = H.join('\r\n') + '\r\nContent-Type: multipart/mixed; boundary="' + mix + '"\r\n\r\n' + parts.join('\r\n');
   }
   const msg = { raw: Buffer.from(raw).toString('base64url') }; if (threadId) msg.threadId = threadId;
-  return { msg, resumen: { cuenta: ACC[k].name, de: ACC[k].email, para: a.para || '', cc: a.cc || '', cco: a.cco || '', asunto: subject, adjuntos: partes.map((p) => p.nombre), por_drive: [...toDrive].map((f) => path.basename(f)), hilo: threadId } };
+  return { msg, resumen: { cuenta: ACC[k].name, de: ACC[k].email, para: a.para || '', cc: a.cc || '', cco: a.cco || '', asunto: subject, adjuntos: partes.map((p) => p.nombre), imagenes_inline: inl.map((i) => i.cid), html_propio: propio, por_drive: [...toDrive].map((f) => path.basename(f)), hilo: threadId } };
 }
 
 // resumen de hilos (para listas)
@@ -249,7 +255,7 @@ const TRANSP = /correos|seur|gls|mrw|dhl|ups\.com|fedex|inpost|nacex|ctt|celerit
 // ---------- herramientas ----------
 const CUENTA = { type: 'string', description: 'La cuenta: su clave, su correo o su nombre (la herramienta «cuentas» las lista).' };
 const ACCIONES = { archivar: [[], ['INBOX']], recibidos: [['INBOX'], []], leido: [[], ['UNREAD']], no_leido: [['UNREAD'], []], destacar: [['STARRED'], []], quitar_destacado: [[], ['STARRED']], spam: [['SPAM'], ['INBOX']], no_spam: [['INBOX'], ['SPAM']], importante: [['IMPORTANT'], []], no_importante: [[], ['IMPORTANT']] };
-const MENSAJE = { para: { type: 'string', description: 'Destinatarios separados por comas. Al responder, si se omite, va a quien escribió.' }, cc: { type: 'string' }, cco: { type: 'string' }, asunto: { type: 'string' }, cuerpo: { type: 'string', description: 'Texto del correo (la firma de la cuenta se añade sola).' }, adjuntos: { type: 'array', items: { type: 'string' }, description: 'Rutas de archivos del disco. Si pasan de 25 MB, los más grandes van como enlace de Drive.' }, responder_a_hilo: { type: 'string', description: 'id del hilo al que se responde (queda dentro de la conversación).' }, reenviar_hilo: { type: 'string', description: 'id del hilo cuyo último mensaje se reenvía, con sus adjuntos.' }, sin_adjuntos: { type: 'boolean', description: 'Al reenviar, no incluir los adjuntos del original.' } };
+const MENSAJE = { para: { type: 'string', description: 'Destinatarios separados por comas. Al responder, si se omite, va a quien escribió.' }, cc: { type: 'string' }, cco: { type: 'string' }, asunto: { type: 'string' }, cuerpo: { type: 'string', description: 'Texto del correo (la firma de la cuenta se añade sola).' }, adjuntos: { type: 'array', items: { type: 'string' }, description: 'Rutas de archivos del disco. Si pasan de 25 MB, los más grandes van como enlace de Drive.' }, responder_a_hilo: { type: 'string', description: 'id del hilo al que se responde (queda dentro de la conversación).' }, reenviar_hilo: { type: 'string', description: 'id del hilo cuyo último mensaje se reenvía, con sus adjuntos.' }, sin_adjuntos: { type: 'boolean', description: 'Al reenviar, no incluir los adjuntos del original.' }, html_ruta: { type: 'string', description: 'Opcional: ruta de un archivo con el HTML (igual que `html`, sin pasarlo por la conversación).' }, cuerpo_ruta: { type: 'string', description: 'Opcional: ruta de un archivo con el texto plano (igual que `cuerpo`).' }, html: { type: 'string', description: 'Opcional: cuerpo HTML ya hecho (se envía tal cual, sin firma añadida; `cuerpo` pasa a ser la versión en texto plano).' }, imagenes_inline: { type: 'array', items: { type: 'object', properties: { ruta: { type: 'string' }, cid: { type: 'string' } }, required: ['ruta', 'cid'] }, description: 'Opcional: imágenes incrustadas que el html pide como cid:<cid> (ruta del archivo en disco y su Content-ID).' } };
 const T = (name, description, properties = {}, required = []) => ({ name, description, inputSchema: { type: 'object', properties, required } });
 const TOOLS = [
   T('cuentas', 'Todas tus cuentas de correo: si están conectadas, cuántos hilos sin leer y cuántos en Recibidos.'),
