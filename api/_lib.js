@@ -54,10 +54,17 @@ function hmac(data) {
   return crypto.createHmac('sha256', secret).update(data).digest('base64url');
 }
 
-export function makeSession(maxAge = MAX_AGE) {
-  const payload = b64u(JSON.stringify({ exp: Date.now() + maxAge * 1000, n: crypto.randomBytes(8).toString('hex'), v: SESSION_VER }));
+// quien = el correo de Google con el que se entró (la sesión por contraseña no lo lleva). Sirve para limitar los avisos de ciertas personas (BZ_AVISOS_LEADS).
+export function makeSession(maxAge = MAX_AGE, quien = '') {
+  const payload = b64u(JSON.stringify({ exp: Date.now() + maxAge * 1000, n: crypto.randomBytes(8).toString('hex'), v: SESSION_VER, q: quien ? String(quien).toLowerCase().slice(0, 120) : undefined }));
   return payload + '.' + hmac(payload);
 }
+// El correo con el que entró esta sesión (vacío si entró con contraseña o es una sesión anterior a este campo). Solo vale tras validSession.
+export function sessionQuien(req) {
+  try { const tok = readCookie(req); return String(JSON.parse(Buffer.from(String(tok).split('.')[0], 'base64url').toString()).q || ''); } catch { return ''; }
+}
+// Correos (BZ_AVISOS_LEADS, separados por comas) cuyos dispositivos SOLO reciben los avisos del CRM externo: ni correo, ni WhatsApp, ni nada más.
+export const SOLO_LEADS = String(process.env.BZ_AVISOS_LEADS || '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
 
 export function readCookie(req, name = COOKIE) {
   const raw = req.headers.cookie || '';
@@ -375,7 +382,11 @@ export async function webPush(sub, datos, urgente = true) {
 // Manda un aviso a todos los móviles suscritos y borra los que ya no existen
 export async function pushTodos(datos) {
   const st = await readStore(true), subs = Object.entries(st.push || {});
-  const muertos = [], res = await Promise.all(subs.map(async ([h, s]) => { try { const c = await webPush(s.sub, datos); if (c === 404 || c === 410) muertos.push(h); return c; } catch (e) { return 0; } }));
+  // los dispositivos «solo leads» solo reciben los avisos marcados tipo 'lead-ext', y sin el número rojo del icono (que es el de correos sin leer)
+  const muertos = [], res = await Promise.all(subs.map(async ([h, s]) => {
+    if (s.solo === 'leads' && datos.tipo !== 'lead-ext') return 0;
+    try { const c = await webPush(s.sub, s.solo === 'leads' ? { ...datos, badge: undefined } : datos); if (c === 404 || c === 410) muertos.push(h); return c; } catch (e) { return 0; }
+  }));
   if (muertos.length) await updateStore((n) => { muertos.forEach((h) => delete n.push[h]); });
   return res;
 }

@@ -58,7 +58,7 @@ export default async function handler(req, res) {
     if (!LOGIN_EMAILS.includes(email)) return fail('cuenta');
     try { await savePhoto(email, p.picture); } catch {}
     const age = st.r ? YEAR : SHORT;
-    return back(res, '', [sessionCookie(makeSession(age), age, !!st.r)]);
+    return back(res, '', [sessionCookie(makeSession(age, email), age, !!st.r)]);
   }
   // reconectar: tiene que ser exactamente la cuenta de ese hueco y con todos los permisos
   const slot = (await allAccounts())[st.acc];

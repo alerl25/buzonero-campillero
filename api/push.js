@@ -1,6 +1,6 @@
 // Avisos al móvil: dar de alta o de baja este dispositivo, y mandar un aviso de prueba. Solo con la sesión abierta.
 import crypto from 'node:crypto';
-import { validSession, sameOrigin, noStore, updateStore, webPush, readStore } from './_lib.js';
+import { validSession, sameOrigin, noStore, updateStore, webPush, readStore, sessionQuien, SOLO_LEADS } from './_lib.js';
 
 const hash = (endpoint) => crypto.createHash('sha256').update(String(endpoint)).digest('hex').slice(0, 24);
 // solo los servicios de avisos de verdad (Google, Mozilla, Apple, Microsoft): el vigía hace POST a esta dirección con cada correo
@@ -17,9 +17,11 @@ export default async function handler(req, res) {
     if (b.accion === 'alta') {
       if (!validSub(b.sub)) return res.status(400).json({ error: 'suscripcion' });
       const sub = { endpoint: b.sub.endpoint, keys: { p256dh: b.sub.keys.p256dh, auth: b.sub.keys.auth } };
-      const h = hash(sub.endpoint), st = await readStore();
-      if (st.push && st.push[h] && st.push[h].sub.keys.auth === sub.keys.auth) return res.status(200).json({ ok: true, ya: true });
-      await updateStore((n) => { n.push[h] = { sub, disp: String(b.disp || '').slice(0, 60), alta: new Date().toISOString() }; });
+      // «solo leads»: si quien abre la sesión es una de las cuentas de BZ_AVISOS_LEADS, este dispositivo solo recibe los avisos del CRM externo.
+      // Se recalcula en cada alta (la app se vuelve a registrar cada vez que se abre), así que el dispositivo toma la etiqueta de quien lo usa ahora.
+      const h = hash(sub.endpoint), st = await readStore(), q = sessionQuien(req), solo = q && SOLO_LEADS.includes(q) ? 'leads' : '';
+      if (st.push && st.push[h] && st.push[h].sub.keys.auth === sub.keys.auth && (st.push[h].solo || '') === solo) return res.status(200).json({ ok: true, ya: true });
+      await updateStore((n) => { const prev = n.push[h]; n.push[h] = { sub, disp: String(b.disp || '').slice(0, 60), alta: (prev && prev.alta) || new Date().toISOString(), solo: solo || undefined }; });
       return res.status(200).json({ ok: true });
     }
     if (b.accion === 'baja') {

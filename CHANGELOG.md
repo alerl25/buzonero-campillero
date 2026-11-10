@@ -2,6 +2,12 @@
 
 Todas las versiones de Buzonero Campillero. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [1.19.3] · 2026-11-10
+
+### Avisos
+- **Dispositivos «solo leads».** Nueva variable `BZ_AVISOS_LEADS` (correos separados por comas): los dispositivos de quien entra con una de esas cuentas solo reciben los avisos del CRM externo; ni correo, ni WhatsApp, ni seguimientos, ni el número rojo del icono (que cuenta correos sin leer). La sesión de Google ahora guarda, firmado, el correo con el que se entró; al registrar un dispositivo (la app lo repite cada vez que se abre) se etiqueta según quien lo usa en ese momento. La sesión por contraseña no lleva correo y queda sin limitar. El acceso a la app sigue siendo completo: esto solo filtra los avisos al móvil.
+- El resultado del vigía enseña `movilesSoloLeads` (dispositivos limitados).
+
 ## [1.19.2] · 2026-11-10
 
 ### Avisos

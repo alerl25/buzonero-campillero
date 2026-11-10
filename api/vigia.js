@@ -189,15 +189,15 @@ export default async function handler(req, res) {
         if (punto) {
           const nv = x.filas.filter((l) => l.id > punto).sort((a, b) => a.id - b.id);
           crmExt = nv.length;
-          if (nv.length > 5) avisos.push({ title: nv.length + ' contactos nuevos' + (rotulo ? ' · ' + rotulo : ''), body: 'Han entrado a la vez en el CRM', tag: 'cx-resumen-' + x.maxId, url: '/app?vista=LEADSEXT' });
-          else nv.forEach((l) => avisos.push({ title: 'Nuevo lead · ' + l.nombre + (rotulo ? ' · ' + rotulo : ''), body: [l.origen, l.estado, l.nota].filter(Boolean).join(' · ').slice(0, 160), tag: 'cx-' + l.id, url: '/app?vista=LEADSEXT' }));
+          if (nv.length > 5) avisos.push({ title: nv.length + ' contactos nuevos' + (rotulo ? ' · ' + rotulo : ''), body: 'Han entrado a la vez en el CRM', tag: 'cx-resumen-' + x.maxId, tipo: 'lead-ext', url: '/app?vista=LEADSEXT' });
+          else nv.forEach((l) => avisos.push({ title: 'Nuevo lead · ' + l.nombre + (rotulo ? ' · ' + rotulo : ''), body: [l.origen, l.estado, l.nota].filter(Boolean).join(' · ').slice(0, 160), tag: 'cx-' + l.id, tipo: 'lead-ext', url: '/app?vista=LEADSEXT' }));
           const cand = x.filas.filter((l) => l.id <= punto && ms(l.actualizado) > T).sort((a, b) => ms(b.actualizado) - ms(a.actualizado)).slice(0, 6);
           for (const l of cand) {
             const acts = await crmExtVer(l.id);
             const nota = (acts || []).find((a) => a.tipo === 'nota' && ms(a.creado) > T && esEntrada(a.texto));
             if (!nota) continue;
             crmVuelven++;
-            avisos.push({ title: 'Vuelve a entrar · ' + l.nombre + (rotulo ? ' · ' + rotulo : ''), body: nota.texto.slice(0, 160), tag: 'cx-v-' + l.id + '-' + ms(nota.creado), url: '/app?vista=LEADSEXT' });
+            avisos.push({ title: 'Vuelve a entrar · ' + l.nombre + (rotulo ? ' · ' + rotulo : ''), body: nota.texto.slice(0, 160), tag: 'cx-v-' + l.id + '-' + ms(nota.creado), tipo: 'lead-ext', url: '/app?vista=LEADSEXT' });
           }
         }
         if (x.maxId > punto) nuevosH._crmext = x.maxId;
@@ -218,5 +218,5 @@ export default async function handler(req, res) {
   }
   const enviados = [];
   if (hayMoviles) for (const a of avisos) enviados.push(await pushTodos(a));
-  return res.status(200).json({ ok: true, avisos: avisos.length, entregas: enviados.flat().filter((c) => c >= 200 && c < 300).length, puntos: Object.keys(nuevosH).length, whatsapp: wa, crmExt, crmVuelven, llamadasInstancia: llamadas, instanciaMin: Math.round((Date.now() - arranque) / 60000), moviles: Object.keys(st0.push || {}).length, crmPunto: Number(nuevosH._crmext || hist._crmext) || 0, seguimientos: segHechos.length, enviosServidor: envHechos.length, leads });
+  return res.status(200).json({ ok: true, avisos: avisos.length, entregas: enviados.flat().filter((c) => c >= 200 && c < 300).length, puntos: Object.keys(nuevosH).length, whatsapp: wa, crmExt, crmVuelven, llamadasInstancia: llamadas, instanciaMin: Math.round((Date.now() - arranque) / 60000), moviles: Object.keys(st0.push || {}).length, movilesSoloLeads: Object.values(st0.push || {}).filter((s) => s && s.solo === 'leads').length, crmPunto: Number(nuevosH._crmext || hist._crmext) || 0, seguimientos: segHechos.length, enviosServidor: envHechos.length, leads });
 }
