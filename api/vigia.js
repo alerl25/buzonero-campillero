@@ -172,15 +172,15 @@ export default async function handler(req, res) {
       }
     } catch (e) {}
   }
-  // CRM externo (solo lectura): un aviso por cada contacto nuevo, es decir, con un id mayor que el último visto. Se mira en los minutos
-  // pares (cada 2 min, para no gastar la salida gratuita del CRM) y la primera vez solo se apunta el punto. Si entran más de 5 a la vez
+  // CRM externo (solo lectura): un aviso por cada contacto nuevo, es decir, con un id mayor que el último visto. Se mira en cada pasada del
+  // vigía (cada minuto: el retraso máximo es el de su despertador) y la primera vez solo se apunta el punto. Si entran más de 5 a la vez
   // (una importación), un solo aviso de resumen.
   // Y los que YA ESTABAN y vuelven a entrar (formulario, reserva de llamada…): el CRM los reconoce por teléfono o correo y no crea ficha, solo apunta una nota
   // automática. Se miran las fichas actualizadas desde el último punto de tiempo (_crmextT) y se avisa solo si traen una nota de ENTRADA; editar una ficha no avisa.
   let crmExt = 0, crmVuelven = 0;
-  if (hayMoviles && hayCrmExt() && new Date().getUTCMinutes() % 2 === 0) {
+  if (hayMoviles && hayCrmExt()) {
     try {
-      const x = await crmExtListar();
+      const x = await crmExtListar(true);
       if (x.ok && x.maxId > 0) {
         const punto = Number(hist._crmext) || 0, rotulo = nombreCrmExt(), ms = (v) => Date.parse(v) || 0;
         const maxAct = x.filas.reduce((m, l) => Math.max(m, ms(l.actualizado)), 0);

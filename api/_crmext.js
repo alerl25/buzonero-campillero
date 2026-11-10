@@ -3,7 +3,7 @@
 // la acción está escrito aquí y no sale de ningún parámetro, así que nada de lo que llegue de la app o del conector puede escribir ni borrar.
 // Variables de Vercel (nunca en el código): CRM_EXT_URL (https://…/functions/v1/crm), CRM_EXT_CLAVE, CRM_EXT_NOMBRE (rótulo de la
 // vista) y CRM_EXT_PANEL (enlace al panel del CRM, opcional). Sin CRM_EXT_URL y CRM_EXT_CLAVE, la integración no existe.
-// Coste: la respuesta pesa unos 30 KB comprimida y se pide cada 2 min desde el vigía; por eso hay una memoria de 55 s por instancia.
+// Coste: la respuesta pesa unos 30 KB comprimida y se pide cada minuto desde el vigía (≈1,3 GB al mes de salida del CRM); la vista de la app usa una memoria de 25 s.
 const URL_CRM = () => String(process.env.CRM_EXT_URL || '').trim();
 const CLAVE = () => String(process.env.CRM_EXT_CLAVE || '').trim();
 export const hayCrmExt = () => /^https:\/\/[^\s]+$/.test(URL_CRM()) && CLAVE().length >= 8;
@@ -16,9 +16,10 @@ const notaUtil = (v) => { const t = txt(v, 240); return /^datos cambiados/i.test
 let memoria = { t: 0, v: null };
 
 // { ok, filas: [normalizadas, sin límite], maxId, total } o { ok:false, error }
-export async function crmExtListar() {
+// fresco = true (el vigía) se salta la memoria: un aviso no puede llegar tarde por servir un dato de hace 50 s.
+export async function crmExtListar(fresco = false) {
   if (!hayCrmExt()) return { ok: false, error: 'sin_clave' };
-  if (memoria.v && Date.now() - memoria.t < 55000) return memoria.v;
+  if (!fresco && memoria.v && Date.now() - memoria.t < 25000) return memoria.v;
   let r;
   try {
     r = await fetch(URL_CRM(), { method: 'POST', headers: { 'x-clave': CLAVE(), 'content-type': 'application/json', 'accept-encoding': 'gzip' }, body: JSON.stringify({ accion: 'listar' }), signal: AbortSignal.timeout(15000) });

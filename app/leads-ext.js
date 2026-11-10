@@ -141,10 +141,10 @@ document.addEventListener('click', function(e){
   if((t = e.target.closest('[data-lx-visto]'))){ LX_V[t.dataset.lxVisto] = 1; lxGuardarVistos(); setTimeout(function(){ if(st.folder === 'LEADSEXT') pintarLeadsExt(); }, 60); return; }
   if(e.target.closest('[data-ve="lx"]')){ LX.leads = null; cargarLeadsExt(); }
 });
-// Se actualiza SOLO: cada 60 s con la vista abierta y cada 5 min desde otra vista (para el globo de la barra). El servidor guarda la respuesta 55 s.
+// Se actualiza SOLO: cada 30 s con la vista abierta y cada 5 min desde otra vista (para el globo de la barra). El servidor guarda la respuesta 25 s.
 var lxTic = 0;
 setInterval(function(){
   if(document.visibilityState !== 'visible' || !window.INTEG_ON || !INTEG_ON.lx) return;
-  lxTic++; if(st.folder === 'LEADSEXT' ? true : lxTic % 5 === 0) cargarLeadsExt();
-}, 60000);
+  lxTic++; if(st.folder === 'LEADSEXT' ? true : lxTic % 10 === 0) cargarLeadsExt();
+}, 30000);
 document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'visible' && window.INTEG_ON && INTEG_ON.lx && !LX.cargando && LX.leads) cargarLeadsExt(); });

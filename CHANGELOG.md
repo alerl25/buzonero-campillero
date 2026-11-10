@@ -2,6 +2,11 @@
 
 Todas las versiones de Buzonero Campillero. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [1.19.4] · 2026-11-10
+
+### Avisos
+- **Menos retraso en los avisos del CRM externo.** El vigía mira el CRM en cada pasada (cada minuto) en vez de en los minutos pares, y se salta la memoria intermedia: antes un aviso podía tardar hasta 2 minutos, ahora como máximo lo que tarde el despertador externo (un minuto) más unos 4 s de proceso. La vista de la app se refresca cada 30 s con la vista abierta (la memoria del servidor baja a 25 s). Coste: unos 1,3 GB al mes de salida del CRM, dentro del límite gratuito.
+
 ## [1.19.3] · 2026-11-10
 
 ### Avisos
