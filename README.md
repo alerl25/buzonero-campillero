@@ -38,6 +38,7 @@ Y trae su **app web** (una PWA que se instala en el ordenador y en el móvil), q
 - **Correo de todas tus cuentas** en pestañas: bandeja agrupada por meses, búsqueda de Gmail, redactar con adjuntos, deshacer el envío, dictado por voz y «Avísame si no contesta».
 - **CRM**: un tablero por etapas que detecta solo los leads que llegan por correo **y por WhatsApp**, y te dice de quién es el turno.
 - **WhatsApp** (solo lectura) a través de [Zernio](https://zernio.com): lees las conversaciones, cada una es un lead del CRM y te avisa en el móvil cuando entra un mensaje.
+- **Leads de tu CRM** (solo lectura, opcional): una vista con los contactos más recientes de un CRM propio y un aviso al móvil por cada contacto nuevo. Se activa con `CRM_EXT_URL` y `CRM_EXT_CLAVE`; Buzonero solo pide la lista y nunca escribe ni borra.
 - **Calendario de Google** (día, semana y mes) y **Contactos de Google** (nombres y fotos para los números de WhatsApp).
 - **Redes sociales**: un planificador al estilo de Metricool, con calendario semanal, para programar tus publicaciones desde tu cuenta de Metricool.
 - **Integraciones**: un panel con todo lo que se puede conectar, y solo aparece en la barra lateral lo que de verdad usas.

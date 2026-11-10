@@ -2,6 +2,17 @@
 
 Todas las versiones de Buzonero Campillero. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [1.19.0] · 2026-11-10
+
+### App web
+- **Leads de un CRM externo, solo lectura.** Nueva vista «Leads <nombre>» en la barra lateral, con tarjetas de los 150 contactos más recientes de tu CRM, los nuevos marcados («Nuevo», globo con el número de sin ver), contadores, filtros (Todos, Sin ver, Café, Redes, Eventos), «Marcar todos como vistos» y botones de Llamar, WhatsApp y abrir tu panel. Solo sale si el servidor tiene el CRM conectado. Se actualiza sola (cada 60 s con la vista abierta, cada 5 min desde otra vista).
+- **Aviso al móvil por cada contacto nuevo.** El vigía consulta el CRM cada 2 minutos y avisa de cada contacto con un id mayor que el último visto; si entran más de 5 a la vez (una importación), un solo aviso de resumen. La primera pasada solo apunta el punto de partida: no avisa de lo que ya había.
+- **Buzonero nunca escribe en ese CRM.** El único comando que el código puede enviar es `listar`; el nombre de la acción está escrito en el servidor y no sale de ningún parámetro. La clave vive solo en variables de entorno (`CRM_EXT_URL`, `CRM_EXT_CLAVE`, `CRM_EXT_NOMBRE`, `CRM_EXT_PANEL`).
+- El resultado del vigía incluye ahora `moviles` (dispositivos con avisos) y `crmPunto`, para comprobar de un vistazo que los avisos tienen a quién llegar.
+
+### Servidor
+- Sin función nueva (el plan gratis admite 12): la ruta va dentro de `api/zernio.js` (`?r=leads-ext`) y el módulo es `api/_crmext.js`. Respuesta de unos 30 KB comprimida y memoria de 55 s por instancia, para no gastar la cuota gratuita del CRM.
+
 ## [1.18.2] · 2026-10-26
 
 ### App web

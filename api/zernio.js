@@ -10,6 +10,7 @@ import { validSession, sameOrigin, noStore, esMaquina, readCrm, updateCrm, quita
 import { agenda, clave9 } from './_agenda.js';
 import { zernio, hayZernio, ID_ZERNIO as ID, nombreConv, soloDigitos } from './_zernio.js';
 import { mcEstado, mcConectar, mcActualizar, mcQuitar, mcPosts, mcPublicar, mcBorrar } from './_metricool.js';
+import { hayCrmExt, nombreCrmExt, crmExtListar, paraVista } from './_crmext.js';
 
 export default async function handler(req, res) {
   noStore(res);
@@ -22,7 +23,7 @@ export default async function handler(req, res) {
       const r = String(q.r || '');
       if (r === 'integraciones') {
         // para el panel y para saber qué entradas lleva la barra lateral: nada de claves
-        const out = { ok: true, zernio: { clave: hayZernio(), whatsapp: 0 }, metricool: await mcEstado().catch(() => ({ conectado: false })), contactos: [], agenda: { n: 0, fotos: 0, fallos: [] } };
+        const out = { ok: true, zernio: { clave: hayZernio(), whatsapp: 0 }, metricool: await mcEstado().catch(() => ({ conectado: false })), crm: { conectado: hayCrmExt(), nombre: nombreCrmExt() }, contactos: [], agenda: { n: 0, fotos: 0, fallos: [] } };
         if (hayZernio()) { try { const x = await zernio('/accounts'); out.zernio.whatsapp = x.status === 200 ? (x.body.accounts || []).filter((a) => a.platform === 'whatsapp').length : 0; } catch (e) {} }
         try { const g = await agenda(); out.contactos = g.emails; out.agenda = { n: g.n, fotos: g.fotos, fallos: g.fallos }; } catch (e) {}
         return res.status(200).json(out);
@@ -30,6 +31,10 @@ export default async function handler(req, res) {
       if (r === 'mc-posts') {
         if (maquina) return res.status(403).json({ error: 'sesion' });
         return res.status(200).json(await mcPosts(String(q.blogId || ''), String(q.desde || ''), String(q.hasta || '')));
+      }
+      if (r === 'leads-ext') {   // CRM externo, solo lectura, solo con sesión de la app
+        if (maquina) return res.status(403).json({ error: 'sesion' });
+        return res.status(200).json(paraVista(await crmExtListar()));
       }
       if (!hayZernio()) return res.status(200).json({ ok: false, error: 'sin_clave' });
       if (r === 'estado') {

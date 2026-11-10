@@ -8,6 +8,7 @@ import crypto from 'node:crypto';
 import { allAccounts, accessToken, readStore, updateStore, readSeg, updateSeg, readEnv, updateEnv, readCrm, pushTodos, noStore } from './_lib.js';
 import { zernio, hayZernio, nombreConv } from './_zernio.js';
 import { crmDeCuenta, detector } from './_crm.js';
+import { hayCrmExt, nombreCrmExt, crmExtListar } from './_crmext.js';
 
 const MAX_POR_CUENTA = 4;   // si entran más de golpe, el resto va en un aviso de resumen
 const ETIQUETA_SEG = 'Sin respuesta';
@@ -167,6 +168,25 @@ export default async function handler(req, res) {
       }
     } catch (e) {}
   }
+  // CRM externo (solo lectura): un aviso por cada contacto nuevo, es decir, con un id mayor que el último visto. Se mira en los minutos
+  // pares (cada 2 min, para no gastar la salida gratuita del CRM) y la primera vez solo se apunta el punto. Si entran más de 5 a la vez
+  // (una importación), un solo aviso de resumen.
+  let crmExt = 0;
+  if (hayMoviles && hayCrmExt() && new Date().getUTCMinutes() % 2 === 0) {
+    try {
+      const x = await crmExtListar();
+      if (x.ok && x.maxId > 0) {
+        const punto = Number(hist._crmext) || 0, rotulo = nombreCrmExt();
+        if (punto) {
+          const nv = x.filas.filter((l) => l.id > punto).sort((a, b) => a.id - b.id);
+          crmExt = nv.length;
+          if (nv.length > 5) avisos.push({ title: nv.length + ' contactos nuevos' + (rotulo ? ' · ' + rotulo : ''), body: 'Han entrado a la vez en el CRM', tag: 'cx-resumen-' + x.maxId, url: '/app?vista=LEADSEXT' });
+          else nv.forEach((l) => avisos.push({ title: 'Nuevo lead · ' + l.nombre + (rotulo ? ' · ' + rotulo : ''), body: [l.origen, l.estado, l.nota].filter(Boolean).join(' · ').slice(0, 160), tag: 'cx-' + l.id, url: '/app?vista=LEADSEXT' }));
+        }
+        if (x.maxId > punto) nuevosH._crmext = x.maxId;
+      }
+    } catch (e) {}
+  }
   if (Object.keys(nuevosH).length) await updateStore((n) => { Object.assign(n.hist, nuevosH); });
   // se borran solo los que se han mirado y no se han vuelto a poner mientras tanto
   if (segHechos.length) await updateSeg((seg) => { segHechos.forEach((s) => { const c = s.k + '|' + s.hilo, a = seg[c]; if (a && a.puesto === s.puesto) delete seg[c]; }); }).catch(() => {});
@@ -180,5 +200,5 @@ export default async function handler(req, res) {
   }
   const enviados = [];
   if (hayMoviles) for (const a of avisos) enviados.push(await pushTodos(a));
-  return res.status(200).json({ ok: true, avisos: avisos.length, entregas: enviados.flat().filter((c) => c >= 200 && c < 300).length, puntos: Object.keys(nuevosH).length, whatsapp: wa, seguimientos: segHechos.length, enviosServidor: envHechos.length, leads });
+  return res.status(200).json({ ok: true, avisos: avisos.length, entregas: enviados.flat().filter((c) => c >= 200 && c < 300).length, puntos: Object.keys(nuevosH).length, whatsapp: wa, crmExt, moviles: Object.keys(st0.push || {}).length, crmPunto: Number(nuevosH._crmext || hist._crmext) || 0, seguimientos: segHechos.length, enviosServidor: envHechos.length, leads });
 }
