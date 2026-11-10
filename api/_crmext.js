@@ -11,6 +11,8 @@ export const nombreCrmExt = () => String(process.env.CRM_EXT_NOMBRE || '').repla
 export const panelCrmExt = () => { const p = String(process.env.CRM_EXT_PANEL || '').trim(); return /^https:\/\/[^\s"'<>]+$/.test(p) ? p : ''; };
 
 const txt = (v, n) => (v == null ? '' : String(v).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, n));
+// La última nota de la ficha, sin el apunte automático de «Datos cambiados…»: solo importan los que entran, no lo que se edita después.
+const notaUtil = (v) => { const t = txt(v, 240); return /^datos cambiados/i.test(t) ? '' : t; };
 let memoria = { t: 0, v: null };
 
 // { ok, filas: [normalizadas, sin límite], maxId, total } o { ok:false, error }
@@ -26,7 +28,7 @@ export async function crmExtListar() {
   if (!j || j.ok !== true || !Array.isArray(j.data)) return { ok: false, error: 'formato' };
   const filas = j.data.filter((c) => c && Number.isFinite(Number(c.id))).map((c) => ({
     id: Number(c.id), nombre: txt(c.nombre, 80) || 'Sin nombre', email: txt(c.email, 120), telefono: txt(c.telefono, 30), empresa: txt(c.empresa, 80), cargo: txt(c.cargo, 60),
-    origen: txt(c.origen, 30), estado: txt(c.estado, 30), creado: txt(c.creado, 40), nota: txt(c.ultima_nota, 240), proximo: txt(c.proximo_paso, 160), archivado: !!c.archivado
+    origen: txt(c.origen, 30), estado: txt(c.estado, 30), creado: txt(c.creado, 40), nota: notaUtil(c.ultima_nota), proximo: txt(c.proximo_paso, 160), archivado: !!c.archivado
   }));
   const vivos = filas.filter((c) => !c.archivado);
   const v = { ok: true, filas: vivos, maxId: filas.reduce((m, c) => Math.max(m, c.id), 0), total: vivos.length };
@@ -34,9 +36,9 @@ export async function crmExtListar() {
   return v;
 }
 
-// Lo que ve la app: los 150 más recientes por fecha de alta, sin el resto de la tabla.
+// Lo que ve la app: hasta 500 contactos por fecha de alta (más recientes primero), solo con los campos que se pintan.
 export function paraVista(x) {
   if (!x || !x.ok) return x || { ok: false, error: 'interno' };
-  const leads = x.filas.slice().sort((a, b) => (Date.parse(b.creado) || 0) - (Date.parse(a.creado) || 0) || b.id - a.id).slice(0, 150);
+  const leads = x.filas.slice().sort((a, b) => (Date.parse(b.creado) || 0) - (Date.parse(a.creado) || 0) || b.id - a.id).slice(0, 500);
   return { ok: true, leads, total: x.total, nombre: nombreCrmExt(), panel: panelCrmExt() };
 }

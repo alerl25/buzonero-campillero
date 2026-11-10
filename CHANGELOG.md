@@ -2,6 +2,14 @@
 
 Todas las versiones de Buzonero Campillero. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [1.19.1] · 2026-11-10
+
+### App web
+- **Leads externos: «nuevo» ya no se inunda con las importaciones.** El globo de la barra y la marca «Nuevo» de las tarjetas cuentan solo lo que se da de alta después de abrir la vista por primera vez en cada navegador (como ya hacía WhatsApp), así que una importación de cientos de contactos no sale como cientos de «nuevos».
+- **Solo cuenta lo que entra.** Un cambio de datos en una ficha del CRM no avisa ni se muestra: la vista oculta la nota automática «Datos cambiados…» y el aviso salta únicamente cuando entra un contacto nuevo.
+- **Pestañas por fecha.** La vista abre en «Todos» (la primera pestaña): todo lo que entra de fuera, con lo más reciente arriba y agrupado por día. Después van «Nuevos» (últimos 7 días), «Anteriores», «Café», «Redes», «Eventos» y «Personal» (los contactos importados del círculo del equipo, aparte para que una importación grande no tape los leads). Los tres cuadros de arriba (Nuevos · 7 días, Anteriores, Personal) son atajos: al pulsar uno, la vista salta a su pestaña. Desaparecen el filtro y el contador «Sin ver». La vista trae hasta 500 contactos (antes 150, que una importación grande llenaba). Los avisos al móvil siguen cubriendo todo.
+- Botones de las tarjetas (Llamar, WhatsApp, abrir el CRM) con el estilo de la app, no como enlaces subrayados.
+
 ## [1.19.0] · 2026-11-10
 
 ### App web
