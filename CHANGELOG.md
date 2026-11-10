@@ -2,6 +2,13 @@
 
 Todas las versiones de Buzonero Campillero. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [1.19.2] · 2026-11-10
+
+### Avisos
+- **Avisa también de quien ya estaba en el CRM y vuelve a entrar.** Un contacto repetido (mismo teléfono o correo) no crea ficha nueva: el CRM solo apunta una nota automática. Hasta ahora esos no avisaban. Ahora el vigía mira las fichas actualizadas desde su último paso y avisa «Vuelve a entrar · …» solo si traen una nota de entrada (formulario, reserva de llamada, QR, inscripción o diagnóstico). Las ediciones («Datos cambiados…»), los cambios de estado y las notas del equipo siguen sin avisar.
+- Segundo comando de solo lectura del CRM externo: `ver` (las notas de una ficha), junto a `listar`. Nada de lo que llega de la app o del conector puede escribir ni borrar.
+- El resultado del vigía enseña `crmVuelven`, `llamadasInstancia` e `instanciaMin` (cuántas veces han llamado a la instancia y desde cuándo vive): sirve para comprobar de un vistazo que el despertador externo está llamando cada minuto.
+
 ## [1.19.1] · 2026-11-10
 
 ### App web

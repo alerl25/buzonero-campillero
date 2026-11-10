@@ -1,6 +1,6 @@
 // CRM externo, SOLO LECTURA. Lee los contactos de un CRM propio que se maneja con una función «crm» (POST con la cabecera x-clave y
-// el cuerpo { accion }) y devuelve { ok, data: [contacto…] }. Buzonero solo puede pedir la acción «listar»: el nombre de la acción
-// está escrito aquí y no sale de ningún parámetro, así que nada de lo que llegue de la app o del conector puede escribir ni borrar.
+// el cuerpo { accion }) y devuelve { ok, data: [contacto…] }. Buzonero solo puede pedir las acciones «listar» y «ver» (ambas de lectura): el nombre de
+// la acción está escrito aquí y no sale de ningún parámetro, así que nada de lo que llegue de la app o del conector puede escribir ni borrar.
 // Variables de Vercel (nunca en el código): CRM_EXT_URL (https://…/functions/v1/crm), CRM_EXT_CLAVE, CRM_EXT_NOMBRE (rótulo de la
 // vista) y CRM_EXT_PANEL (enlace al panel del CRM, opcional). Sin CRM_EXT_URL y CRM_EXT_CLAVE, la integración no existe.
 // Coste: la respuesta pesa unos 30 KB comprimida y se pide cada 2 min desde el vigía; por eso hay una memoria de 55 s por instancia.
@@ -28,12 +28,30 @@ export async function crmExtListar() {
   if (!j || j.ok !== true || !Array.isArray(j.data)) return { ok: false, error: 'formato' };
   const filas = j.data.filter((c) => c && Number.isFinite(Number(c.id))).map((c) => ({
     id: Number(c.id), nombre: txt(c.nombre, 80) || 'Sin nombre', email: txt(c.email, 120), telefono: txt(c.telefono, 30), empresa: txt(c.empresa, 80), cargo: txt(c.cargo, 60),
-    origen: txt(c.origen, 30), estado: txt(c.estado, 30), creado: txt(c.creado, 40), nota: notaUtil(c.ultima_nota), proximo: txt(c.proximo_paso, 160), archivado: !!c.archivado
+    origen: txt(c.origen, 30), estado: txt(c.estado, 30), creado: txt(c.creado, 40), actualizado: txt(c.actualizado, 40), nota: notaUtil(c.ultima_nota), proximo: txt(c.proximo_paso, 160), archivado: !!c.archivado
   }));
   const vivos = filas.filter((c) => !c.archivado);
   const v = { ok: true, filas: vivos, maxId: filas.reduce((m, c) => Math.max(m, c.id), 0), total: vivos.length };
   memoria = { t: Date.now(), v };
   return v;
+}
+
+// Un contacto que ya estaba y vuelve a entrar (rellena un formulario, reserva una llamada…) no crea ficha nueva: el CRM lo reconoce por teléfono o correo y solo
+// apunta una nota automática. Estas son las notas de ENTRADA; «Datos cambiados…», los cambios de estado y las notas que escribe el equipo no cuentan.
+export const esEntrada = (t) => /^(Ha (entrado|reservado una llamada|escaneado|hecho el diagn)|Se ha (apuntado|registrado|inscrito))/i.test(String(t || ''));
+
+// Acción «ver» (solo lectura): las notas de una ficha, de más reciente a más antigua. Segundo y último comando que este módulo puede enviar.
+export async function crmExtVer(id) {
+  id = Number(id);
+  if (!hayCrmExt() || !Number.isInteger(id) || id <= 0) return null;
+  let r;
+  try {
+    r = await fetch(URL_CRM(), { method: 'POST', headers: { 'x-clave': CLAVE(), 'content-type': 'application/json', 'accept-encoding': 'gzip' }, body: JSON.stringify({ accion: 'ver', p_id: id }), signal: AbortSignal.timeout(15000) });
+  } catch (e) { return null; }
+  if (r.status !== 200) return null;
+  const j = await r.json().catch(() => null);
+  const acts = j && j.ok === true && j.data && Array.isArray(j.data.actividades) ? j.data.actividades : null;
+  return acts ? acts.map((a) => ({ tipo: txt(a.tipo, 20), texto: txt(a.texto, 400), creado: txt(a.creado, 40) })) : null;
 }
 
 // Lo que ve la app: hasta 500 contactos por fecha de alta (más recientes primero), solo con los campos que se pintan.
