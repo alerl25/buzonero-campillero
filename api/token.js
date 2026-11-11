@@ -17,6 +17,6 @@ export default async function handler(req, res) {
   if (req.query.lista) return res.status(200).json({ cuentas: Object.entries(todas).map(([k, a]) => ({ key: k, email: a.email, name: a.name })) });
   const key = String(req.query.acc || '');
   if (!Object.prototype.hasOwnProperty.call(todas, key)) return res.status(400).json({ error: 'cuenta' });
-  const r = await refreshAccess(key);
+  const r = await refreshAccess(key, false, !!req.query.nuevo);
   return res.status(r.status).json(r.body);
 }

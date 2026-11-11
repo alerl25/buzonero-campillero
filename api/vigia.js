@@ -5,7 +5,7 @@
 import crypto from 'node:crypto';
 // Y, en las cuentas que están en un CRM con la detección activa, marca los leads nuevos («Leads/Nuevo») y avisa «Nuevo lead»;
 // cuando la cuenta contesta en un hilo de la primera etapa, lo pasa a la segunda («Respondido»).
-import { allAccounts, accessToken, readStore, updateStore, readSeg, updateSeg, readEnv, updateEnv, readCrm, pushTodos, noStore } from './_lib.js';
+import { allAccounts, accessToken, readStore, updateStore, readHist, updateHist, readSeg, updateSeg, readEnv, updateEnv, readCrm, pushTodos, noStore } from './_lib.js';
 import { zernio, hayZernio, nombreConv } from './_zernio.js';
 import { crmDeCuenta, detector } from './_crm.js';
 import { hayCrmExt, detectarCrmExt } from './_crmext.js';
@@ -36,20 +36,31 @@ export function esPropaganda(labels, H) {
 }
 const cabecera = (m, n) => (((m && m.payload && m.payload.headers) || []).find((h) => h.name.toLowerCase() === n) || {}).value || '';
 
+// Una sola pasada a la vez por instancia (Vercel reparte varias llamadas en la misma): si una tarda más de un minuto, la siguiente no la pisa ni repite sus avisos.
+// El candado se suelta solo a los 90 s por si una pasada muriera sin terminar.
+let corriendo = 0;
 export default async function handler(req, res) {
   noStore(res);
   if (!claveOk(req)) return res.status(401).json({ error: 'clave' });
+  if (corriendo && Date.now() - corriendo < 90000) return res.status(200).json({ ok: true, ocupado: true });
+  corriendo = Date.now();
+  try { return await pasada(req, res); } finally { corriendo = 0; }
+}
+async function pasada(req, res) {
   llamadas++;
   const st0 = await readStore(true);
   // sin el almacén no se sabe qué cuentas hay ni dónde se quedó el historial: mejor no hacer nada que borrar avisos o repetirlos
   if (st0._fallo) return res.status(503).json({ error: 'almacen' });
+  // los puntos del historial viven en su fichero (readHist); la primera vez se parte de los que aún estén en el almacén
+  let hist;
+  try { hist = await readHist(st0.hist); } catch (e) { return res.status(503).json({ error: 'historial' }); }
   // Purga de una sola vez (BZ_PURGA_PUSH_DESDE = fecha ISO): quita los dispositivos dados de alta desde esa fecha SIN identificar (sin `quien`, es decir, desde una sesión que no
   // llevaba el correo). Cada uno se vuelve a dar de alta solo al abrir la app, ya etiquetado según quien lo use. Se hace una vez por valor (marca hist._purga).
   const purgaDesde = String(process.env.BZ_PURGA_PUSH_DESDE || '').trim();
   let purgados = 0;
-  if (purgaDesde && Date.parse(purgaDesde) && (st0.hist || {})._purga !== purgaDesde) {
+  if (purgaDesde && Date.parse(purgaDesde) && hist._purga !== purgaDesde) {
     const fuera = Object.entries(st0.push || {}).filter(([, s]) => s && !s.quien && Date.parse(s.alta) >= Date.parse(purgaDesde)).map(([h]) => h);
-    try { await updateStore((n) => { fuera.forEach((h) => { delete n.push[h]; }); n.hist = n.hist || {}; n.hist._purga = purgaDesde; }); fuera.forEach((h) => { delete st0.push[h]; }); purgados = fuera.length; } catch (e) {}
+    try { await updateStore((n) => { fuera.forEach((h) => { delete n.push[h]; }); }); await updateHist((n) => { n._purga = purgaDesde; }, st0.hist); hist._purga = purgaDesde; fuera.forEach((h) => { delete st0.push[h]; }); purgados = fuera.length; } catch (e) {}
   }
   const hayMoviles = Object.keys(st0.push || {}).length > 0;
   const vencidos = Object.values(await readSeg().catch(() => ({}))).filter((s) => s && s.vence <= Date.now());
@@ -57,7 +68,7 @@ export default async function handler(req, res) {
   const pendEnv = Object.values(await readEnv().catch(() => ({}))).filter((e) => e && e.tras + 20000 <= Date.now());
   // los CRM con la detección de leads activa: sus cuentas se miran aunque no haya móviles
   const crmFull = await readCrm().catch(() => ({ crms: {} })), crms = crmFull.crms || {};
-  const todas = await allAccounts(), nuevosH = {}, avisos = [], hist = st0.hist || {};
+  const todas = await allAccounts(), nuevosH = {}, avisos = [];
   const crmDe = {}; Object.keys(todas).forEach((k) => { const c = crmDeCuenta(crms, k); if (c && c.deteccion && c.deteccion.activa && c.etapas && c.etapas.length >= 2) crmDe[k] = c; });
   if (!hayMoviles && !vencidos.length && !pendEnv.length && !Object.keys(crmDe).length) return res.status(200).json({ ok: true, sinMoviles: true });
   const tokens = {}, leads = { nuevos: 0, bots: 0, respondidos: 0 };
@@ -194,7 +205,9 @@ export default async function handler(req, res) {
     } catch (e) {}
   }
   // stFin: el almacén más reciente que ya tiene esta pasada (el recién escrito, o el leído al empezar): con él se mandan los avisos sin releer Drive por cada uno
-  const stFin = Object.keys(nuevosH).length ? await updateStore((n) => { Object.assign(n.hist, nuevosH); }) : st0;
+  // los puntos nuevos se escriben en el fichero de puntos; el almacén de permisos no se toca (ya no se reescribe cada minuto)
+  if (Object.keys(nuevosH).length) await updateHist((n) => { Object.assign(n, nuevosH); }, st0.hist);
+  const stFin = st0;
   // se borran solo los que se han mirado y no se han vuelto a poner mientras tanto
   if (segHechos.length) await updateSeg((seg) => { segHechos.forEach((s) => { const c = s.k + '|' + s.hilo, a = seg[c]; if (a && a.puesto === s.puesto) delete seg[c]; }); }).catch(() => {});
   // el número rojo del icono: correos de personas sin leer (Principal, último mes) en todas las cuentas

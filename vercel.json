@@ -97,5 +97,10 @@
       "source": "/api/cuenta",
       "destination": "/api/session?r=cuenta"
     }
-  ]
+  ],
+  "functions": {
+    "api/vigia.js": {
+      "maxDuration": 60
+    }
+  }
 }

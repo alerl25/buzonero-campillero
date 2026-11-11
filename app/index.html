@@ -964,6 +964,30 @@
     body.en-vista .fab, body:has(.shell.crm-on) .fab { display:none !important; }
     #app .cv-body { padding-bottom:calc(12px + var(--sab)); }
   }
+  /* pie de redactar: se adapta a SU ancho, no al de la pantalla. Al responder dentro del hilo en el ordenador el hueco es
+     estrecho aunque la pantalla sea grande, y «Borrar borrador» se salía por la derecha (y sacaba una barra horizontal). */
+  .dlg-foot { container:pie / inline-size; }
+  .dlg-foot .push { flex:0 1 auto; min-width:0; }
+  .dlg-foot .saved { flex:0 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; }
+  .dlg-foot #discard { flex:none; }
+  @container pie (max-width:700px) {
+    #discard { font-size:0 !important; gap:0; width:44px; min-width:44px; height:44px; padding:0; justify-content:center; border-color:transparent; background:transparent; }
+    #discard i { font-size:21px !important; color:var(--mute); }
+  }
+  @container pie (max-width:590px) {
+    .saved { font-size:0; margin:0 4px 0 0; }
+    .saved:not(:empty)::before { content:""; display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--faint); }
+  }
+  @container pie (max-width:470px) {
+    [data-pop="link"], [data-pop="emoji"] { display:none; }
+    .icon-btn { width:40px; }
+  }
+  /* el hueco más estrecho del ordenador (ventana de unos 900 px con el hilo abierto): se aprieta un poco más. Solo dentro del hilo: el móvil tiene sus medidas */
+  @container pie (max-width:400px) {
+    dialog.en-linea .icon-btn { width:34px; }
+    dialog.en-linea .btn.primary { padding:0 14px; margin-right:4px; }
+    dialog.en-linea #discard { width:36px; min-width:36px; }
+  }
   /* las vistas con desplazamiento propio (calendario, WhatsApp, leads, CRM…) dejan libre la barra de inicio del iPhone */
   #app .cal-scroll, #app .cal-mes, #app .men-lista { padding-bottom:var(--sab); }
   #app .cal-lado { padding-bottom:calc(20px + var(--sab)); }
@@ -1216,7 +1240,7 @@ function token(k, force){
   var t = TOK[k];
   if(!force && t && t.exp - Date.now() > 60000) return Promise.resolve(t.v);
   if(TOKP[k]) return TOKP[k];
-  return tokenDe(k, fetch('/api/token?acc=' + k, { credentials:'same-origin' }).then(function(r){ return r.json().catch(function(){ return {}; }).then(function(j){ return { status:r.status, ok:r.ok, j:j }; }); }));
+  return tokenDe(k, fetch('/api/token?acc=' + k + (force ? '&nuevo=1' : ''), { credentials:'same-origin' }).then(function(r){ return r.json().catch(function(){ return {}; }).then(function(j){ return { status:r.status, ok:r.ok, j:j }; }); }));
 }
 // «pedido» = la respuesta de /api/token ya en camino (la de aquí o la que se adelantó en el <head>)
 function tokenDe(k, pedido){

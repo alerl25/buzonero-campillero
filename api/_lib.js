@@ -1,6 +1,16 @@
 // Utilidades compartidas de las funciones de Buzonero (Vercel ignora los ficheros que empiezan por _).
 import crypto from 'node:crypto';
 
+// Toda llamada a un servicio de fuera lleva un límite de tiempo (25 s si quien llama no pone el suyo): sin él, un Google, un Drive o un CRM que no contesta
+// dejaba la función colgada hasta que Vercel la cortaba, y el vigía (que corre cada minuto) acumulaba pasadas. Se aplica una sola vez, aquí, porque todas las
+// funciones importan este fichero. Quien necesite menos (el aviso al móvil) o más pasa su propia `signal`.
+if (!globalThis.fetch.__bz) {
+  const fetchBase = globalThis.fetch;
+  const conLimite = (u, o) => fetchBase(u, o && o.signal ? o : { ...(o || {}), signal: AbortSignal.timeout(25000) });
+  conLimite.__bz = true;
+  globalThis.fetch = conLimite;
+}
+
 /* Las cuentas fijas de cada instalación salen de la variable BZ_CUENTAS (JSON), nunca del código:
    [{"k":"pe","email":"tu@gmail.com","nombre":"Personal","ini":"TU","env":"RT_ANCLA","entrar":true}, …]
    k: clave corta (letras y números) · env: variable con su permiso de Google (opcional: si no, vive en el almacén tras «Reconectar»)
@@ -151,22 +161,43 @@ async function anchorToken() {
   return anchorTok.v;
 }
 const emptyStore = () => ({ cuentas: {}, caidas: {}, fotos: {}, extra: {}, push: {}, hist: {} });
-export async function readStore(force) {
-  if (!force && storeCache && Date.now() - storeAt < 60000) return storeCache;
+// Varias lecturas a la vez (el arranque pide un permiso por cuenta) comparten UNA sola ida a Drive. Solo se comparte si no ha habido una escritura
+// entre medias (storeGen): quien acaba de escribir y lee fresco tiene que ver lo que escribió, no una lectura que empezó antes.
+let storeP = null, storeGen = 0, storeListAt = 0;   // storeP = { p, gen, force }
+export function readStore(force) {
+  if (!force && storeCache && Date.now() - storeAt < 60000) return Promise.resolve(storeCache);
+  // una lectura «fresca» (force) solo se une a otra fresca: la normal, si Drive falla, devuelve la copia vieja sin la marca _fallo, y quien va a escribir la tomaría por buena
+  if (storeP && storeP.gen === storeGen && (storeP.force || !force)) return storeP.p;
+  const gen = storeGen, p = leerStore(force).finally(() => { if (storeP && storeP.p === p) storeP = null; });
+  storeP = { p, gen, force: !!force };
+  return p;
+}
+async function leerStore(force) {
   try {
     const H = { Authorization: 'Bearer ' + await anchorToken() };
-    const q = encodeURIComponent("name='" + STORE_NAME + "' and trashed=false");
-    const lr = await fetch('https://www.googleapis.com/drive/v3/files?q=' + q + '&fields=files(id,modifiedTime)&orderBy=modifiedTime%20desc', { headers: H });
-    const l = await lr.json().catch(() => ({}));
-    // un error de Drive NO es «no hay almacén»: si se tomara por vacío, la siguiente escritura crearía uno nuevo y se perderían los permisos
-    if (!lr.ok || !Array.isArray(l.files)) throw new Error('drive ' + lr.status);
-    const f = l.files[0];
+    let texto = null;
+    // con el archivo ya localizado (y localizado hace menos de 10 min) se lee directo: una ida a Drive en vez de dos
+    if (storeFileId && Date.now() - storeListAt < 600e3) {
+      const mr = await fetch('https://www.googleapis.com/drive/v3/files/' + storeFileId + '?alt=media', { headers: H });
+      if (mr.ok) texto = await mr.text();
+      else if (mr.status === 404) storeFileId = null;
+      else throw new Error('drive ' + mr.status);
+    }
     let nuevo;
-    if (!f) { nuevo = emptyStore(); storeFileId = null; }
+    if (texto !== null) nuevo = unseal(texto.trim());
     else {
-      const mr = await fetch('https://www.googleapis.com/drive/v3/files/' + f.id + '?alt=media', { headers: H });
-      if (!mr.ok) throw new Error('drive ' + mr.status);
-      storeFileId = f.id; nuevo = unseal((await mr.text()).trim());
+      const q = encodeURIComponent("name='" + STORE_NAME + "' and trashed=false");
+      const lr = await fetch('https://www.googleapis.com/drive/v3/files?q=' + q + '&fields=files(id,modifiedTime)&orderBy=modifiedTime%20desc', { headers: H });
+      const l = await lr.json().catch(() => ({}));
+      // un error de Drive NO es «no hay almacén»: si se tomara por vacío, la siguiente escritura crearía uno nuevo y se perderían los permisos
+      if (!lr.ok || !Array.isArray(l.files)) throw new Error('drive ' + lr.status);
+      const f = l.files[0];
+      if (!f) { nuevo = emptyStore(); storeFileId = null; }
+      else {
+        const mr = await fetch('https://www.googleapis.com/drive/v3/files/' + f.id + '?alt=media', { headers: H });
+        if (!mr.ok) throw new Error('drive ' + mr.status);
+        storeFileId = f.id; storeListAt = Date.now(); nuevo = unseal((await mr.text()).trim());
+      }
     }
     storeCache = { ...emptyStore(), ...nuevo };
     storeAt = Date.now();
@@ -186,9 +217,9 @@ async function writeStore(store) {
     const b = 'bz' + crypto.randomBytes(6).toString('hex');
     const mp = '--' + b + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + JSON.stringify({ name: STORE_NAME, mimeType: 'text/plain' }) + '\r\n--' + b + '\r\nContent-Type: text/plain\r\n\r\n' + body + '\r\n--' + b + '--';
     const r = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', { method: 'POST', headers: { Authorization: 'Bearer ' + t, 'Content-Type': 'multipart/related; boundary=' + b }, body: mp });
-    const j = await r.json().catch(() => ({})); if (!j.id) throw new Error('almacen'); storeFileId = j.id;
+    const j = await r.json().catch(() => ({})); if (!j.id) throw new Error('almacen'); storeFileId = j.id; storeListAt = Date.now();
   }
-  storeCache = store; storeAt = Date.now();
+  storeCache = store; storeAt = Date.now(); storeGen++;
 }
 export async function saveReconnected(key, rt, picture) {
   const acc = (await allAccounts())[key];
@@ -309,6 +340,44 @@ export async function updateEnv(fn) {
   return env;
 }
 
+// ---------------- puntos del vigía (buzonero-hist.enc) ----------------
+// El punto del historial de cada cuenta, el último WhatsApp y el último contacto del CRM. Vivían dentro del almacén de permisos, y el vigía lo
+// reescribía casi cada minuto: cada pasada arriesgaba pisar los permisos con una copia vieja. Ahora van en su fichero y el almacén de permisos
+// solo se escribe cuando alguien cambia un permiso, un móvil o una cuenta. La primera vez se parte del historial que aún vive en el almacén (`semilla`)
+// y, al crear el fichero, se vacía el de allí para que una semilla vieja no pueda resucitar nunca.
+const HIST_NAME = 'buzonero-hist.enc';
+let histFileId = null;
+export async function readHist(semilla) {
+  const H = { Authorization: 'Bearer ' + await anchorToken() };
+  if (!histFileId) {
+    const q = encodeURIComponent("name='" + HIST_NAME + "' and trashed=false");
+    const l = await (await fetch('https://www.googleapis.com/drive/v3/files?q=' + q + '&fields=files(id)&orderBy=modifiedTime%20desc', { headers: H })).json();
+    if (!Array.isArray(l.files)) throw new Error('drive');
+    histFileId = (l.files[0] || {}).id || null;
+  }
+  if (!histFileId) return { ...(semilla || {}) };
+  const r = await fetch('https://www.googleapis.com/drive/v3/files/' + histFileId + '?alt=media', { headers: H });
+  if (r.status === 404) { histFileId = null; return { ...(semilla || {}) }; }
+  if (!r.ok) throw new Error('drive ' + r.status);
+  return unseal((await r.text()).trim()) || {};
+}
+export async function updateHist(fn, semilla) {
+  const hist = await readHist(semilla);
+  if ((await fn(hist)) === false) return hist;
+  const t = await anchorToken(), body = seal(hist), creado = !histFileId;
+  if (histFileId) {
+    const r = await fetch('https://www.googleapis.com/upload/drive/v3/files/' + histFileId + '?uploadType=media', { method: 'PATCH', headers: { Authorization: 'Bearer ' + t, 'Content-Type': 'text/plain' }, body });
+    if (!r.ok) throw new Error('hist ' + r.status);
+  } else {
+    const b = 'bz' + crypto.randomBytes(6).toString('hex');
+    const mp = '--' + b + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + JSON.stringify({ name: HIST_NAME, mimeType: 'text/plain' }) + '\r\n--' + b + '\r\nContent-Type: text/plain\r\n\r\n' + body + '\r\n--' + b + '--';
+    const r = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', { method: 'POST', headers: { Authorization: 'Bearer ' + t, 'Content-Type': 'multipart/related; boundary=' + b }, body: mp });
+    const j = await r.json().catch(() => ({})); if (!j.id) throw new Error('hist'); histFileId = j.id;
+  }
+  if (creado && semilla && Object.keys(semilla).length) await updateStore((n) => { if (!n.hist || !Object.keys(n.hist).length) return false; n.hist = {}; }).catch(() => {});
+  return hist;
+}
+
 // ---------------- CRM (buzonero-crm.enc) ----------------
 // Solo la definición de cada CRM: nombre, cuentas, etapas y reglas para detectar leads (y, más adelante, las integraciones).
 // Lo escribe solo la persona desde la app; el vigía solo lo lee. La etapa de cada lead NO vive aquí: es la etiqueta
@@ -387,7 +456,7 @@ export function cifrar(sub, texto) {
 }
 // Devuelve el código HTTP del servicio de avisos (201 = entregado; 404/410 = suscripción muerta)
 export async function webPush(sub, datos, urgente = true) {
-  const r = await fetch(sub.endpoint, { method: 'POST', headers: { Authorization: 'vapid t=' + vapidJwt(sub.endpoint) + ', k=' + process.env.VAPID_PUBLIC, 'Content-Encoding': 'aes128gcm', 'Content-Type': 'application/octet-stream', TTL: '86400', Urgency: urgente ? 'high' : 'normal' }, body: cifrar(sub, JSON.stringify(datos)) });
+  const r = await fetch(sub.endpoint, { method: 'POST', headers: { Authorization: 'vapid t=' + vapidJwt(sub.endpoint) + ', k=' + process.env.VAPID_PUBLIC, 'Content-Encoding': 'aes128gcm', 'Content-Type': 'application/octet-stream', TTL: '86400', Urgency: urgente ? 'high' : 'normal' }, body: cifrar(sub, JSON.stringify(datos)), signal: AbortSignal.timeout(10000) });
   return r.status;
 }
 // ¿Le toca este aviso a este dispositivo? s = su registro (puede llevar solo:'leads' y mute:[orígenes]); datos.fuente = el origen del aviso.
@@ -430,17 +499,26 @@ async function alertEmail(key, caida) {
   await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', { method: 'POST', headers: { Authorization: 'Bearer ' + await anchorToken(), 'Content-Type': 'application/json' }, body: JSON.stringify({ raw: Buffer.from(mime).toString('base64url') }) });
 }
 
-export async function refreshAccess(key, reintento) {
+// Permisos de acceso (1 h) ya pedidos a Google por esta instancia: el arranque de la app pide uno por cuenta y el vigía los pide cada minuto. Se reutiliza
+// mientras le queden más de 5 min, se haya pedido hace menos de 10 y el permiso largo (rt) siga siendo el mismo (si se reconecta la cuenta, cambia y se pide uno nuevo). Nunca sale de memoria.
+// `nuevo`: el que pide ya sabe que el que tenía no sirve (Gmail le dio 401): se descarta el guardado y se pregunta a Google, que dirá si la cuenta cayó.
+const accesos = new Map();   // cuenta → { v, exp, t, rt, email }
+export async function refreshAccess(key, reintento, nuevo) {
+  if (nuevo) accesos.delete(key);
   const acc = (await allAccounts())[key];
   if (!acc) return { status: 400, body: { error: 'cuenta' } };
   const st = await readStore(reintento);
   const rt = (st.cuentas[key] && st.cuentas[key].rt) || (acc.env ? process.env[acc.env] : '');
-  if (!rt) return { status: 409, body: { error: 'reconectar', email: acc.email, motivo: 'sin permiso guardado' } };
+  if (!rt) { accesos.delete(key); return { status: 409, body: { error: 'reconectar', email: acc.email, motivo: 'sin permiso guardado' } }; }
+  const g = accesos.get(key);
+  if (!reintento && g && g.rt === rt && g.exp - Date.now() > 300e3 && Date.now() - g.t < 600e3) return { status: 200, body: { access_token: g.v, expires_in: Math.floor((g.exp - Date.now()) / 1000), email: acc.email } };
   const { ok, j } = await googleRefresh(rt);
+  if (ok && j.access_token) accesos.set(key, { v: j.access_token, exp: Date.now() + (j.expires_in || 3600) * 1000, t: Date.now(), rt, email: acc.email });
+  else accesos.delete(key);
   if (!ok || !j.access_token) {
     const reconnect = j.error === 'invalid_grant' || j.error === 'unauthorized_client';
     // la copia de 60 s puede traer el permiso de antes de un «Reconectar» recién hecho: se relee de Drive y se prueba otra vez
-    if (reconnect && !reintento) return refreshAccess(key, true);
+    if (reconnect && !reintento) return refreshAccess(key, true, true);
     let caida = null;
     if (reconnect) {
       // se apunta por qué cayó (una vez por motivo): caducidad, contraseña cambiada, administrador...

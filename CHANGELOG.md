@@ -2,6 +2,24 @@
 
 Todas las versiones de Buzonero Campillero. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [1.23.0] · 2026-11-11
+
+Servidor más firme y el pie de «Redactar» arreglado al responder dentro del hilo.
+
+### Corregido
+- **Pie de redactar al responder en el hilo (ordenador):** con el hilo abierto el hueco de la respuesta es estrecho aunque la pantalla sea ancha, y «Borrar borrador» se salía por la derecha y sacaba una barra horizontal. El pie ahora se adapta al ancho que tiene (no al de la pantalla): primero «Borrar borrador» pasa a papelera, luego el aviso «Borrador guardado» pasa a un punto y, en el hueco más estrecho, los botones se aprietan. Medido de 920 a 1920 px, con y sin micrófono: sin desbordes.
+
+### Servidor
+- **Tiempo límite en toda llamada de fuera** (25 s; 10 s en los avisos al móvil): un Google, un Drive o un CRM que no contesta ya no deja la función colgada.
+- **El freno de contraseñas no se apaga si Drive cae:** cuenta los fallos de la instancia (5 por hora) y sigue frenando a quien prueba claves; quien sabe la contraseña entra igual.
+- **Los puntos del vigía tienen su fichero** (`buzonero-hist.enc`): el vigía ya no reescribe cada minuto el almacén de permisos, así que no puede pisarlos con una copia vieja. La primera vez parte del historial que había y vacía el del almacén. El vigía tampoco se pisa a sí mismo si una pasada tarda más de un minuto (`maxDuration` 60 s).
+- **Lecturas del almacén compartidas:** las lecturas simultáneas (el arranque pide una por cuenta) hacen una sola ida a Drive, y con el archivo ya localizado se lee directo (una ida en vez de dos). Una lectura «fresca» nunca se une a una normal, para que quien va a escribir no parta de una copia vieja si Drive falla.
+- **Permisos de acceso reutilizados** hasta 10 min (y mientras queden más de 5 de vida y el permiso largo no cambie): el vigía los pedía a Google cada minuto y el arranque, uno por cuenta. Si Gmail da 401, la app pide uno nuevo con `&nuevo=1` y no se queda con el caído; reconectar una cuenta también invalida el guardado.
+
+### Para quien mantiene
+- `pruebas/servidor.mjs`: prueba sin red (Drive y Google simulados) de todo lo anterior. `node pruebas/servidor.mjs`.
+- Queda tal cual, a propósito: los dispositivos «solo leads» (`BZ_AVISOS_LEADS`) limitan los AVISOS, no el acceso; esas cuentas usan la app completa y por eso piden cualquier `/api/token`.
+
 ## [1.22.0] · 2026-11-11
 
 Repaso completo de la app: velocidad de apertura, fluidez, adaptación a móvil y tablet, y errores encontrados por el camino. Medido antes y después con `pruebas/rendimiento.mjs` (mediana de 3, Chromium; móvil = 393 px con la CPU frenada ×4).

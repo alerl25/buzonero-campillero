@@ -3,7 +3,7 @@
 // No se fía de nada de lo que traiga el cuerpo: es solo una señal de «mira ahora». Si el toque no llega o se descarta, el vigía lo recoge en el minuto siguiente.
 // Va sin sesión (lo llama el CRM, no una persona), así que lleva su propia clave en la dirección (CRM_EXT_HOOK, de 20 caracteres o más) y un freno de 15 s entre consultas.
 import crypto from 'node:crypto';
-import { readStore, updateStore, pushTodos } from './_lib.js';
+import { readStore, readHist, updateHist, pushTodos } from './_lib.js';
 import { hayCrmExt, detectarCrmExt } from './_crmext.js';
 
 let ultimo = 0;   // cuándo se hizo la última consulta por toque, en esta instancia
@@ -21,19 +21,19 @@ export async function crmAviso(req, res) {
   const st = await readStore(true);
   if (st._fallo) return res.status(503).json({ error: 'almacen' });
   if (!Object.keys(st.push || {}).length) return res.status(200).json({ ok: true, sinMoviles: true });
-  const d = await detectarCrmExt(st.hist || {}, true);
+  let hist; try { hist = await readHist(st.hist); } catch (e) { return res.status(503).json({ error: 'historial' }); }
+  const d = await detectarCrmExt(hist, true);
   if (!d.ok) return res.status(200).json({ ok: false, error: 'crm' });
   // se «reclaman» los puntos antes de avisar: si el vigía ya los movió mientras tanto, no se avisa dos veces
   let reclamado = false;
-  const stFin = await updateStore((n) => {
-    n.hist = n.hist || {};
-    if ((Number(n.hist._crmext) || 0) !== d.punto) return false;
-    Object.assign(n.hist, d.nuevosH, { _hookT: Date.now() });
+  await updateHist((n) => {
+    if ((Number(n._crmext) || 0) !== d.punto) return false;
+    Object.assign(n, d.nuevosH, { _hookT: Date.now() });
     reclamado = true;
-  }).catch(() => null);
+  }, st.hist).catch(() => null);
   if (!reclamado) return res.status(200).json({ ok: true, omitido: 'ya_visto' });
   let entregas = 0;
-  // los avisos salen con el almacén que se acaba de leer para reclamar los puntos (o el del principio si esa escritura falló): sin releer Drive por cada aviso
-  for (const a of d.avisos) entregas += (await pushTodos(a, stFin || st)).filter((c) => c >= 200 && c < 300).length;
+  // los avisos salen con el almacén que se acaba de leer: sin releer Drive por cada aviso
+  for (const a of d.avisos) entregas += (await pushTodos(a, st)).filter((c) => c >= 200 && c < 300).length;
   return res.status(200).json({ ok: true, avisos: d.avisos.length, nuevos: d.nuevos, vuelven: d.vuelven, entregas });
 }
