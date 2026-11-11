@@ -4023,6 +4023,7 @@ $('rows').addEventListener('click', function(e){
 var badgeAt = 0;
 async function actualizarBadge(forzar){
   if(!('setAppBadge' in navigator) || (!forzar && Date.now() - badgeAt < 60000)) return;
+  if(window.BZ_SOLO_LEADS){ try { navigator.clearAppBadge(); } catch(e){} return; }   // cuenta «solo leads»: sin el número de correos sin leer
   badgeAt = Date.now();
   var n = (await pool(KEYS.filter(function(k){ return !ACC[k].broken; }), 2, function(k){ return gm(k, 'threads?maxResults=100&fields=threads/id&q=' + encodeURIComponent('in:inbox is:unread category:primary newer_than:30d')); }))
     .reduce(function(s, r){ return s + (r && !r._err ? (r.threads || []).length : 0); }, 0);
@@ -4044,7 +4045,7 @@ async function start(){
   setTimeout(function(){ var mp = ANCLA_K && PH[ACC[ANCLA_K].email.toLowerCase()]; if(mp && !$('me').querySelector('img')) $('me').insertAdjacentHTML('beforeend', '<img src="'+esc(mp)+'" alt="" referrerpolicy="no-referrer" onerror="this.remove()">'); }, 0);
   if(!KEYS.length){ sinCuentas(); return; }
   st.acc = KEYS[0];
-  VAPID = sj.vapid || null;
+  VAPID = sj.vapid || null; window.BZ_SOLO_LEADS = !!sj.soloLeads;
   var qs = new URLSearchParams(location.search), MSGR = { otra_cuenta:'Has elegido otra cuenta. Elige la que querías reconectar.', faltan_permisos:'Faltan permisos: marca todas las casillas al reconectar.', cancelado:'Reconexión cancelada.', caducado:'La reconexión tardó demasiado. Vuelve a intentarlo.', sin_permiso_offline:'Google no dio el permiso permanente. Vuelve a intentarlo.', guardar:'No se pudo guardar el permiso. Vuelve a intentarlo.', google:'Google no confirmó la reconexión.', sesion:'Tu sesión caducó: entra y vuelve a reconectar.' };
   if(qs.get('reconectada') && ACC[qs.get('reconectada')]){ var rk = qs.get('reconectada'); TOK[rk] = null; ACC[rk].broken = false; ACC[rk].caida = null; setTimeout(function(){ toast(ACC[rk].name + ' reconectada'); }, 600); }
   if(qs.get('reconectar') && MSGR[qs.get('reconectar')]) setTimeout(function(){ toast(MSGR[qs.get('reconectar')]); }, 600);

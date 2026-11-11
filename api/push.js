@@ -28,7 +28,7 @@ export default async function handler(req, res) {
       // Lo que este dispositivo silencia (b.mute) viaja en cada alta, así que servidor y dispositivo se mantienen iguales aunque se pierda uno de los dos.
       const h = hash(sub.endpoint), st = await readStore(), q = sessionQuien(req), solo = q && SOLO_LEADS.includes(q) ? 'leads' : '', mute = limpiarSilencio(b.mute);
       if (st.push && st.push[h] && st.push[h].sub.keys.auth === sub.keys.auth && (st.push[h].solo || '') === solo && igual(st.push[h].mute, mute)) return res.status(200).json({ ok: true, ya: true });
-      await updateStore((n) => { const prev = n.push[h]; n.push[h] = { sub, disp: String(b.disp || '').slice(0, 60), alta: (prev && prev.alta) || new Date().toISOString(), solo: solo || undefined, mute: mute.length ? mute : undefined }; });
+      await updateStore((n) => { const prev = n.push[h]; n.push[h] = { sub, disp: String(b.disp || '').slice(0, 60), alta: (prev && prev.alta) || new Date().toISOString(), quien: q || undefined, solo: solo || undefined, mute: mute.length ? mute : undefined }; });
       return res.status(200).json({ ok: true });
     }
     if (b.accion === 'silencio') {   // cambia lo que silencia un dispositivo ya dado de alta (Ajustes → Avisos)

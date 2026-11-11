@@ -43,6 +43,14 @@ export default async function handler(req, res) {
   const st0 = await readStore(true);
   // sin el almacén no se sabe qué cuentas hay ni dónde se quedó el historial: mejor no hacer nada que borrar avisos o repetirlos
   if (st0._fallo) return res.status(503).json({ error: 'almacen' });
+  // Purga de una sola vez (BZ_PURGA_PUSH_DESDE = fecha ISO): quita los dispositivos dados de alta desde esa fecha SIN identificar (sin `quien`, es decir, desde una sesión que no
+  // llevaba el correo). Cada uno se vuelve a dar de alta solo al abrir la app, ya etiquetado según quien lo use. Se hace una vez por valor (marca hist._purga).
+  const purgaDesde = String(process.env.BZ_PURGA_PUSH_DESDE || '').trim();
+  let purgados = 0;
+  if (purgaDesde && Date.parse(purgaDesde) && (st0.hist || {})._purga !== purgaDesde) {
+    const fuera = Object.entries(st0.push || {}).filter(([, s]) => s && !s.quien && Date.parse(s.alta) >= Date.parse(purgaDesde)).map(([h]) => h);
+    try { await updateStore((n) => { fuera.forEach((h) => { delete n.push[h]; }); n.hist = n.hist || {}; n.hist._purga = purgaDesde; }); fuera.forEach((h) => { delete st0.push[h]; }); purgados = fuera.length; } catch (e) {}
+  }
   const hayMoviles = Object.keys(st0.push || {}).length > 0;
   const vencidos = Object.values(await readSeg().catch(() => ({}))).filter((s) => s && s.vence <= Date.now());
   // envíos pulsados en la app que la app no llegó a mandar (se cerró o se apagó): 20 s de margen sobre su hora
@@ -218,5 +226,5 @@ export default async function handler(req, res) {
   }
   const enviados = [];
   if (hayMoviles) for (const a of avisos) enviados.push(await pushTodos(a));
-  return res.status(200).json({ ok: true, avisos: avisos.length, entregas: enviados.flat().filter((c) => c >= 200 && c < 300).length, puntos: Object.keys(nuevosH).length, whatsapp: wa, crmExt, crmVuelven, llamadasInstancia: llamadas, instanciaMin: Math.round((Date.now() - arranque) / 60000), moviles: Object.keys(st0.push || {}).length, movilesSoloLeads: Object.values(st0.push || {}).filter((s) => s && s.solo === 'leads').length, crmPunto: Number(nuevosH._crmext || hist._crmext) || 0, seguimientos: segHechos.length, enviosServidor: envHechos.length, leads });
+  return res.status(200).json({ ok: true, avisos: avisos.length, entregas: enviados.flat().filter((c) => c >= 200 && c < 300).length, puntos: Object.keys(nuevosH).length, whatsapp: wa, crmExt, crmVuelven, purgados, llamadasInstancia: llamadas, instanciaMin: Math.round((Date.now() - arranque) / 60000), moviles: Object.keys(st0.push || {}).length, movilesSoloLeads: Object.values(st0.push || {}).filter((s) => s && s.solo === 'leads').length, crmPunto: Number(nuevosH._crmext || hist._crmext) || 0, seguimientos: segHechos.length, enviosServidor: envHechos.length, leads });
 }

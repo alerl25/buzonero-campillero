@@ -5,7 +5,8 @@
    (cada uno tiene los suyos). La lista vive en localStorage y se envía al servidor con cada alta del dispositivo y cada vez que se cambia (api/push.js, accion «silencio»). */
 var SIL_KEY = 'buzonero-silencio';
 function leerSilencio(){ try { var a = JSON.parse(localStorage.getItem(SIL_KEY) || '[]'); return Array.isArray(a) ? a.filter(function(x){ return typeof x === 'string'; }) : []; } catch(e){ return []; } }
-function estaSilenciado(id){ return leerSilencio().indexOf(id) >= 0; }
+// Una sesión «solo leads» (cuenta de BZ_AVISOS_LEADS, la marca el servidor) tiene silenciado todo menos los leads, elija lo que elija
+function estaSilenciado(id){ return (window.BZ_SOLO_LEADS && id !== 'lx') || leerSilencio().indexOf(id) >= 0; }
 // Los orígenes que existen en este momento: una entrada por cuenta de correo y las integraciones que estén conectadas
 function silencioFuentes(){
   var f = [];
@@ -20,6 +21,8 @@ function silencioFuentes(){
 // El bloque del menú de Ajustes: dos atajos y un interruptor por origen
 function silencioHTML(){
   var sil = leerSilencio();
+  // cuenta «solo leads»: nada que elegir, solo se avisa de los leads
+  if(window.BZ_SOLO_LEADS) return '<div class="ttl">Qué te avisa</div><div class="mi-nota"><i class="ph ph-bell-ringing"></i> Esta cuenta solo recibe avisos de leads</div>';
   return '<div class="ttl">Qué te avisa</div>'
     + '<button data-mi="mute-@correo"><i class="ph ph-envelope-simple-open"></i> <span>Silenciar todo el correo</span></button>'
     + '<button data-mi="mute-@todo"><i class="ph ph-bell-ringing"></i> <span>Avisar de todo</span></button>'

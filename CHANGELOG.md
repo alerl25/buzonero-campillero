@@ -2,6 +2,15 @@
 
 Todas las versiones de Buzonero Campillero. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [1.20.1] · 2026-11-11
+
+### Avisos
+- **Las cuentas «solo leads» (`BZ_AVISOS_LEADS`) ya no ven ni oyen nada que no sea de leads, tampoco dentro de la app.** Hasta ahora el límite solo filtraba el aviso al móvil; el aviso animado, el sonido y el número rojo del icono (correos sin leer) seguían saliendo en esas sesiones. Ahora el servidor dice a la app que la sesión es «solo leads» (`/api/session` → `soloLeads`), la app silencia todo menos los leads y Ajustes enseña «Esta cuenta solo recibe avisos de leads» en vez de los interruptores.
+- **Los dispositivos guardan quién los registró (`quien`).** Antes, un dispositivo dado de alta desde una sesión sin correo (anterior a 1.19.3) quedaba sin limitar y seguía recibiendo todo.
+- **Purga de una sola vez de dispositivos sin identificar:** `BZ_PURGA_PUSH_DESDE` (fecha ISO) quita los dispositivos dados de alta desde esa fecha sin `quien`; cada uno se vuelve a registrar solo al abrir la app, ya etiquetado. Se ejecuta una vez por valor.
+- Cambiar `BZ_SESION_VER` cierra todas las sesiones: así ninguna sesión antigua (sin correo) puede saltarse el límite.
+- El resultado del vigía incluye `purgados`.
+
 ## [1.20.0] · 2026-11-11
 
 ### Avisos
