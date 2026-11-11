@@ -1426,6 +1426,7 @@ async function notifyNew(k){
       var t = await gm(k, 'threads/' + fresh[i].id + '?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=List-Unsubscribe');
       var ms = t.messages || [], last = ms[ms.length - 1]; if(!last) continue;
       notified[k + t.id] = true;
+      if(window.estaSilenciado && estaSilenciado('correo:' + k)) continue;   // cuenta silenciada en Ajustes → Avisos: ni aviso ni sonido
       if(esPropaganda(last.labelIds, hdr(last.payload, 'List-Unsubscribe'), hdr(ms[0].payload, 'Subject'))) continue;   // publicidad: sin aviso ni sonido
       if(+last.internalDate < Math.max(appStart, Date.now() - 15 * 60000)) continue;   // solo lo que acaba de llegar
       if(parseAddr(hdr(last.payload, 'From')).email.toLowerCase() === ACC[k].email) continue;   // lo que envía esa misma cuenta no se avisa
@@ -2378,6 +2379,7 @@ function openMenu(btn, kind){
           denegado: '<button data-mi="av-info-bloq"><i class="ph ph-bell-slash"></i> <span>Bloqueados: actívalos en Ajustes del iPhone</span></button>',
           instalar: '<button data-mi="av-instalar"><i class="ph ph-device-mobile"></i> <span>Añade Buzonero a la pantalla de inicio</span></button>'
         }[avisosE] || '') : '')
+      + (window.silencioHTML ? '<div class="sep"></div>' + silencioHTML() : '')   // qué te avisa: un interruptor por origen (app/avisos-silencio.js)
       + '<button data-mi="sonido"><i class="ph ' + (sonidoActivo() ? 'ph-speaker-high' : 'ph-speaker-slash') + '"></i> <span>Sonido al llegar correo: ' + (sonidoActivo() ? 'activado' : 'desactivado') + '</span></button>'
       + '<div class="sep"></div><div class="ttl">Firma</div>' + KEYS.map(function(k){ return '<button data-mi="firma-'+k+'"><i class="ph ph-signature"></i> <span>'+esc(ACC[k].name)+'</span></button>'; }).join('')
       + (KEYS.some(function(k){ return ACC[k].extra; }) ? '<div class="sep"></div><div class="ttl">Quitar cuenta</div>' + KEYS.filter(function(k){ return ACC[k].extra; }).map(function(k){ return '<button data-mi="quitar-'+k+'"><i class="ph ph-minus-circle"></i> <span>'+esc(ACC[k].name)+'</span></button>'; }).join('') : '')
@@ -2418,6 +2420,7 @@ menu.addEventListener('click', async function(e){
     } catch(err){ toast('No se pudo etiquetar: ' + err.message); }
     return;
   }
+  if(mi.indexOf('mute-') === 0){ silenciarAlternar(mi.slice(5)); return; }   // interruptor de Avisos: el menú se queda abierto
   closeMenu();
   if(mi.indexOf('col-') === 0 && menu.dataset.cl){ cambiarColorEtq(k, menu.dataset.cl, ETQ_COL[+mi.slice(4)]); return; }
   if(mi.indexOf('seg-') === 0 && cur){ if(mi === 'seg-quitar') quitarSeg(cur.k, cur.id); else ponerSeg(cur.k, cur.id, +mi.slice(4), infoSeg(cur)); return; }
@@ -3438,7 +3441,7 @@ async function avisosAlta(pedir){
     var reg = await swListo(); await navigator.serviceWorker.ready;
     var sub = await reg.pushManager.getSubscription();
     if(!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:b64uToBytes(VAPID) });
-    var r = await fetch('/api/push', { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ accion:'alta', sub:sub.toJSON(), disp: esIOS ? 'iPhone' : (navigator.platform || 'navegador') }) });
+    var r = await fetch('/api/push', { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ accion:'alta', sub:sub.toJSON(), disp: esIOS ? 'iPhone' : (navigator.platform || 'navegador'), mute: (window.leerSilencio ? leerSilencio() : []) }) });
     return r.ok ? 'ok' : 'error';
   } catch(e){ return 'error'; }
 }
@@ -4084,5 +4087,6 @@ if(innerWidth < 900) $('q').placeholder = 'Buscar';
 <script src="/app/integraciones.js"></script>
 <script src="/app/redes.js"></script>
 <script src="/app/leads-ext.js"></script>
+<script src="/app/avisos-silencio.js"></script>
 </body>
 </html>

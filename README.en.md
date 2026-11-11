@@ -37,6 +37,7 @@ It also ships a **web app (PWA)** for desktop and mobile that goes well beyond e
 - **CRM**: a stage board that automatically detects leads coming in by email **and by WhatsApp**, and tells you whose turn it is.
 - **WhatsApp** (read-only) through [Zernio](https://zernio.com): read conversations, each one is a CRM lead, and get a phone alert for new messages.
 - **Leads from your CRM** (read-only, optional): a view with the latest contacts of your own CRM and a phone alert for every new contact. Enabled with `CRM_EXT_URL` and `CRM_EXT_CLAVE`; Buzonero only asks for the list and never writes or deletes.
+- **Alerts your way**: in Settings you choose, per device, what alerts you (each mailbox, WhatsApp, leads, follow-ups…) and what stays muted, with shortcuts like “Mute all email”.
 - **Google Calendar** (day, week and month) and **Google Contacts** (names and photos for WhatsApp numbers).
 - **Social media**: a Metricool-style planner with a weekly calendar, to schedule posts from your own Metricool account.
 - **Integrations**: one panel with everything you can connect; the sidebar only shows what you actually use.

@@ -2,6 +2,13 @@
 
 Todas las versiones de Buzonero Campillero. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [1.20.0] · 2026-11-11
+
+### Avisos
+- **Silenciar cada origen de aviso, a tu gusto.** En Ajustes → «Qué te avisa» hay un interruptor por cada cuenta de correo, WhatsApp, los leads del CRM externo, los leads que detecta el correo, «Avísame si no contesta» y los envíos programados, más dos atajos: «Silenciar todo el correo» y «Avisar de todo». Lo silenciado no se manda al móvil (el servidor ni lo envía) ni sale como aviso animado ni suena dentro de la app. Se configura por dispositivo: el móvil puede avisar solo de leads y WhatsApp mientras el ordenador sigue avisando de todo.
+- Cada aviso del vigía lleva ahora su origen (`fuente`) y cada dispositivo guarda lo que silencia; la lista viaja con cada alta del dispositivo y se mantiene igual en servidor y dispositivo. Los dispositivos «solo leads» (`BZ_AVISOS_LEADS`) siguen limitados por encima de lo que cada uno elija.
+- La regla de quién recibe qué vive en una función pura (`debeAvisar`) con sus casos probados.
+
 ## [1.19.4] · 2026-11-10
 
 ### Avisos

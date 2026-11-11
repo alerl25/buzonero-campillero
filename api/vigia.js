@@ -92,7 +92,7 @@ export default async function handler(req, res) {
         l.ids.forEach((x) => yaLead.add(x));
         if (l.motivo) { leads.bots++; continue; }   // posible bot: se etiqueta y no se avisa
         leads.nuevos++;
-        avisos.push({ title: 'Nuevo lead · ' + (l.f.nombre || l.f.email) + ' · ' + crm.nombre, body: (l.f.asunto ? l.f.asunto + '\n' : '') + (l.f.mensaje || '').slice(0, 140), tag: k + '-' + m.threadId, url: '/app?acc=' + encodeURIComponent(k) + '&hilo=' + encodeURIComponent(m.threadId) });
+        avisos.push({ title: 'Nuevo lead · ' + (l.f.nombre || l.f.email) + ' · ' + crm.nombre, body: (l.f.asunto ? l.f.asunto + '\n' : '') + (l.f.mensaje || '').slice(0, 140), tag: k + '-' + m.threadId, fuente: 'lead-correo', url: '/app?acc=' + encodeURIComponent(k) + '&hilo=' + encodeURIComponent(m.threadId) });
       }
       const sinLeer = detalle.filter((m) => m && !yaLead.has(m.id) && (m.labelIds || []).includes('UNREAD'));
       if (!hayMoviles) return;
@@ -101,10 +101,10 @@ export default async function handler(req, res) {
         if (esPropaganda(m.labelIds, H)) return;   // publicidad: entra, pero sin avisar
         if (nombre(H.from).toLowerCase() === acc.email.toLowerCase() || (H.from || '').toLowerCase().includes('<' + acc.email.toLowerCase() + '>')) return;   // lo que envía esa misma cuenta, no
         const snip = String(m.snippet || '').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
-        avisos.push({ title: nombre(H.from) + ' · ' + acc.name, body: (H.subject || '(sin asunto)') + (snip ? '\n' + snip.slice(0, 140) : ''), tag: k + '-' + m.threadId, url: '/app?acc=' + encodeURIComponent(k) + '&hilo=' + encodeURIComponent(m.threadId) });
+        avisos.push({ title: nombre(H.from) + ' · ' + acc.name, body: (H.subject || '(sin asunto)') + (snip ? '\n' + snip.slice(0, 140) : ''), tag: k + '-' + m.threadId, fuente: 'correo:' + k, url: '/app?acc=' + encodeURIComponent(k) + '&hilo=' + encodeURIComponent(m.threadId) });
       });
       const nSinLeer = msgs.filter((m) => (m.labelIds || []).includes('UNREAD')).length;
-      if (nSinLeer > MAX_POR_CUENTA) avisos.push({ title: acc.name, body: 'Y ' + (nSinLeer - MAX_POR_CUENTA) + ' correos nuevos más', tag: k + '-resumen', url: '/app?acc=' + encodeURIComponent(k) });
+      if (nSinLeer > MAX_POR_CUENTA) avisos.push({ title: acc.name, body: 'Y ' + (nSinLeer - MAX_POR_CUENTA) + ' correos nuevos más', tag: k + '-resumen', fuente: 'correo:' + k, url: '/app?acc=' + encodeURIComponent(k) });
     } catch (e) {}
   }));
 
@@ -131,7 +131,7 @@ export default async function handler(req, res) {
       } catch (e) {}
       await G('threads/' + s.hilo + '/modify', { method: 'POST', body: JSON.stringify({ addLabelIds: ['INBOX', 'UNREAD'].concat(lid ? [lid] : []) }) }).catch(() => {});
       const dias = Math.max(1, Math.round((Date.now() - s.desde) / 86400000));
-      avisos.push({ title: 'Sin respuesta · ' + (s.para || acc.name), body: (s.asunto || '(sin asunto)') + '\nLo enviaste hace ' + dias + (dias === 1 ? ' día' : ' días') + ' y no ha contestado.', tag: 'seg-' + s.k + '-' + s.hilo, url: '/app?acc=' + encodeURIComponent(s.k) + '&hilo=' + encodeURIComponent(s.hilo) });
+      avisos.push({ title: 'Sin respuesta · ' + (s.para || acc.name), body: (s.asunto || '(sin asunto)') + '\nLo enviaste hace ' + dias + (dias === 1 ? ' día' : ' días') + ' y no ha contestado.', tag: 'seg-' + s.k + '-' + s.hilo, fuente: 'seguimiento', url: '/app?acc=' + encodeURIComponent(s.k) + '&hilo=' + encodeURIComponent(s.hilo) });
     } catch (e) {}
   }
 
@@ -146,7 +146,7 @@ export default async function handler(req, res) {
       const m = await r.json().catch(() => ({}));
       envHechos.push(e);
       if (e.segVence && m.threadId) await updateSeg((seg) => { seg[e.k + '|' + m.threadId] = { k: e.k, hilo: m.threadId, vence: e.segVence, desde: Date.now(), asunto: e.asunto, para: e.para, puesto: Date.now() }; }).catch(() => {});
-      avisos.push({ title: 'Enviado · ' + acc.name, body: (e.asunto || '(sin asunto)') + (e.para ? '\nA ' + e.para : ''), tag: 'env-' + e.k + '-' + e.draft, url: '/app?acc=' + encodeURIComponent(e.k) + (m.threadId ? '&hilo=' + encodeURIComponent(m.threadId) : '') });
+      avisos.push({ title: 'Enviado · ' + acc.name, body: (e.asunto || '(sin asunto)') + (e.para ? '\nA ' + e.para : ''), tag: 'env-' + e.k + '-' + e.draft, fuente: 'envio', url: '/app?acc=' + encodeURIComponent(e.k) + (m.threadId ? '&hilo=' + encodeURIComponent(m.threadId) : '') });
     } catch (err) {}
   }
   if (envHechos.length) await updateEnv((env) => { envHechos.forEach((e) => { const c = e.k + '|' + e.draft, x = env[c]; if (x && x.puesto === e.puesto) delete env[c]; }); }).catch(() => {});
@@ -165,7 +165,7 @@ export default async function handler(req, res) {
             const u = ((m.body && m.body.messages) || [])[0];
             if (!u || u.direction === 'outgoing') continue;
             wa++;
-            avisos.push({ title: 'WhatsApp · ' + nombreConv(c, crmFull.waNombres || {}).nombre, body: String(u.message || c.lastMessage || '(adjunto)').slice(0, 200), tag: 'wa-' + c.id, url: '/app?vista=MENSAJES' });
+            avisos.push({ title: 'WhatsApp · ' + nombreConv(c, crmFull.waNombres || {}).nombre, body: String(u.message || c.lastMessage || '(adjunto)').slice(0, 200), tag: 'wa-' + c.id, fuente: 'wa', url: '/app?vista=MENSAJES' });
           }
         }
         if (maxT > punto) nuevosH._wa = maxT;
@@ -189,15 +189,15 @@ export default async function handler(req, res) {
         if (punto) {
           const nv = x.filas.filter((l) => l.id > punto).sort((a, b) => a.id - b.id);
           crmExt = nv.length;
-          if (nv.length > 5) avisos.push({ title: nv.length + ' contactos nuevos' + (rotulo ? ' · ' + rotulo : ''), body: 'Han entrado a la vez en el CRM', tag: 'cx-resumen-' + x.maxId, tipo: 'lead-ext', url: '/app?vista=LEADSEXT' });
-          else nv.forEach((l) => avisos.push({ title: 'Nuevo lead · ' + l.nombre + (rotulo ? ' · ' + rotulo : ''), body: [l.origen, l.estado, l.nota].filter(Boolean).join(' · ').slice(0, 160), tag: 'cx-' + l.id, tipo: 'lead-ext', url: '/app?vista=LEADSEXT' }));
+          if (nv.length > 5) avisos.push({ title: nv.length + ' contactos nuevos' + (rotulo ? ' · ' + rotulo : ''), body: 'Han entrado a la vez en el CRM', tag: 'cx-resumen-' + x.maxId, fuente: 'lx', url: '/app?vista=LEADSEXT' });
+          else nv.forEach((l) => avisos.push({ title: 'Nuevo lead · ' + l.nombre + (rotulo ? ' · ' + rotulo : ''), body: [l.origen, l.estado, l.nota].filter(Boolean).join(' · ').slice(0, 160), tag: 'cx-' + l.id, fuente: 'lx', url: '/app?vista=LEADSEXT' }));
           const cand = x.filas.filter((l) => l.id <= punto && ms(l.actualizado) > T).sort((a, b) => ms(b.actualizado) - ms(a.actualizado)).slice(0, 6);
           for (const l of cand) {
             const acts = await crmExtVer(l.id);
             const nota = (acts || []).find((a) => a.tipo === 'nota' && ms(a.creado) > T && esEntrada(a.texto));
             if (!nota) continue;
             crmVuelven++;
-            avisos.push({ title: 'Vuelve a entrar · ' + l.nombre + (rotulo ? ' · ' + rotulo : ''), body: nota.texto.slice(0, 160), tag: 'cx-v-' + l.id + '-' + ms(nota.creado), tipo: 'lead-ext', url: '/app?vista=LEADSEXT' });
+            avisos.push({ title: 'Vuelve a entrar · ' + l.nombre + (rotulo ? ' · ' + rotulo : ''), body: nota.texto.slice(0, 160), tag: 'cx-v-' + l.id + '-' + ms(nota.creado), fuente: 'lx', url: '/app?vista=LEADSEXT' });
           }
         }
         if (x.maxId > punto) nuevosH._crmext = x.maxId;

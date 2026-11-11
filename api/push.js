@@ -7,6 +7,12 @@ const hash = (endpoint) => crypto.createHash('sha256').update(String(endpoint)).
 const PUSH_HOSTS = /^https:\/\/(fcm\.googleapis\.com|android\.googleapis\.com|updates\.push\.services\.mozilla\.com|[\w.-]+\.push\.apple\.com|[\w.-]+\.notify\.windows\.com)\//;
 const validSub = (s) => s && typeof s.endpoint === 'string' && PUSH_HOSTS.test(s.endpoint) && s.endpoint.length < 1000 && s.keys && typeof s.keys.p256dh === 'string' && s.keys.p256dh.length < 200 && typeof s.keys.auth === 'string' && s.keys.auth.length < 100;
 
+// Orígenes de aviso que se pueden silenciar (los mismos que pone el vigía en `fuente`): cada cuenta de correo, WhatsApp, leads del CRM externo, leads detectados
+// en el correo, seguimientos («Sin respuesta») y envíos programados.
+const FUENTE = /^(correo:[a-z0-9_-]{1,20}|wa|lx|lead-correo|seguimiento|envio)$/;
+const limpiarSilencio = (a) => [...new Set((Array.isArray(a) ? a : []).filter((x) => typeof x === 'string' && FUENTE.test(x)))].sort().slice(0, 40);
+const igual = (a, b) => JSON.stringify([...(a || [])].sort()) === JSON.stringify([...(b || [])].sort());
+
 export default async function handler(req, res) {
   noStore(res);
   if (req.method !== 'POST') return res.status(405).json({ error: 'metodo' });
@@ -19,10 +25,18 @@ export default async function handler(req, res) {
       const sub = { endpoint: b.sub.endpoint, keys: { p256dh: b.sub.keys.p256dh, auth: b.sub.keys.auth } };
       // «solo leads»: si quien abre la sesión es una de las cuentas de BZ_AVISOS_LEADS, este dispositivo solo recibe los avisos del CRM externo.
       // Se recalcula en cada alta (la app se vuelve a registrar cada vez que se abre), así que el dispositivo toma la etiqueta de quien lo usa ahora.
-      const h = hash(sub.endpoint), st = await readStore(), q = sessionQuien(req), solo = q && SOLO_LEADS.includes(q) ? 'leads' : '';
-      if (st.push && st.push[h] && st.push[h].sub.keys.auth === sub.keys.auth && (st.push[h].solo || '') === solo) return res.status(200).json({ ok: true, ya: true });
-      await updateStore((n) => { const prev = n.push[h]; n.push[h] = { sub, disp: String(b.disp || '').slice(0, 60), alta: (prev && prev.alta) || new Date().toISOString(), solo: solo || undefined }; });
+      // Lo que este dispositivo silencia (b.mute) viaja en cada alta, así que servidor y dispositivo se mantienen iguales aunque se pierda uno de los dos.
+      const h = hash(sub.endpoint), st = await readStore(), q = sessionQuien(req), solo = q && SOLO_LEADS.includes(q) ? 'leads' : '', mute = limpiarSilencio(b.mute);
+      if (st.push && st.push[h] && st.push[h].sub.keys.auth === sub.keys.auth && (st.push[h].solo || '') === solo && igual(st.push[h].mute, mute)) return res.status(200).json({ ok: true, ya: true });
+      await updateStore((n) => { const prev = n.push[h]; n.push[h] = { sub, disp: String(b.disp || '').slice(0, 60), alta: (prev && prev.alta) || new Date().toISOString(), solo: solo || undefined, mute: mute.length ? mute : undefined }; });
       return res.status(200).json({ ok: true });
+    }
+    if (b.accion === 'silencio') {   // cambia lo que silencia un dispositivo ya dado de alta (Ajustes → Avisos)
+      const h = hash(b.endpoint), st = await readStore(true);
+      if (!st.push || !st.push[h]) return res.status(404).json({ error: 'no dado de alta' });
+      const mute = limpiarSilencio(b.mute);
+      await updateStore((n) => { if (!n.push[h]) return false; n.push[h].mute = mute.length ? mute : undefined; });
+      return res.status(200).json({ ok: true, mute });
     }
     if (b.accion === 'baja') {
       const h = hash(b.endpoint);

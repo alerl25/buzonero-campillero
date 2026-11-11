@@ -379,12 +379,19 @@ export async function webPush(sub, datos, urgente = true) {
   const r = await fetch(sub.endpoint, { method: 'POST', headers: { Authorization: 'vapid t=' + vapidJwt(sub.endpoint) + ', k=' + process.env.VAPID_PUBLIC, 'Content-Encoding': 'aes128gcm', 'Content-Type': 'application/octet-stream', TTL: '86400', Urgency: urgente ? 'high' : 'normal' }, body: cifrar(sub, JSON.stringify(datos)) });
   return r.status;
 }
+// ¿Le toca este aviso a este dispositivo? s = su registro (puede llevar solo:'leads' y mute:[orígenes]); datos.fuente = el origen del aviso.
+export function debeAvisar(s, datos) {
+  if (s && s.solo === 'leads' && datos.fuente !== 'lx') return false;
+  if (s && Array.isArray(s.mute) && datos.fuente && s.mute.includes(datos.fuente)) return false;
+  return true;
+}
 // Manda un aviso a todos los móviles suscritos y borra los que ya no existen
 export async function pushTodos(datos) {
   const st = await readStore(true), subs = Object.entries(st.push || {});
-  // los dispositivos «solo leads» solo reciben los avisos marcados tipo 'lead-ext', y sin el número rojo del icono (que es el de correos sin leer)
+  // Cada aviso lleva su ORIGEN en `fuente` (correo:<cuenta>, wa, lx = leads del CRM externo, lead-correo, seguimiento, envio). Cada dispositivo puede silenciar los que
+  // quiera (s.mute, se cambia en Ajustes → Avisos), y los dispositivos «solo leads» solo reciben `lx` y sin el número rojo del icono (que es el de correos sin leer).
   const muertos = [], res = await Promise.all(subs.map(async ([h, s]) => {
-    if (s.solo === 'leads' && datos.tipo !== 'lead-ext') return 0;
+    if (!debeAvisar(s, datos)) return 0;
     try { const c = await webPush(s.sub, s.solo === 'leads' ? { ...datos, badge: undefined } : datos); if (c === 404 || c === 410) muertos.push(h); return c; } catch (e) { return 0; }
   }));
   if (muertos.length) await updateStore((n) => { muertos.forEach((h) => delete n.push[h]); });
