@@ -61,3 +61,34 @@ export function paraVista(x) {
   const leads = x.filas.slice().sort((a, b) => (Date.parse(b.creado) || 0) - (Date.parse(a.creado) || 0) || b.id - a.id).slice(0, 500);
   return { ok: true, leads, total: x.total, nombre: nombreCrmExt(), panel: panelCrmExt() };
 }
+
+// Qué avisar del CRM desde el último punto (hist._crmext = mayor id visto, hist._crmextT = última actualización vista): contactos NUEVOS (id mayor) y REENTRADAS
+// (ficha que ya estaba con una nota de entrada nueva). Es pura: no escribe en el almacén ni manda nada; quien la llama (el vigía o el toque del CRM) decide.
+// Devuelve { ok, avisos, nuevosH (puntos nuevos para guardar), nuevos, vuelven, punto }. La primera vez (sin punto) solo apunta, no avisa.
+export async function detectarCrmExt(hist, fresco = true) {
+  const x = await crmExtListar(fresco);
+  if (!x.ok || !(x.maxId > 0)) return { ok: false, avisos: [], nuevosH: {}, nuevos: 0, vuelven: 0, punto: 0 };
+  const punto = Number((hist || {})._crmext) || 0, rotulo = nombreCrmExt(), ms = (v) => Date.parse(v) || 0;
+  const maxAct = x.filas.reduce((m, l) => Math.max(m, ms(l.actualizado)), 0);
+  // con el punto de ids ya puesto pero sin el de tiempo, se miran los últimos 30 min; sin nada puesto, solo se apunta
+  const T = Number((hist || {})._crmextT) || (punto ? Date.now() - 30 * 60000 : maxAct);
+  const avisos = []; let nuevos = 0, vuelven = 0;
+  if (punto) {
+    const nv = x.filas.filter((l) => l.id > punto).sort((a, b) => a.id - b.id);
+    nuevos = nv.length;
+    if (nv.length > 5) avisos.push({ title: nv.length + ' contactos nuevos' + (rotulo ? ' · ' + rotulo : ''), body: 'Han entrado a la vez en el CRM', tag: 'cx-resumen-' + x.maxId, fuente: 'lx', url: '/app?vista=LEADSEXT' });
+    else nv.forEach((l) => avisos.push({ title: 'Nuevo lead · ' + l.nombre + (rotulo ? ' · ' + rotulo : ''), body: [l.origen, l.estado, l.nota].filter(Boolean).join(' · ').slice(0, 160), tag: 'cx-' + l.id, fuente: 'lx', url: '/app?vista=LEADSEXT' }));
+    const cand = x.filas.filter((l) => l.id <= punto && ms(l.actualizado) > T).sort((a, b) => ms(b.actualizado) - ms(a.actualizado)).slice(0, 6);
+    for (const l of cand) {
+      const acts = await crmExtVer(l.id);
+      const nota = (acts || []).find((a) => a.tipo === 'nota' && ms(a.creado) > T && esEntrada(a.texto));
+      if (!nota) continue;
+      vuelven++;
+      avisos.push({ title: 'Vuelve a entrar · ' + l.nombre + (rotulo ? ' · ' + rotulo : ''), body: nota.texto.slice(0, 160), tag: 'cx-v-' + l.id + '-' + ms(nota.creado), fuente: 'lx', url: '/app?vista=LEADSEXT' });
+    }
+  }
+  const nuevosH = {};
+  if (x.maxId > punto) nuevosH._crmext = x.maxId;
+  if (maxAct > T) nuevosH._crmextT = maxAct;
+  return { ok: true, avisos, nuevosH, nuevos, vuelven, punto };
+}

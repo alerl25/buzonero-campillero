@@ -2,6 +2,15 @@
 
 Todas las versiones de Buzonero Campillero. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [1.21.0] · 2026-11-11
+
+### iPhone
+- **La app ya no queda cortada bajo la isla dinámica ni el notch.** La app dibuja a pantalla completa (`viewport-fit=cover`) y la barra de estado del iPhone se pintaba encima de la cabecera. Ahora la cabecera, la barra del lector de correo, el cajón del menú, el aviso rojo, los avisos animados, el visor de adjuntos y la pantalla de acceso cuentan con el margen de seguridad de arriba (`env(safe-area-inset-top)`), y la app con los márgenes laterales en horizontal. En ordenador y en móviles sin muesca el margen vale 0 y no cambia nada.
+
+### Avisos
+- **Aviso instantáneo desde el CRM externo.** Además del vigía de cada minuto, el CRM puede dar un «toque» a `/api/zernio?r=crm-aviso&t=<CRM_EXT_HOOK>` cuando entra un contacto o una nota de entrada; Buzonero no usa nada del cuerpo, consulta él el CRM y avisa con la misma lógica (`api/_crmaviso.js`, `detectarCrmExt` compartida con el vigía). Sin sesión, con clave comparada en tiempo constante y un freno de 15 s. Medido: ~3 s desde la entrada hasta el aviso. El vigía sigue de red de seguridad y enseña `crmToqueUltimo`.
+- Variable nueva: `CRM_EXT_HOOK` (clave del toque).
+
 ## [1.20.1] · 2026-11-11
 
 ### Avisos

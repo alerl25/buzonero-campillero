@@ -8,7 +8,7 @@ import crypto from 'node:crypto';
 import { allAccounts, accessToken, readStore, updateStore, readSeg, updateSeg, readEnv, updateEnv, readCrm, pushTodos, noStore } from './_lib.js';
 import { zernio, hayZernio, nombreConv } from './_zernio.js';
 import { crmDeCuenta, detector } from './_crm.js';
-import { hayCrmExt, nombreCrmExt, crmExtListar, crmExtVer, esEntrada } from './_crmext.js';
+import { hayCrmExt, detectarCrmExt } from './_crmext.js';
 
 // Cuántas veces ha llamado alguien a esta instancia y desde cuándo vive: si el despertador externo funciona, una instancia viva suma una llamada por minuto.
 let llamadas = 0; const arranque = Date.now();
@@ -183,34 +183,14 @@ export default async function handler(req, res) {
   // CRM externo (solo lectura): un aviso por cada contacto nuevo, es decir, con un id mayor que el último visto. Se mira en cada pasada del
   // vigía (cada minuto: el retraso máximo es el de su despertador) y la primera vez solo se apunta el punto. Si entran más de 5 a la vez
   // (una importación), un solo aviso de resumen.
-  // Y los que YA ESTABAN y vuelven a entrar (formulario, reserva de llamada…): el CRM los reconoce por teléfono o correo y no crea ficha, solo apunta una nota
-  // automática. Se miran las fichas actualizadas desde el último punto de tiempo (_crmextT) y se avisa solo si traen una nota de ENTRADA; editar una ficha no avisa.
+  // CRM externo (solo lectura): un aviso por cada contacto NUEVO y por cada REENTRADA (ficha que ya estaba y recibe una nota de entrada); editar una ficha no avisa.
+  // La detección vive en api/_crmext.js y la comparte el toque instantáneo del CRM (api/_crmaviso.js); aquí es la red de seguridad: cada pasada del vigía (cada minuto)
+  // lo recoge aunque el toque no llegue. La primera vez solo se apunta el punto.
   let crmExt = 0, crmVuelven = 0;
   if (hayMoviles && hayCrmExt()) {
     try {
-      const x = await crmExtListar(true);
-      if (x.ok && x.maxId > 0) {
-        const punto = Number(hist._crmext) || 0, rotulo = nombreCrmExt(), ms = (v) => Date.parse(v) || 0;
-        const maxAct = x.filas.reduce((m, l) => Math.max(m, ms(l.actualizado)), 0);
-        // primera vez con el punto de ids ya puesto: se miran los últimos 30 min; sin nada puesto, solo se apunta
-        const T = Number(hist._crmextT) || (punto ? Date.now() - 30 * 60000 : maxAct);
-        if (punto) {
-          const nv = x.filas.filter((l) => l.id > punto).sort((a, b) => a.id - b.id);
-          crmExt = nv.length;
-          if (nv.length > 5) avisos.push({ title: nv.length + ' contactos nuevos' + (rotulo ? ' · ' + rotulo : ''), body: 'Han entrado a la vez en el CRM', tag: 'cx-resumen-' + x.maxId, fuente: 'lx', url: '/app?vista=LEADSEXT' });
-          else nv.forEach((l) => avisos.push({ title: 'Nuevo lead · ' + l.nombre + (rotulo ? ' · ' + rotulo : ''), body: [l.origen, l.estado, l.nota].filter(Boolean).join(' · ').slice(0, 160), tag: 'cx-' + l.id, fuente: 'lx', url: '/app?vista=LEADSEXT' }));
-          const cand = x.filas.filter((l) => l.id <= punto && ms(l.actualizado) > T).sort((a, b) => ms(b.actualizado) - ms(a.actualizado)).slice(0, 6);
-          for (const l of cand) {
-            const acts = await crmExtVer(l.id);
-            const nota = (acts || []).find((a) => a.tipo === 'nota' && ms(a.creado) > T && esEntrada(a.texto));
-            if (!nota) continue;
-            crmVuelven++;
-            avisos.push({ title: 'Vuelve a entrar · ' + l.nombre + (rotulo ? ' · ' + rotulo : ''), body: nota.texto.slice(0, 160), tag: 'cx-v-' + l.id + '-' + ms(nota.creado), fuente: 'lx', url: '/app?vista=LEADSEXT' });
-          }
-        }
-        if (x.maxId > punto) nuevosH._crmext = x.maxId;
-        if (maxAct > T) nuevosH._crmextT = maxAct;
-      }
+      const d = await detectarCrmExt(hist, true);
+      if (d.ok) { avisos.push(...d.avisos); Object.assign(nuevosH, d.nuevosH); crmExt = d.nuevos; crmVuelven = d.vuelven; }
     } catch (e) {}
   }
   if (Object.keys(nuevosH).length) await updateStore((n) => { Object.assign(n.hist, nuevosH); });
@@ -226,5 +206,5 @@ export default async function handler(req, res) {
   }
   const enviados = [];
   if (hayMoviles) for (const a of avisos) enviados.push(await pushTodos(a));
-  return res.status(200).json({ ok: true, avisos: avisos.length, entregas: enviados.flat().filter((c) => c >= 200 && c < 300).length, puntos: Object.keys(nuevosH).length, whatsapp: wa, crmExt, crmVuelven, purgados, llamadasInstancia: llamadas, instanciaMin: Math.round((Date.now() - arranque) / 60000), moviles: Object.keys(st0.push || {}).length, movilesSoloLeads: Object.values(st0.push || {}).filter((s) => s && s.solo === 'leads').length, crmPunto: Number(nuevosH._crmext || hist._crmext) || 0, seguimientos: segHechos.length, enviosServidor: envHechos.length, leads });
+  return res.status(200).json({ ok: true, avisos: avisos.length, entregas: enviados.flat().filter((c) => c >= 200 && c < 300).length, puntos: Object.keys(nuevosH).length, whatsapp: wa, crmExt, crmVuelven, crmToqueUltimo: hist._hookT ? new Date(Number(hist._hookT)).toISOString() : null, purgados, llamadasInstancia: llamadas, instanciaMin: Math.round((Date.now() - arranque) / 60000), moviles: Object.keys(st0.push || {}).length, movilesSoloLeads: Object.values(st0.push || {}).filter((s) => s && s.solo === 'leads').length, crmPunto: Number(nuevosH._crmext || hist._crmext) || 0, seguimientos: segHechos.length, enviosServidor: envHechos.length, leads });
 }

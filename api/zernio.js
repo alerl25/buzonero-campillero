@@ -11,9 +11,12 @@ import { agenda, clave9 } from './_agenda.js';
 import { zernio, hayZernio, ID_ZERNIO as ID, nombreConv, soloDigitos } from './_zernio.js';
 import { mcEstado, mcConectar, mcActualizar, mcQuitar, mcPosts, mcPublicar, mcBorrar } from './_metricool.js';
 import { hayCrmExt, nombreCrmExt, crmExtListar, paraVista } from './_crmext.js';
+import { crmAviso } from './_crmaviso.js';
 
 export default async function handler(req, res) {
   noStore(res);
+  // el toque del CRM (api/_crmaviso.js): lo llama el propio CRM sin sesión y lleva su clave en la dirección; va antes de comprobar la sesión
+  if (req.query && req.query.r === 'crm-aviso') { try { return await crmAviso(req, res); } catch (e) { return res.status(500).json({ error: 'interno' }); } }
   const maquina = esMaquina(req);
   if (!maquina && !validSession(req)) return res.status(401).json({ error: 'sesion' });
   if (!maquina && !sameOrigin(req)) return res.status(403).json({ error: 'origen' });

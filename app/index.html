@@ -915,6 +915,23 @@
 </style>
 <link rel="icon" type="image/svg+xml" href="/app/favicon.svg">
 <link rel="stylesheet" href="/app/tema.css">
+<style id="zona-segura">
+  /* iPhone con isla o notch: la app dibuja a pantalla completa (viewport-fit=cover) y la barra de estado quedaba encima de la cabecera.
+     Todo lo que se pega arriba, abajo o a los lados cuenta con el margen de seguridad. En ordenador y en móviles sin muesca valen 0 y no cambia nada. */
+  :root { --sat:env(safe-area-inset-top,0px); --sab:env(safe-area-inset-bottom,0px); --sal:env(safe-area-inset-left,0px); --sar:env(safe-area-inset-right,0px); }
+  .app { padding:var(--sat) var(--sar) 0 var(--sal); }
+  .notif-stack { top:calc(14px + var(--sat)); }
+  .brk { top:calc(12px + var(--sat)); }
+  dialog.viewer { height:calc(100dvh - 32px - var(--sat)); margin-top:calc(16px + var(--sat)); }
+  @media (max-width: 900px) {
+    .notif-stack { top:calc(10px + var(--sat)); }
+    .side-head { height:calc(68px + var(--sat)); padding-top:var(--sat); }
+    .side { padding-bottom:calc(24px + var(--sab)); }
+    .read { padding-left:var(--sal); padding-right:var(--sar); }
+    .read-bar { flex:none; height:calc(57px + var(--sat)); padding-top:calc(8px + var(--sat)); }
+    .login { padding-top:max(9vh, calc(var(--sat) + 24px)); padding-bottom:calc(24px + var(--sab)); }
+  }
+</style>
 <script src="/app/particulas.js" defer></script>
 </head>
 <body>
