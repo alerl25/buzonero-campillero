@@ -4189,17 +4189,18 @@ $('rows').addEventListener('click', function(e){
 });
 
 /* ---------------- el número rojo del icono ----------------
-   Solo correos de personas sin leer: Principal, último mes, todas las cuentas (las promociones y avisos no cuentan).
+   Cuenta los AVISOS recibidos desde la última vez que se abrió la app, y arranca en 0: lo suma el service worker (sw.js) en el dispositivo
+   y aquí se pone a 0 cada vez que la app está a la vista. Antes era «correos sin leer del último mes» y enseñaba un número sin nada nuevo.
    En el iPhone hace falta tener Buzonero en la pantalla de inicio y los avisos activados. */
 var badgeAt = 0;
-async function actualizarBadge(forzar){
-  if(!('setAppBadge' in navigator) || (!forzar && Date.now() - badgeAt < 60000)) return;
-  if(window.BZ_SOLO_LEADS){ try { navigator.clearAppBadge(); } catch(e){} return; }   // cuenta «solo leads»: sin el número de correos sin leer
+function actualizarBadge(forzar){
+  if(document.visibilityState !== 'visible' || (!forzar && Date.now() - badgeAt < 20000)) return;
   badgeAt = Date.now();
-  var n = (await pool(KEYS.filter(function(k){ return !ACC[k].broken; }), 2, function(k){ return gm(k, 'threads?maxResults=100&fields=threads/id&q=' + encodeURIComponent('in:inbox is:unread category:primary newer_than:30d')); }))
-    .reduce(function(s, r){ return s + (r && !r._err ? (r.threads || []).length : 0); }, 0);
-  try { await (n ? navigator.setAppBadge(n) : navigator.clearAppBadge()); } catch(e){}
+  try { if('clearAppBadge' in navigator) navigator.clearAppBadge().catch(function(){}); } catch(e){}
+  try { if(window.caches) caches.open('bz-n').then(function(c){ return c.put('/n', new Response('0')); }).catch(function(){}); } catch(e){}
 }
+document.addEventListener('visibilitychange', function(){ actualizarBadge(true); });
+window.addEventListener('focus', function(){ actualizarBadge(); });
 
 async function start(){
   // la sesión (y el permiso de la cuenta abierta) ya se pidieron en el <head>; si no (tras entrar con contraseña), se piden ahora

@@ -2,6 +2,12 @@
 
 Todas las versiones de Buzonero Campillero. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [1.23.1] · 2026-11-11
+
+### Corregido
+- **El número rojo del icono enseñaba 56 sin haber nada nuevo.** Era «correos sin leer de Principal del último mes», sumados en todas las cuentas. Ahora cuenta los avisos recibidos desde la última vez que abriste la app, arranca en 0 y se pone a 0 al abrirla (o volver a ella). Lo suma el service worker en el dispositivo, así que el servidor ya no hace 5 consultas a Gmail por cada aviso. Con la app a la vista no suma. `pruebas/badge-sw.mjs` lo comprueba sin navegador.
+- Filtro de basura de TikTok por dominio (`from:tiktok.com`) en las cuentas de correo propias: se escapaban los boletines de TikTok («X está en tus contactos»).
+
 ## [1.23.0] · 2026-11-11
 
 Servidor más firme y el pie de «Redactar» arreglado al responder dentro del hilo.

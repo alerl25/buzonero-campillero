@@ -210,14 +210,7 @@ async function pasada(req, res) {
   const stFin = st0;
   // se borran solo los que se han mirado y no se han vuelto a poner mientras tanto
   if (segHechos.length) await updateSeg((seg) => { segHechos.forEach((s) => { const c = s.k + '|' + s.hilo, a = seg[c]; if (a && a.puesto === s.puesto) delete seg[c]; }); }).catch(() => {});
-  // el número rojo del icono: correos de personas sin leer (Principal, último mes) en todas las cuentas
-  if (avisos.length && hayMoviles) {
-    const cuentas = await Promise.all(Object.keys(todas).map(async (k) => {
-      try { const tk = await tok(k); if (!tk) return 0; const j = await (await fetch('https://gmail.googleapis.com/gmail/v1/users/me/threads?maxResults=100&fields=threads/id&q=' + encodeURIComponent('in:inbox is:unread category:primary newer_than:30d'), { headers: { Authorization: 'Bearer ' + tk } })).json(); return (j.threads || []).length; } catch (e) { return 0; }
-    }));
-    const badge = cuentas.reduce((x, y) => x + y, 0);
-    avisos.forEach((a) => { a.badge = badge; });
-  }
+  // el número rojo del icono ya no se calcula aquí: lo cuenta cada dispositivo (sw.js) sumando los avisos desde la última vez que abrió la app
   const enviados = [];
   if (hayMoviles) for (const a of avisos) enviados.push(await pushTodos(a, stFin));
   return res.status(200).json({ ok: true, avisos: avisos.length, entregas: enviados.flat().filter((c) => c >= 200 && c < 300).length, puntos: Object.keys(nuevosH).length, whatsapp: wa, crmExt, crmVuelven, crmToqueUltimo: hist._hookT ? new Date(Number(hist._hookT)).toISOString() : null, purgados, llamadasInstancia: llamadas, instanciaMin: Math.round((Date.now() - arranque) / 60000), moviles: Object.keys(st0.push || {}).length, movilesSoloLeads: Object.values(st0.push || {}).filter((s) => s && s.solo === 'leads').length, crmPunto: Number(nuevosH._crmext || hist._crmext) || 0, seguimientos: segHechos.length, enviosServidor: envHechos.length, leads });

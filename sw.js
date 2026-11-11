@@ -4,11 +4,24 @@
 self.addEventListener('install', function () { self.skipWaiting(); });
 self.addEventListener('activate', function (e) { e.waitUntil(self.clients.claim()); });
 
+// el contador vive en la caché del navegador (el service worker no tiene localStorage); la app lo pone a 0 al abrirse
+function leerN() { return caches.open('bz-n').then(function (c) { return c.match('/n'); }).then(function (r) { return r ? r.text() : '0'; }).then(function (t) { return parseInt(t, 10) || 0; }).catch(function () { return 0; }); }
+function ponerN(n) { return caches.open('bz-n').then(function (c) { return c.put('/n', new Response(String(n))); }).catch(function () {}); }
+function contarAviso(d) {
+  if (!self.navigator || !('setAppBadge' in self.navigator)) return Promise.resolve();
+  // con la app a la vista no se cuenta: ya lo está viendo
+  return self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (cs) {
+    if (cs.some(function (c) { return c.visibilityState === 'visible'; })) return;
+    return leerN().then(function (n) { n++; return ponerN(n).then(function () { return self.navigator.setAppBadge(n); }); });
+  }).catch(function () {});
+}
+
 self.addEventListener('push', function (e) {
   var d = {};
   try { d = e.data ? e.data.json() : {}; } catch (err) { d = { title: 'Buzonero', body: e.data ? e.data.text() : '' }; }
-  // el número rojo del icono (correos de personas sin leer), que lo calcula el servidor al mandar el aviso
-  if (typeof d.badge === 'number' && self.navigator && 'setAppBadge' in self.navigator) { try { (d.badge > 0 ? self.navigator.setAppBadge(d.badge) : self.navigator.clearAppBadge()).catch(function () {}); } catch (err) {} }
+  // el número rojo del icono = avisos recibidos desde la última vez que se abrió la app (arranca en 0; la app lo pone a 0 al abrirse).
+  // Se cuenta aquí, en el dispositivo: ya no es «correos sin leer del último mes», que enseñaba un número aunque no hubiera nada nuevo.
+  e.waitUntil(contarAviso(d));
   e.waitUntil(self.registration.showNotification(d.title || 'Buzonero Campillero', {
     body: d.body || 'Tienes correo nuevo',
     tag: d.tag || undefined,
