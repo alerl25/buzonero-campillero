@@ -2,6 +2,42 @@
 
 Todas las versiones de Buzonero Campillero. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [1.22.0] · 2026-11-11
+
+Repaso completo de la app: velocidad de apertura, fluidez, adaptación a móvil y tablet, y errores encontrados por el camino. Medido antes y después con `pruebas/rendimiento.mjs` (mediana de 3, Chromium; móvil = 393 px con la CPU frenada ×4).
+
+### Velocidad
+- **La bandeja sale al instante al abrir la app.** La primera página de Recibidos, los contadores y las etiquetas de cada cuenta se guardan en el dispositivo y se enseñan nada más abrir; se ponen al día por detrás sin repintar si no ha cambiado nada. Caduca a los 3 días y se borra al cerrar sesión.
+- **Arranque adelantado:** la sesión y el permiso de la cuenta abierta se piden desde el `<head>`, mientras baja el resto de la página.
+- **Un permiso por cuenta, no cuatro.** Al abrir se pedían 20 permisos (`/api/token`) para 5 cuentas; ahora 5. Las peticiones a Google van sin caché del navegador (`cache:'no-store'`): con caché, Chrome ponía en fila las que comparten dirección entre cuentas (perfil, etiquetas, contadores).
+- **La lista ya no espera a las etiquetas:** se piden a la vez.
+- **Los primeros correos de la lista se traen por detrás** (de dos en dos, sin «ahorro de datos» ni en segundo plano): al tocarlos se abren al momento. Un correo ya traído vale mientras Gmail diga que no ha cambiado (hasta 10 min).
+- **Iconos:** solo los dos estilos que usa la app (antes el script del paquete cargaba los seis, unos 500 kB de CSS, bloqueando la página). La letra se pide en el `<head>` (antes con un `@import` encadenado) y con `display=optional`: no hay cambio de letra a mitad de carga.
+- **Servidor en Europa:** las funciones estaban en Washington (`iad1`); ahora en París (`cdg1`). `integraciones`, `estado` y `conversaciones` piden sus datos a la vez en lugar de en fila; la agenda y las cuentas de Zernio se recuerdan un rato; los avisos no releen el almacén por cada envío; la comprobación de versión usa una ruta ligera (`/api/session?r=version`).
+
+### Fluidez
+- Fechas y números: los formateadores se crean una vez (crearlos por fila era lo más caro de pintar la lista).
+- Las pestañas de cuenta no se vuelven a crear si no cambian, y lo que hay que medir en pantalla se mide una vez por fotograma.
+- Sin saltos al cargar: las primeras filas ya no pasan un fotograma con la altura estimada (CLS 0).
+- Sin fogonazo blanco al abrir con un tema oscuro: el tema se pone antes del primer pintado.
+- Partículas: se paran cuando en el móvil se está leyendo un correo y con cualquier ventana abierta; `low-power`; «reducir movimiento» se respeta entero.
+- CRM: no pierde la posición al abrir una ficha o cambiar una etapa; el buscador ya no repinta en cada tecla. Leads: no repinta si no hay novedades.
+
+### Adaptación a móvil y tablet
+- Zona segura también en la cabecera de las ventanas (redactar, evento, firma, temas) y en el pie de las vistas con desplazamiento propio.
+- «Borrar borrador» ya no se sale ni pisa el botón de la firma en el móvil.
+- «Redactar» flotante no tapa las vistas que no son correo.
+- Calendario: con el dedo ya no se arrastran eventos por accidente; el formulario se desplaza con el teclado abierto; la tarjeta del evento es una hoja inferior; en el móvil se entra por «Día». WhatsApp: botón de volver del chat a la lista. Controles pequeños más grandes al tacto.
+
+### Corregido
+- **CRM: al cambiar de CRM se mezclaban filas del anterior**, y cambiar una etapa podía escribirla en el CRM equivocado.
+- Calendario: al pasar rápido de semana, los eventos de una se guardaban como de otra; doble toque en «Guardar» creaba dos eventos; tocar fuera de la tarjeta abría «Nuevo evento».
+- Redes: una respuesta atrasada podía pintar la semana que no era. Avisos: varios interruptores seguidos podían dejar en el servidor una lista vieja.
+
+### Para quien mantiene
+- `pruebas/rendimiento.mjs` (tiempos) y `pruebas/humo-vistas.mjs` (todas las vistas en cinco tamaños: errores, desbordes, zona segura).
+- Variables nuevas: ninguna. `vercel.json` lleva `regions: ["cdg1"]`: cámbiala a la región más cercana a ti.
+
 ## [1.21.0] · 2026-11-11
 
 ### iPhone

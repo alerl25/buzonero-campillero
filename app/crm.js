@@ -11,8 +11,13 @@ shell.appendChild(vista);
 
 function crmsLista(){ return Object.keys(CRMS || {}).map(function(i){ return CRMS[i]; }); }
 function crmActual(){ return (CRMS || {})[CV.id] || null; }
+// Los formateadores de fecha y de importe se crean UNA vez (por idioma) y se reutilizan: crear uno por fila en cada repintado
+// (lo que hace toLocaleDateString con opciones) era lo más caro de pintar las tablas. Una fecha no válida sale como antes («Invalid Date»).
+var FMT = {};
+function fmtF(loc, nombre, opt, d){ if(isNaN(d)) return String(d); var k = loc + '|' + nombre; return (FMT[k] || (FMT[k] = new Intl.DateTimeFormat(loc, opt))).format(d); }
+var EUR_OPT = { minimumFractionDigits:2, maximumFractionDigits:2 }, FMT_EUR = null;
 function fecha(t){ if(!t) return ''; var d = new Date(t), hoy = new Date();
-  return d.toDateString() === hoy.toDateString() ? d.toLocaleTimeString(BZ.loc, { hour:'2-digit', minute:'2-digit' }) : d.toLocaleDateString(BZ.loc, { day:'numeric', month:'short' }); }
+  return d.toDateString() === hoy.toDateString() ? fmtF(BZ.loc, 'hm', { hour:'2-digit', minute:'2-digit' }, d) : fmtF(BZ.loc, 'dm', { day:'numeric', month:'short' }, d); }
 function nombreDe(x){ return x.nombre || x.email || '—'; }
 function iniciales(x){ var n = (x.nombre || x.email || '?').replace(/@.*/, '').trim().split(/[\s._-]+/); return ((n[0] || '?')[0] + ((n[1] || '')[0] || '')).toUpperCase(); }
 
@@ -20,7 +25,7 @@ window.abrirVistaCrm = async function(tab){
   if(typeof tab === 'string'){ CV.tab = tab; CV.wiz = null; CV.sel = null; }
   shell.classList.add('crm-on'); vista.hidden = false; closeDrawer();
   if(!CRMS) { vista.innerHTML = '<div class="cv-vacio">Cargando…</div>'; try { await crmCargar(); } catch(e){ vista.innerHTML = '<div class="cv-vacio">No se pudieron leer los CRM. Prueba otra vez en un momento.</div>'; return; } }
-  if(!CV.id || !CRMS[CV.id]){ var mio = crmDeK(st.acc, ''); CV.id = mio ? mio.id : ((crmsLista()[0] || {}).id || null); CV.leads = CV.clientes = null; }
+  if(!CV.id || !CRMS[CV.id]){ var mio = crmDeK(st.acc, ''); CV.id = mio ? mio.id : ((crmsLista()[0] || {}).id || null); CV.leads = CV.clientes = CV.hot = null; }   // la tabla HOT también es de UN CRM: si no se vacía, se mezclan dos negocios
   pintar(); cargar();
   drawSide();
 };
@@ -29,28 +34,43 @@ window.vistaCrmAbierta = function(){ return !vista.hidden; };
 // volver al correo al tocar una carpeta, una etiqueta, una cuenta o Redactar
 document.addEventListener('click', function(e){ if(!vista.hidden && e.target.closest && e.target.closest('#side [data-f], #side [data-l], #tabs [data-k]')) cerrarVistaCrm(); }, true);
 // tras guardar o borrar un CRM en su ventana
-window.cvRefrescar = function(){ if(CRMS && CV.id && !CRMS[CV.id]) CV.id = null; CV.leads = CV.clientes = null; if(!vista.hidden) abrirVistaCrm(); };
+window.cvRefrescar = function(){ if(CRMS && CV.id && !CRMS[CV.id]) CV.id = null; CV.leads = CV.clientes = CV.hot = null; if(!vista.hidden) abrirVistaCrm(); };
 
 async function cargar(force){
   var c = crmActual(); if(!c) return;
+  var id = c.id, otro = false;
   var que = CV.tab === 'clientes' ? ['leads', 'clientes'] : (CV.tab === 'tablero' ? ['leads'] : (CV.tab === 'meses' ? ['leads', 'hot'] : []));
-  for(var i = 0; i < que.length; i++){
-    var r = que[i]; if(CV[r] && !force) continue; if(CV.cargando[r]) continue;
-    CV.cargando[r] = true; pintar();
+  // lo que falta se pide A LA VEZ (antes iba una petición detrás de otra)
+  var pedir = que.filter(function(r){ return !(CV[r] && !force) && !CV.cargando[r]; });
+  pedir.forEach(function(r){ CV.cargando[r] = true; });
+  if(pedir.length) pintar();
+  await Promise.all(pedir.map(async function(r){
     try {
-      var j = await (await fetch('/api/crm?r=' + r + '&id=' + encodeURIComponent(c.id), { cache:'no-store' })).json();
+      var j = await (await fetch('/api/crm?r=' + r + '&id=' + encodeURIComponent(id), { cache:'no-store' })).json();
+      // si mientras tanto se eligió OTRO CRM, esta respuesta no es suya: no se guarda ni se pinta (si no, se veían los leads de un negocio en el otro)
+      if(CV.id !== id){ otro = true; return; }
       if(!j.ok) throw new Error('crm');
       if(r === 'leads'){ CV.leads = j.leads || []; CV.bots = j.bots || 0; } else if(r === 'hot') CV.hot = j.filas || []; else CV.clientes = j.clientes || [];
       if((j.fallos || []).length) toast('Una cuenta del CRM necesita reconectar');
-    } catch(e){ toast('No se pudo leer el CRM'); }
-    CV.cargando[r] = false;
-  }
+    } catch(e){ if(CV.id !== id) otro = true; else toast('No se pudo leer el CRM'); }
+  }));
+  pedir.forEach(function(r){ CV.cargando[r] = false; });
+  if(otro || CV.id !== id) return cargar();   // se cambió de CRM durante la carga: ahora se pide lo del que está a la vista
   pintar();
   if(CV.leads){ var n = CV.leads.filter(function(x){ return x.etapa === c.etapas[0]; }).length; c.cuentas.forEach(function(k){ if(ACC[k]) ACC[k].crmN = 0; }); var k0 = c.cuentas[0]; if(ACC[k0]) ACC[k0].crmN = n; drawSide(); }
 }
 
+// Dónde estaba cada desplazamiento de la pestaña a la vista. pintar() rehace todo el HTML: sin esto, abrir una ficha, cambiar una etapa
+// o mover una tarjeta devolvía la tabla arriba y el tablero a la primera columna. Mientras sale «Cargando…» se conserva lo último bueno.
+var cvPos = { clave:'', y:0, x:0, bx:0, mx:0, fy:0, sel:null };
 function pintar(){
   var c = crmActual(), ls = crmsLista();
+  var clave = CV.id + '|' + CV.tab + '|' + (CV.wiz || ''), b0 = vista.querySelector('.cv-body');
+  if(cvPos.clave !== clave) cvPos = { clave:clave, y:0, x:0, bx:0, mx:0, fy:0, sel:null };
+  else if(b0 && !b0.querySelector(':scope > .cv-vacio')){
+    var t0 = b0.querySelector('.cv-board'), m0 = b0.querySelector('.cv-meses'), f0 = vista.querySelector('.cv-ficha');
+    cvPos.y = b0.scrollTop; cvPos.x = b0.scrollLeft; cvPos.bx = t0 ? t0.scrollLeft : 0; cvPos.mx = m0 ? m0.scrollLeft : 0; cvPos.fy = f0 ? f0.scrollTop : 0;
+  }
   var cab = '<div class="cv-head"><div class="cv-ttl"><i class="ph ph-kanban"></i>'
     + (ls.length > 1 ? '<select id="cvSel" aria-label="CRM" data-notr>' + ls.map(function(x){ return '<option value="' + esc(x.id) + '"' + (c && x.id === c.id ? ' selected' : '') + '>' + esc(x.nombre) + '</option>'; }).join('') + '</select>'
        : '<b data-notr>' + esc(c ? c.nombre : 'CRM') + '</b>')
@@ -66,6 +86,12 @@ function pintar(){
   else if(CV.tab === 'integraciones') cuerpo = pintarIntegraciones(c);
   else cuerpo = pintarAjustes(c);
   vista.innerHTML = cab + '<div class="cv-body">' + cuerpo + '</div>' + (CV.sel ? pintarFicha(c) : '');
+  var b1 = vista.querySelector('.cv-body'), t1 = vista.querySelector('.cv-board'), m1 = vista.querySelector('.cv-meses'), f1 = vista.querySelector('.cv-ficha');
+  if(b1 && (cvPos.y || cvPos.x)){ b1.scrollTop = cvPos.y; b1.scrollLeft = cvPos.x; }
+  if(t1 && cvPos.bx) t1.scrollLeft = cvPos.bx;
+  if(m1 && cvPos.mx) m1.scrollLeft = cvPos.mx;
+  if(f1 && cvPos.fy && cvPos.sel === CV.sel) f1.scrollTop = cvPos.fy;   // la ficha, solo si sigue siendo la del mismo cliente
+  cvPos.sel = CV.sel;
 }
 
 
@@ -82,7 +108,7 @@ function mismo(fila, l){
 function lineaDe(l){ var t = norm((l.asunto || '') + ' ' + (l.mensaje || '')); if(/\bsala|evento|taller|reunion|formacion/.test(t)) return 'SALA'; return 'COW'; }
 function importeNx(l){ var f = (l.nexudus && l.nexudus.facturas) || []; if(!f.length) return null; var v = f.filter(function(x){ return Date.parse(x.fecha) >= (l.fecha || 0) - 7 * 86400000; }); return v.length ? v.reduce(function(s, x){ return s + (+x.total || 0); }, 0) : null; }
 function mesDe(f){ if(f.mes) return f.mes; var d = new Date(f.ms || 0); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2); }
-function eur(v){ return (v || 0).toLocaleString('es-ES', { minimumFractionDigits:2, maximumFractionDigits:2 }) + ' €'; }
+function eur(v){ v = v || 0; return (typeof v === 'number' ? (FMT_EUR || (FMT_EUR = new Intl.NumberFormat('es-ES', EUR_OPT))).format(v) : v.toLocaleString('es-ES', EUR_OPT)) + ' €'; }
 function filasMeses(c){
   var hot = (CV.hot || []).map(function(f){ var ms = f.fecha ? Date.parse(f.fecha) : 0; return { src:'hot', f:f, cliente:f.cliente, etapa:f.etapa, linea:f.linea, fecha:f.fecha, ms:ms, mes:mesDe({ mes:f.mes, ms:ms }), espacio:f.espacio, obs:f.obs, imp:f.presupuesto }; });
   var vivos = [];
@@ -99,7 +125,7 @@ function pintarMeses(c){
   var por = {}; filas.forEach(function(r){ (por[r.mes] = por[r.mes] || []).push(r); });
   var meses = Object.keys(por).sort();
   CV.mesVista = [];
-  var nom = function(m){ var p = m.split('-'); return new Date(+p[0], +p[1] - 1, 1).toLocaleDateString('es-ES', { month:'long', year:'numeric' }).toUpperCase(); };
+  var nom = function(m){ var p = m.split('-'); return fmtF('es-ES', 'my', { month:'long', year:'numeric' }, new Date(+p[0], +p[1] - 1, 1)).toUpperCase(); };
   var cls = function(e){ return e === 'Ganado' ? 'g' : (e === 'Perdido' ? 'p' : 'n'); };
   var opts = function(sel){ return c.etapas.map(function(e){ return '<option value="' + esc(e) + '"' + (e === sel ? ' selected' : '') + ' data-notr>' + esc(e) + '</option>'; }).join(''); };
   var totales = [], global = 0;
@@ -113,7 +139,7 @@ function pintarMeses(c){
             + '<span class="cv-fm-c"><b data-notr>' + esc(r.cliente) + '</b>' + (r.src === 'lead' ? '<small>Lead vivo</small>' : '') + '</span>'
             + '<span><select data-mes-etapa="' + i + '" aria-label="Etapa" class="cv-sel-' + cls(r.etapa) + '">' + opts(r.etapa) + '</select></span>'
             + '<span><span class="cv-lin">' + esc(r.linea || '') + '</span></span>'
-            + '<span>' + (r.fecha ? esc(new Date(r.fecha).toLocaleDateString('es-ES', { day:'numeric', month:'short' })) : (r.src === 'lead' ? esc(fecha(r.ms)) : '')) + '</span>'
+            + '<span>' + (r.fecha ? esc(fmtF('es-ES', 'dm', { day:'numeric', month:'short' }, new Date(r.fecha))) :(r.src === 'lead' ? esc(fecha(r.ms)) : '')) + '</span>'
             + '<span data-notr>' + esc(r.espacio || '') + '</span>'
             + '<span class="cv-fm-o" data-notr title="' + esc(r.obs || '') + '">' + esc(r.obs || '') + '</span>'
             + '<span class="cv-fm-i">' + (r.imp != null ? esc(eur(r.imp)) : '') + '</span>'
@@ -385,12 +411,17 @@ vista.addEventListener('change', function(e){
   var t = e.target;
   // la clave .json de Google: se lee en el navegador y se pega en su caja
   if(t.dataset.wizFich && t.files && t.files[0]){ var fr = new FileReader(), campo = t.dataset.wizFich; fr.onload = function(){ var ta = vista.querySelector('[data-wiz="' + campo + '"]'); if(ta) ta.value = String(fr.result || ''); CV.wizDatos[campo] = String(fr.result || ''); }; fr.readAsText(t.files[0]); return; }
-  if(t.id === 'cvSel'){ CV.id = t.value; CV.leads = CV.clientes = null; CV.sel = null; pintar(); cargar(); return; }
+  if(t.id === 'cvSel'){ CV.id = t.value; CV.leads = CV.clientes = CV.hot = null; CV.sel = null; pintar(); cargar(); return; }   // CV.hot incluido: sus filas son del CRM anterior
   if(t.dataset.mesEtapa){ var rr = CV.mesVista[+t.dataset.mesEtapa]; if(rr && t.value !== rr.etapa) cambiarEtapaMes(rr, t.value); return; }
   if(t.dataset.cliEtapa){ cambiarEtapa(CV.clientesVista[+t.dataset.cliEtapa], t.value); return; }
   if(t.hasAttribute('data-ficha-etapa') && CV.sel){ cambiarEtapa(CV.sel, t.value); return; }
 });
-vista.addEventListener('input', function(e){ if(e.target.dataset && e.target.dataset.wiz){ CV.wizDatos[e.target.dataset.wiz] = e.target.value; return; } if(e.target.id === 'cvQ'){ CV.q = e.target.value; var pos = e.target.selectionStart; CV.clientesVista = []; CV.mesVista = []; pintar(); var q = $('cvQ'); if(q){ q.focus(); try { q.setSelectionRange(pos, pos); } catch(err){} } } });
+// el buscador: se repinta al dejar de teclear un instante (140 ms), no en cada tecla. Repintar rehace también la caja de buscar,
+// y hacerlo letra a letra iba a tirones con muchas filas y cortaba el autocorrector y los acentos del teclado del móvil
+var cvQT = 0;
+vista.addEventListener('input', function(e){ if(e.target.dataset && e.target.dataset.wiz){ CV.wizDatos[e.target.dataset.wiz] = e.target.value; return; } if(e.target.id === 'cvQ'){ CV.q = e.target.value; clearTimeout(cvQT); cvQT = setTimeout(function(){
+  var q0 = $('cvQ'), foco = !!q0 && document.activeElement === q0, pos = q0 ? q0.selectionStart : 0;
+  CV.clientesVista = []; CV.mesVista = []; pintar(); var q = $('cvQ'); if(q && foco){ q.focus(); try { q.setSelectionRange(pos, pos); } catch(err){} } }, 140); } });
 // arrastrar tarjetas entre etapas (ordenador)
 vista.addEventListener('dragstart', function(e){ var t = e.target.closest && e.target.closest('[data-lead]'); if(!t) return; e.dataTransfer.setData('text/plain', t.dataset.lead); e.dataTransfer.effectAllowed = 'move'; t.classList.add('arr'); });
 vista.addEventListener('dragend', function(e){ var t = e.target.closest && e.target.closest('[data-lead]'); if(t) t.classList.remove('arr'); [].slice.call(vista.querySelectorAll('.cv-col.sobre')).forEach(function(x){ x.classList.remove('sobre'); }); });
@@ -403,9 +434,12 @@ var pintarBase = pintar; pintar = function(){ CV.clientesVista = []; pintarBase(
 // «Añadir al CRM» desde un correo abierto
 document.addEventListener('click', async function(e){
   var b = e.target.closest && e.target.closest('[data-crm-add]'); if(!b || !cur) return;
-  if(!CRMS) { try { await crmCargar(); } catch(err){} }
-  var c = crmDeK(cur.k, ''); if(!c){ toast('Esta cuenta no está en ningún CRM'); return; }
-  try { var r = await fetch('/api/crm', { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ accion:'anadir', id:c.id, k:cur.k, hilo:cur.id }) }); if(!r.ok) throw 0; toast('Añadido al CRM «' + c.nombre + '»'); CV.leads = null; }
-  catch(err){ toast('No se pudo añadir al CRM'); }
+  if(b.dataset.env) return; b.dataset.env = '1';   // un segundo toque mientras se guarda no lo añade dos veces
+  try {
+    if(!CRMS) { try { await crmCargar(); } catch(err){} }
+    var c = crmDeK(cur.k, ''); if(!c){ toast('Esta cuenta no está en ningún CRM'); return; }
+    try { var r = await fetch('/api/crm', { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ accion:'anadir', id:c.id, k:cur.k, hilo:cur.id }) }); if(!r.ok) throw 0; toast('Añadido al CRM «' + c.nombre + '»'); CV.leads = null; }
+    catch(err){ toast('No se pudo añadir al CRM'); }
+  } finally { delete b.dataset.env; }
 });
 })();

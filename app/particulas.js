@@ -10,8 +10,10 @@
      correo sale en una estela hacia arriba; al llegar uno, va del aviso a la
      pestaña de su cuenta. window.__particulas.vuelo(desde, hacia, tipo).
    - Rendimiento: requestAnimationFrame limitado a ~60 fps; se para con la
-     pestaña oculta, con el redactar abierto y con prefers-reduced-motion
-     (entonces se dibuja un único fotograma quieto). Densidad según el área.
+     pestaña oculta, con cualquier ventana modal abierta (redactar, evento,
+     adjunto…) y, en el móvil, mientras el correo abierto tapa la pantalla.
+     Con prefers-reduced-motion la figura (sobre, corrientes) se queda quieta
+     y solo sigue, despacio, el polvo de la app. Densidad según el área.
    - Color: rojo y blanco en oscuro (mezcla aditiva), rojo y gris en claro.
      Escucha data-theme en <html> con un MutationObserver.
    Sin dependencias. Expone window.__particulas.estado() para las pruebas.
@@ -28,11 +30,13 @@
   canvas.setAttribute('aria-hidden', 'true');
   canvas.style.cssText = 'position:fixed;left:0;top:0;width:100vw;height:100vh;z-index:-1;pointer-events:none;display:block;visibility:hidden';
   /* Dibujo por GPU (WebGL): cada fotograma sube a la tarjeta gráfica las posiciones de todos los puntos y los pinta
-     de UNA vez (gl.POINTS), con el redondeo y la mezcla hechos en la GPU. Se pide la GPU potente (powerPreference).
+     de UNA vez (gl.POINTS), con el redondeo y la mezcla hechos en la GPU. Se pide la GPU de bajo consumo (powerPreference
+     'low-power'): son unos cientos de puntos, y pedir la potente encendía la gráfica dedicada de los portátiles con dos
+     gráficas (y se comía la batería) mientras la pestaña siguiera abierta.
      Si el navegador no tiene WebGL, se dibuja como antes con canvas 2D. */
   var GL = (function () {
     var gl = null;
-    try { gl = canvas.getContext('webgl', { alpha: true, antialias: false, premultipliedAlpha: true, powerPreference: 'high-performance', preserveDrawingBuffer: false, depth: false, stencil: false }); } catch (e) {}
+    try { gl = canvas.getContext('webgl', { alpha: true, antialias: false, premultipliedAlpha: true, powerPreference: 'low-power', preserveDrawingBuffer: false, depth: false, stencil: false }); } catch (e) {}
     if (!gl) return null;
     var prog, loc = {}, buf, datos = new Float32Array(7 * 4096);
     function sombreador(tipo, src) { var s = gl.createShader(tipo); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; }
@@ -119,6 +123,7 @@
   /* ---------- estado ---------- */
   var W = 0, H = 0, DPR = 1;
   var modo = 'none', tema = 'light', dlgAbierto = false;
+  var tapado = false;     // móvil: el correo abierto (.read.is-open) ocupa toda la pantalla y tapa las partículas
   var L = null;           // disposición actual: centro, escala, región, huecos
   var N = 0, ND = 0;      // partículas de la figura y de polvo
   var A = {};             // arrays por partícula
@@ -274,10 +279,13 @@
     if (GL) GL.limpiar(); else { ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.clearRect(0, 0, W, H); }
     if (!L) return;
     var t = quieto ? 0 : (now - t0) / 1000;
-    var forma = quieto ? 99 : (now - tForma) / 1000 / (modo === 'read' ? 1.1 : 1.6);
+    // «reducir movimiento»: la figura (el sobre y sus corrientes) se queda quieta SIEMPRE; antes, en el móvil, el sobre del logo
+    // seguía girando porque el modo «app» no para el bucle (ahí sigue el polvo, despacio). Se lee una vez por fotograma, no por punto.
+    var red = mqReduce.matches, qf = quieto || red;
+    var forma = qf ? 99 : (now - tForma) / 1000 / (modo === 'read' ? 1.1 : 1.6);
     mx += (tmx - mx) * 0.06; my += (tmy - my) * 0.06;
-    var ry = (quieto ? 0 : Math.sin(t * 0.35) * 0.24) + mx * 0.45;
-    var rx = (quieto ? 0 : Math.sin(t * 0.27) * 0.08) + my * 0.22;
+    var ry = (qf ? 0 : Math.sin(t * 0.35) * 0.24) + mx * 0.45;
+    var rx = (qf ? 0 : Math.sin(t * 0.27) * 0.08) + my * 0.22;
     var cyr = Math.cos(ry), syr = Math.sin(ry), cxr = Math.cos(rx), sxr = Math.sin(rx);
     var D = 4.2, S = L.S, cx = L.cx, cy = L.cy, reg = L.reg, largo = L.largo, rd = L.regD, w = rd.r - rd.l, hh = rd.b - rd.t;
     var T = N + ND, b, i, E = (PAL[tema] && PAL[tema].e) || ESTILO0;
@@ -285,7 +293,7 @@
     for (i = 0; i < T; i++) {
       var k = A.kind[i], X, Y, s, lvl = A.lvl[i];
       if (k === 2) {
-        var tt = (mqReduce.matches ? t * 0.4 : t) * E.vel;   // con «reducir movimiento», el polvo flota más despacio (no se para)
+        var tt = (red ? t * 0.4 : t) * E.vel;   // con «reducir movimiento», el polvo flota más despacio (no se para)
         var sw = Math.sin(tt * (L.movil ? 0.7 : 0.2) + i) * (L.movil ? 0.03 : 0.01) * E.vaiven, fx, fy;
         if (E.mov === 'cae') { fx = A.tx[i] + sw; fy = (A.ty[i] + tt * A.ph[i]) % 1; }
         else if (E.mov === 'lado') { fx = (A.tx[i] + tt * A.ph[i] * 1.4) % 1; fy = A.ty[i] + Math.sin(tt * 0.5 + i * 1.3) * 0.012 * E.vaiven; }
@@ -301,12 +309,12 @@
       } else {
         var x, y, z;
         if (k === 1) {
-          var q = quieto ? A.ph[i] : 1 - ((t * 0.2 + A.ph[i]) % 1), d = L.dirs[A.str[i]];
+          var q = qf ? A.ph[i] : 1 - ((t * 0.2 + A.ph[i]) % 1), d = L.dirs[A.str[i]];
           var dist = 0.15 + q * largo, lat = A.n1[i] * 0.22 * (0.25 + q);
           x = d[0] * dist - d[1] * lat; y = d[1] * dist + d[0] * lat; z = A.n2[i] * 0.35 * q;
           lvl = q > 0.7 ? 0 : (q > 0.35 ? 1 : 2);
         } else {
-          x = A.tx[i] + (quieto ? 0 : Math.sin(t * 1.3 + i) * 0.01); y = A.ty[i] + (quieto ? 0 : Math.cos(t * 1.1 + i * 0.7) * 0.01); z = A.tz[i];
+          x = A.tx[i] + (qf ? 0 : Math.sin(t * 1.3 + i) * 0.01); y = A.ty[i] + (qf ? 0 : Math.cos(t * 1.1 + i * 0.7) * 0.01); z = A.tz[i];
         }
         if (forma < 1.6) {
           var e = smooth(clamp((forma - A.del[i]) / 0.65, 0, 1)), rem = Math.sin(Math.PI * e) * 0.9;
@@ -352,7 +360,13 @@
 
   /* ---------- bucle ---------- */
   // con «reducir movimiento» solo sigue el polvo de la app (lento); el sobre y los vuelos se quedan quietos
-  function corriendo() { return modo !== 'none' && (!mqReduce.matches || modo === 'app') && !doc.hidden && !dlgAbierto; }
+  // y tampoco corre cuando no se ve: pestaña oculta, una ventana modal abierta o (móvil) el correo abierto tapándolo todo
+  function corriendo() { return modo !== 'none' && (!mqReduce.matches || modo === 'app') && !doc.hidden && !dlgAbierto && !tapado; }
+  // ¿hay alguna ventana modal abierta? Cualquiera (redactar, evento del calendario, CRM, adjunto, temas), no solo la de redactar
+  function hayModal() {
+    try { return !!doc.querySelector('dialog:modal'); }
+    catch (e) { var d = doc.getElementById('dlg'); return !!(d && d.open); }   // navegador sin :modal
+  }
   var pausaHasta = 0;   // (sin uso: la animación ya no se pausa nunca)
   // solo en el móvil (con el dedo): al desplazar o tocar, las partículas ceden el paso un instante. Con ratón no se paran
   // (se notaba como un parón en cada clic sobre el sobre del panel derecho)
@@ -389,7 +403,9 @@
     if (!canvas.isConnected) doc.body.insertBefore(canvas, doc.body.firstChild);
     medir();
     tema = claveTema();
-    var dlg = doc.getElementById('dlg'); dlgAbierto = !!(dlg && dlg.open && dlg.matches(':modal'));
+    dlgAbierto = hayModal();
+    // móvil (misma anchura que el CSS: hasta 900 px): con un correo abierto, el lector es una capa fija y opaca a pantalla completa
+    var lector = doc.getElementById('read'); tapado = W <= 900 && !!lector && lector.classList.contains('is-open');
     var m = calcularModo();
     if (m === 'read') { if (FIGN !== FIG) { FIG = FIGN; rehacer = true; } } else if (FIG !== 'sobre') { FIG = 'sobre'; rehacer = true; }
     if (m !== modo || rehacer) { modo = m; disponer(); }
@@ -400,7 +416,7 @@
     root.classList.toggle('particulas-logo', modo === 'app' && !!(L && L.movil && N > 0));   // móvil: el logo pasa a ser el sobre de partículas
     if (!hay) { parar(); if (GL) GL.limpiar(); else { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, canvas.width, canvas.height); } return; }
     if (corriendo()) arrancar();
-    else { parar(); if (!dlgAbierto) dibujar(performance.now(), true); }
+    else { parar(); if (!dlgAbierto && !tapado) dibujar(performance.now(), true); }   // tapado o con ventana: se queda el último fotograma, sin salto
   }
   function programar(rehacer) {
     if (rehacer) programar.rehacer = true;
@@ -428,7 +444,8 @@
     });
     mo.observe(root, { attributes: true, attributeFilter: ['data-theme', 'data-paleta'] });
     ['login', 'app'].forEach(function (id) { var e = doc.getElementById(id); if (e) mo.observe(e, { attributes: true, attributeFilter: ['hidden'] }); });
-    var dlg = doc.getElementById('dlg'); if (dlg) mo.observe(dlg, { attributes: true, attributeFilter: ['open'] });
+    // abrir o cerrar CUALQUIER ventana (atributo open de los <dialog>, también los que se crean después): por eso se mira todo el body
+    if (doc.body) mo.observe(doc.body, { subtree: true, attributes: true, attributeFilter: ['open'] });
     var read = doc.getElementById('read'); if (read) mo.observe(read, { childList: true, attributes: true, attributeFilter: ['class'] });
     var pwBox = doc.getElementById('pwBox'); if (pwBox) mo.observe(pwBox, { attributes: true, attributeFilter: ['hidden'] });
     if (window.ResizeObserver) {
@@ -548,7 +565,11 @@
     fxMs = fxMs * 0.9 + (performance.now() - tq) * 0.1;
     FX = vivos;
     if (FX.length) fxRaf = requestAnimationFrame(fxTick);
-    else { fctx.setTransform(1, 0, 0, 1, 0, 0); fctx.clearRect(0, 0, fx.width, fx.height); fx.width = fx.height = 1; fxBox = null; }
+    else {
+      fctx.setTransform(1, 0, 0, 1, 0, 0); fctx.clearRect(0, 0, fx.width, fx.height); fx.width = fx.height = 1; fxBox = null;
+      // terminado el vuelo, el lienzo sale del documento (fxPreparar lo vuelve a poner): si no, quedaba para siempre una capa vacía encima de todo
+      if (fx.parentNode) fx.parentNode.removeChild(fx);
+    }
   }
 
   window.__particulas = {

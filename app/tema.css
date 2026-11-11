@@ -8,7 +8,7 @@
    partículas (particulas.js). El claro es la misma familia en blanco.
    Sin logo ni nombre de nadie: solo el lenguaje.
    ===================================================================== */
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap");
+/* Inter se pide en el <head> de index.html junto a las demás letras (un @import aquí era una petición encadenada). */
 
 /* ---------- tokens: claro ---------- */
 :root {
@@ -315,7 +315,7 @@ dialog.compose-dlg ::selection { background:var(--acc-soft); color:var(--text); 
 .ve-head > div { flex:1; min-width:0; }
 .ve-head h2 { margin:0; font-size:22px; font-weight:600; letter-spacing:-0.02em; }
 .ve-head p { margin:4px 0 0; color:var(--mute); font-size:13px; }
-.ve-head .gira { animation:gira 1s linear infinite; }
+.gira { animation:gira 1s linear infinite; }   /* sin .ve-head delante: el calendario pone su icono de «cargando» en .cal-top y no giraba */
 @keyframes gira { to { transform:rotate(360deg); } }
 .ve-sec { padding:0 12px; }
 .ve-sec h3 { display:flex; align-items:center; gap:8px; margin:18px 8px 8px; font:600 12px/1 var(--font); letter-spacing:.02em; color:var(--mute); }
@@ -510,3 +510,10 @@ dialog.temas-dlg { width:min(680px, calc(100vw - 24px)); }
 .etq-cols button:active { transform:scale(.9); }
 .etq-cols-menu { grid-template-columns:repeat(6, 1fr); gap:8px; padding:6px 10px 10px; min-width:210px; }
 @media (max-width: 900px) { .etq-cols { grid-template-columns:repeat(6, 1fr); gap:9px; } .etq-cols button { min-width:28px; } }
+
+/* ===== con el dedo (pointer:coarse): los botones pequeños de las vistas, con 40 px de toque. Con ratón no cambia nada.
+   Los de cada módulo (calendario, redes, leads) van en el CSS que inyecta su .js. ===== */
+@media (pointer:coarse) {
+  .seg-strip .sub-btn, .paq-trk .sub-btn, .sus-acts .sub-btn, .det-bar .sub-btn { height:40px; }
+  .sus-bar .btn { height:40px; }
+}

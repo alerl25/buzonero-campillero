@@ -351,15 +351,26 @@ export async function updateCrm(fn) {
 // RFC 8291 (cifrado aes128gcm) + RFC 8292 (VAPID). Claves en VAPID_PUBLIC (punto P-256 sin comprimir, base64url)
 // y VAPID_PRIVATE (d, base64url). Vale para el iPhone (web.push.apple.com), Chrome y Firefox.
 const hmac256 = (k, d) => crypto.createHmac('sha256', k).update(d).digest();
+// La clave se monta una vez por instancia y la firma se reutiliza 1 h por servicio de avisos (`aud`): antes se montaba la clave y se firmaba
+// en cada envío a cada dispositivo. La firma vale 12 h, así que a la que se reutiliza le quedan siempre 11 h o más.
+let vapidClave = null;
+const vapidFirmas = new Map();   // aud → { jwt, t }
 function vapidKey() {
+  if (vapidClave) return vapidClave;
   const pub = Buffer.from(process.env.VAPID_PUBLIC || '', 'base64url');
   if (pub.length !== 65 || !process.env.VAPID_PRIVATE) throw new Error('VAPID ausente');
-  return crypto.createPrivateKey({ key: { kty: 'EC', crv: 'P-256', d: process.env.VAPID_PRIVATE, x: pub.subarray(1, 33).toString('base64url'), y: pub.subarray(33).toString('base64url') }, format: 'jwk' });
+  vapidClave = crypto.createPrivateKey({ key: { kty: 'EC', crv: 'P-256', d: process.env.VAPID_PRIVATE, x: pub.subarray(1, 33).toString('base64url'), y: pub.subarray(33).toString('base64url') }, format: 'jwk' });
+  return vapidClave;
 }
 export function vapidJwt(endpoint) {
+  const aud = new URL(endpoint).origin, guardada = vapidFirmas.get(aud);
+  if (guardada && Date.now() - guardada.t < 3600e3) return guardada.jwt;
   const b = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
-  const data = b({ typ: 'JWT', alg: 'ES256' }) + '.' + b({ aud: new URL(endpoint).origin, exp: Math.floor(Date.now() / 1000) + 12 * 3600, sub: 'mailto:' + (ANCLA ? ACCOUNTS[ANCLA].email : 'admin@example.com') });
-  return data + '.' + crypto.sign('sha256', Buffer.from(data), { key: vapidKey(), dsaEncoding: 'ieee-p1363' }).toString('base64url');
+  const data = b({ typ: 'JWT', alg: 'ES256' }) + '.' + b({ aud, exp: Math.floor(Date.now() / 1000) + 12 * 3600, sub: 'mailto:' + (ANCLA ? ACCOUNTS[ANCLA].email : 'admin@example.com') });
+  const jwt = data + '.' + crypto.sign('sha256', Buffer.from(data), { key: vapidKey(), dsaEncoding: 'ieee-p1363' }).toString('base64url');
+  if (vapidFirmas.size >= 50) vapidFirmas.clear();   // tope: hay pocos servicios de avisos distintos, pero que no crezca sin fin
+  vapidFirmas.set(aud, { jwt, t: Date.now() });
+  return jwt;
 }
 export function cifrar(sub, texto) {
   const uaPub = Buffer.from(sub.keys.p256dh, 'base64url'), auth = Buffer.from(sub.keys.auth, 'base64url');
@@ -386,15 +397,21 @@ export function debeAvisar(s, datos) {
   return true;
 }
 // Manda un aviso a todos los móviles suscritos y borra los que ya no existen
-export async function pushTodos(datos) {
-  const st = await readStore(true), subs = Object.entries(st.push || {});
+// stDado (opcional): el almacén que quien llama ya acaba de leer de Drive en esta misma pasada (el vigía, el toque del CRM). Sin él se lee fresco,
+// como siempre; con él no se vuelve a leer por cada aviso (eran 2 peticiones a Drive por aviso, una detrás de otra).
+export async function pushTodos(datos, stDado) {
+  const st = stDado || await readStore(true), subs = Object.entries(st.push || {});
   // Cada aviso lleva su ORIGEN en `fuente` (correo:<cuenta>, wa, lx = leads del CRM externo, lead-correo, seguimiento, envio). Cada dispositivo puede silenciar los que
   // quiera (s.mute, se cambia en Ajustes → Avisos), y los dispositivos «solo leads» solo reciben `lx` y sin el número rojo del icono (que es el de correos sin leer).
   const muertos = [], res = await Promise.all(subs.map(async ([h, s]) => {
     if (!debeAvisar(s, datos)) return 0;
     try { const c = await webPush(s.sub, s.solo === 'leads' ? { ...datos, badge: undefined } : datos); if (c === 404 || c === 410) muertos.push(h); return c; } catch (e) { return 0; }
   }));
-  if (muertos.length) await updateStore((n) => { muertos.forEach((h) => delete n.push[h]); });
+  if (muertos.length) {
+    await updateStore((n) => { muertos.forEach((h) => delete n.push[h]); });
+    // también fuera de la copia que nos pasaron: si no, el siguiente aviso de la pasada volvería a intentarlo y a reescribir el almacén
+    if (stDado && stDado.push) muertos.forEach((h) => { delete stDado.push[h]; });
+  }
   return res;
 }
 export async function accessToken(key) { const r = await refreshAccess(key); return r.status === 200 ? r.body.access_token : null; }
@@ -447,7 +464,11 @@ export async function refreshAccess(key, reintento) {
 // Se conecta con el botón de la vista WhatsApp. Guarda solo el permiso (cifrado en el almacén, campo «contactos»), nunca los contactos.
 export async function guardarContactos(email, rt) { await updateStore((n) => { n.contactos = n.contactos || {}; n.contactos[email] = { rt, desde: new Date().toISOString() }; }); }
 export async function quitarContactos(email) { await updateStore((n) => { if (!n.contactos || !n.contactos[email]) return false; delete n.contactos[email]; }); }
-export async function emailsContactos() { return Object.keys((await readStore(true)).contactos || {}); }   // fresco: lo conectado hace un segundo en otra función tiene que verse
+// fresco (por defecto): lo conectado hace un segundo en otra función tiene que verse. Con fresco = false vale la copia de hasta 60 s:
+// solo para lo que se sondea cada pocos segundos (la lista de conversaciones), donde releer Drive en cada sondeo no aporta nada.
+export async function emailsContactos(fresco = true) { return (await conexionesContactos(fresco)).map(([e]) => e); }
+// [correo, desde] de cada agenda conectada. `desde` cambia al reconectar: con él la agenda (api/_agenda.js) sabe que tiene que volver a leerla.
+export async function conexionesContactos(fresco = true) { return Object.entries((await readStore(fresco)).contactos || {}).map(([e, c]) => [e, String((c && c.desde) || '')]); }
 export async function tokenContactos(email) {
   const rt = (((await readStore()).contactos || {})[email] || {}).rt; if (!rt) return null;
   const { ok, j } = await googleRefresh(rt);

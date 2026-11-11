@@ -9,7 +9,7 @@
    Se carga con <script src="/app/calendario.js"> y se registra en VISTAS (CALENDARIO → pintarCalendario). */
 var CAL = { vista:'semana', fecha:null, mini:null, cals:{}, errores:{}, cache:{}, on:{}, cargando:false, gen:0, pop:null, scroll:null, ladoMovil:false };
 try { CAL.on = JSON.parse(localStorage.getItem('buzonero-cal-on') || '{}') || {}; } catch(e){ CAL.on = {}; }
-try { var v0 = localStorage.getItem('buzonero-cal-vista'); if(v0 === 'dia' || v0 === 'semana' || v0 === 'mes') CAL.vista = v0; } catch(e){}
+try { var v0 = localStorage.getItem('buzonero-cal-vista'); if(v0 === 'dia' || v0 === 'semana' || v0 === 'mes') CAL.vista = v0; else if(window.innerWidth < 600) CAL.vista = 'dia'; } catch(e){}   // sin preferencia guardada, en un móvil se entra por «Día»: siete columnas no caben
 var CAL_API = 'https://www.googleapis.com/calendar/v3/';
 var CAL_PXH = 48;   // alto de una hora en Día y Semana
 var CAL_ZONA = (function(){ try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Madrid'; } catch(e){ return 'Europe/Madrid'; } })();
@@ -58,12 +58,12 @@ var CAL_ZONA = (function(){ try { return Intl.DateTimeFormat().resolvedOptions()
     + '.cal-col{position:relative;border-left:1px solid var(--line);background-image:repeating-linear-gradient(to bottom,transparent 0,transparent ' + (CAL_PXH - 1) + 'px,var(--line) ' + (CAL_PXH - 1) + 'px,var(--line) ' + CAL_PXH + 'px);cursor:cell}'
     + '.cal-col.hoy{background-color:color-mix(in srgb,var(--acc) 4%,transparent)}'
     + '.cal-ahora{position:absolute;left:-1px;right:0;height:2px;background:#ea4335;z-index:3;pointer-events:none}.cal-ahora::before{content:"";position:absolute;left:-6px;top:-5px;width:12px;height:12px;border-radius:50%;background:#ea4335}'
-    + '.cal-evt{position:absolute;border-radius:6px;padding:2px 6px;font-size:12px;line-height:1.25;color:#fff;background:var(--tc,#039be5);overflow:hidden;cursor:pointer;border:1px solid var(--bg);box-sizing:border-box;z-index:2;touch-action:none;user-select:none}'
+    + '.cal-evt{position:absolute;border-radius:6px;padding:2px 6px;font-size:12px;line-height:1.25;color:#fff;background:var(--tc,#039be5);overflow:hidden;cursor:pointer;border:1px solid var(--bg);box-sizing:border-box;z-index:2;touch-action:manipulation;user-select:none}'   // con el dedo no se arrastra (ver pointerdown): se deja desplazar la rejilla aunque el gesto empiece sobre un evento
     + '.cal-evt b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.cal-evt small{display:block;opacity:.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
     + '.cal-evt .tirador{position:absolute;left:0;right:0;bottom:0;height:7px;cursor:ns-resize}'
     + '.cal-evt.arr{opacity:.85;box-shadow:0 6px 18px rgba(0,0,0,.25);z-index:5}'
     + '.cal-evt.nuevo{background:color-mix(in srgb,var(--acc) 70%,transparent);pointer-events:none}'
-    + '.cal-chip{display:block;width:100%;text-align:left;border:0;border-radius:4px;padding:1px 6px;font:inherit;font-size:12px;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff;background:var(--tc,#039be5);cursor:pointer;touch-action:none;user-select:none}'
+    + '.cal-chip{display:block;width:100%;text-align:left;border:0;border-radius:4px;padding:1px 6px;font:inherit;font-size:12px;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff;background:var(--tc,#039be5);cursor:pointer;touch-action:manipulation;user-select:none}'
     + '.cal-chip.hora{background:transparent;color:var(--text)}.cal-chip.hora::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--tc,#039be5);margin-right:5px;vertical-align:0}'
     + '.cal-chip:hover{filter:brightness(.95)}.cal-chip.hora:hover{background:var(--surface)}'
     /* Mes */
@@ -75,20 +75,25 @@ var CAL_ZONA = (function(){ try { return Intl.DateTimeFormat().resolvedOptions()
     + '.cal-cel .n:hover{background:var(--surface)}.cal-cel.fuera .n{color:var(--faint)}.cal-cel.hoy .n{background:var(--acc);color:var(--acc-ink,#fff);font-weight:700}'
     + '.cal-mas{font-size:11.5px;color:var(--mute);border:0;background:transparent;text-align:left;padding:1px 6px;cursor:pointer;font:inherit;border-radius:4px}.cal-mas:hover{background:var(--surface)}'
     /* tarjeta del evento */
-    + '.cal-pop{position:fixed;z-index:60;width:min(380px,calc(100vw - 24px));background:var(--bg);border:1px solid var(--line);border-radius:14px;box-shadow:0 16px 40px rgba(0,0,0,.22);padding:10px 14px 14px}'
+    + '.cal-pop{position:fixed;z-index:60;width:min(380px,calc(100vw - 24px));background:var(--bg);border:1px solid var(--line);border-radius:14px;box-shadow:0 16px 40px rgba(0,0,0,.22);padding:10px 14px 14px;max-height:calc(100dvh - 16px - var(--sat,0px) - var(--sab,0px));overflow:auto;overscroll-behavior:contain}'
     + '.cal-pop-acc{display:flex;justify-content:flex-end;gap:2px}.cal-pop h3{display:flex;gap:10px;align-items:flex-start;margin:4px 0 6px;font-size:19px;font-weight:500;line-height:1.3}'
     + '.cal-pop h3 i.c{width:14px;height:14px;border-radius:4px;background:var(--tc);flex:none;margin-top:6px}'
     + '.cal-pop p{margin:6px 0 0 24px;font-size:13.5px;color:var(--text);white-space:pre-wrap;overflow-wrap:anywhere}.cal-pop p.t{color:var(--mute);margin-top:0}'
     + '.cal-pop p i{color:var(--mute);margin-left:-24px;width:18px;display:inline-block}'
     /* ventana de crear o editar */
     + 'dialog.cal-dlg{width:min(560px,calc(100vw - 24px))}'
-    + '.cal-form{display:grid;gap:12px;padding:6px 22px 18px}.cal-form .tit{font-size:20px;border:0;border-bottom:2px solid var(--line-strong);padding:6px 2px;background:transparent;color:var(--text);font-family:inherit}.cal-form .tit:focus{outline:none;border-color:var(--acc)}'
+    // el formulario se desplaza DENTRO de la ventana (con el teclado del móvil no cabía y «Guardar» quedaba debajo, sin poder llegar) y el pie se queda pegado abajo
+    + '.cal-form{display:grid;gap:12px;padding:6px 22px 18px;flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;background:inherit;align-content:start}.cal-form .tit{font-size:20px;border:0;border-bottom:2px solid var(--line-strong);padding:6px 2px;background:transparent;color:var(--text);font-family:inherit}.cal-form .tit:focus{outline:none;border-color:var(--acc)}'
     + '.cal-form label{display:grid;gap:4px;font-size:12px;color:var(--mute)}.cal-form input:not([type=checkbox]),.cal-form select,.cal-form textarea{font:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--line-strong);border-radius:var(--r-sm);background:var(--bg);color:var(--text)}'
     + '.cal-fila{display:flex;gap:8px;flex-wrap:wrap;align-items:end}.cal-fila>*{flex:1;min-width:110px}.cal-fila .chk{flex:none;display:flex;flex-direction:row;align-items:center;gap:6px;font-size:13.5px;color:var(--text)}'
-    + '.cal-pie{display:flex;gap:8px;align-items:center}.cal-pie .push{margin-left:auto}'
+    + '.cal-pie{display:flex;gap:8px;align-items:center;position:sticky;bottom:0;z-index:1;background:inherit;padding:8px 0 var(--sab,0px)}dialog.teclado .cal-pie{padding-bottom:0}.cal-pie .push{margin-left:auto}'
     + '.cal-movil-cals{display:none}'
     + '@media(max-width:820px){.cal-cuerpo{grid-template-columns:1fr}.cal-lado{display:none;border-right:0;border-bottom:1px solid var(--line)}.cal.lado-on .cal-lado{display:block;max-height:45vh}.cal-movil-cals{display:inline-flex}'
-    + '.cal-top h2{font-size:16px}.cal-seg{margin-left:0}.cal-chip{font-size:10.5px;padding:0 4px}.cal-evt{font-size:10.5px;padding:1px 3px}.cal-dias b{width:30px;height:30px;line-height:30px;font-size:16px}}';
+    + '.cal-top h2{font-size:16px}.cal-seg{margin-left:0}.cal-chip{font-size:10.5px;padding:0 4px}.cal-evt{font-size:10.5px;padding:1px 3px}.cal-dias b{width:30px;height:30px;line-height:30px;font-size:16px}'
+    // en el móvil la tarjeta del evento es una hoja pegada abajo (la posición calculada con el ratón no vale: quedaba bajo la isla o cortada); !important porque el sitio va en línea
+    + '.cal-pop{left:8px!important;right:8px;top:auto!important;bottom:calc(8px + var(--sab,0px));width:auto;max-height:70dvh}}'
+    // con el dedo: zona de toque de 40 px en los controles pequeños (36 en el minicalendario, que no da para más ancho)
+    + '@media(pointer:coarse){.cal-btn,.cal-seg button{min-height:40px}.cal-mini button{height:36px;border-radius:18px}.cal-mini-h .icon-btn{width:40px;height:40px}.cal-chk{min-height:40px}}';
   document.head.appendChild(css);
 })();
 
@@ -128,10 +133,14 @@ function calMarcar(k, c, on){
 function calEscribible(k, calId){ var c = (CAL.cals[k] || []).filter(function(x){ return x.id === calId; })[0]; return !!c && (c.accessRole === 'owner' || c.accessRole === 'writer'); }
 
 /* ---------- carga ---------- */
-function calClave(k, c){ var r = calRango(); return k + '|' + c.id + '|' + calIso(r[0]) + '|' + calIso(r[1]); }
+// rk = el rango ya escrito («desde|hasta»). Quien carga lo pasa capturado al empezar; sin él, vale el rango que hay a la vista
+function calClave(k, c, rk){ if(!rk){ var r = calRango(); rk = calIso(r[0]) + '|' + calIso(r[1]); } return k + '|' + c.id + '|' + rk; }
 async function cargarCalendario(forzar){
   if(!CAL.fecha){ CAL.fecha = new Date(); CAL.mini = new Date(CAL.fecha.getFullYear(), CAL.fecha.getMonth(), 1); }
   var gen = ++CAL.gen, r = calRango(), tMin = r[0].toISOString(), tMax = r[1].toISOString();
+  // la clave de la caché usa el rango de ESTA petición: si se pasa de semana mientras llega la respuesta, antes se guardaba
+  // la semana pedida bajo la clave de la nueva y esa semana se quedaba vacía hasta recargar
+  var rk = calIso(r[0]) + '|' + calIso(r[1]);
   if(forzar){ CAL.cals = {}; CAL.cache = {}; }
   CAL.cargando = true; CAL.errores = {}; pintarCalendario();
   await pool(KEYS, 2, async function(k){
@@ -141,11 +150,11 @@ async function cargarCalendario(forzar){
         // lo que viene de Google manda: así lo marcado en otro ordenador o en Google Calendar se respeta aquí
         CAL.cals[k].forEach(function(c){ CAL.on[k + '|' + c.id] = c.selected === true; }); calGuardar();
       }
-      var faltan = CAL.cals[k].filter(function(c){ return calActivo(k, c) && !CAL.cache[calClave(k, c)]; });
+      var faltan = CAL.cals[k].filter(function(c){ return calActivo(k, c) && !CAL.cache[calClave(k, c, rk)]; });
       await pool(faltan, 3, async function(c){
         var q = 'calendars/' + encodeURIComponent(c.id) + '/events?singleEvents=true&orderBy=startTime&maxResults=500&timeMin=' + encodeURIComponent(tMin) + '&timeMax=' + encodeURIComponent(tMax);
         var x = await api(k, CAL_API + q);
-        CAL.cache[calClave(k, c)] = (x.items || []).filter(function(e){ return e.status !== 'cancelled' && e.start; }).map(function(e){ e._k = k; e._cal = c.id; e._calNombre = c.summaryOverride || c.summary; e._color = c.backgroundColor || ''; e._rol = c.accessRole; return e; });
+        CAL.cache[calClave(k, c, rk)] = (x.items || []).filter(function(e){ return e.status !== 'cancelled' && e.start; }).map(function(e){ e._k = k; e._cal = c.id; e._calNombre = c.summaryOverride || c.summary; e._color = c.backgroundColor || ''; e._rol = c.accessRole; return e; });
       });
     } catch(err){
       var m = String(err.message || err);
@@ -281,7 +290,7 @@ function pintarCalendario(){
   if(sc){
     sc.parentNode.style.setProperty('--sbw', (sc.offsetWidth - sc.clientWidth) + 'px');
     // al entrar, a las 7:00 (o a la hora actual si es más tarde); al repintar, donde estaba
-    sc.scrollTop = prevScroll != null && CAL.scroll === vista + calIso(CAL.fecha) ? prevScroll : Math.max(0, Math.min(7, new Date().getHours() - 1) * CAL_PXH - 12);
+    sc.scrollTop = prevScroll != null && CAL.scroll === vista + calIso(CAL.fecha) ? prevScroll : Math.max(0, Math.max(7, new Date().getHours() - 1) * CAL_PXH - 12);   // Math.max: con Math.min se quedaba siempre en las 7:00 y por la tarde la línea de «ahora» no se veía
     CAL.scroll = vista + calIso(CAL.fecha);
   }
   var pop = el.querySelector('.cal-pop');
@@ -327,6 +336,7 @@ function calCuerpoFechas(ini, fin, td){
   return { start:{ dateTime:calLocal(ini), timeZone:CAL_ZONA, date:null }, end:{ dateTime:calLocal(fin), timeZone:CAL_ZONA, date:null } };
 }
 async function calGuardarForm(f){
+  if(f.dataset.env) return;   // ya se está guardando: un segundo toque en «Guardar» creaba el evento dos veces
   var edit = !!f.dataset.id, v = function(n){ return (f.elements[n] || {}).value || ''; }, td = f.elements.td.checked;
   var k = edit ? f.dataset.k : v('k'), calId = edit ? f.dataset.cal : v('cal');
   var ini = td ? calDiaDe(v('d1')) : new Date(v('d1') + 'T' + (v('h1') || '00:00') + ':00');
@@ -334,6 +344,7 @@ async function calGuardarForm(f){
   if(!(fin > ini)){ toast('El final tiene que ser después del principio'); return; }
   var cuerpo = Object.assign({ summary:v('t').trim(), location:v('l'), description:v('n') }, calCuerpoFechas(ini, fin, td));
   if(!edit){ ['start', 'end'].forEach(function(x){ Object.keys(cuerpo[x]).forEach(function(y){ if(cuerpo[x][y] === null) delete cuerpo[x][y]; }); }); }
+  var bt = f.querySelector('[type=submit]'); f.dataset.env = '1'; if(bt) bt.disabled = true;
   try {
     var base = CAL_API + 'calendars/' + encodeURIComponent(calId) + '/events';
     if(edit) await api(k, base + '/' + encodeURIComponent(f.dataset.id) + '?sendUpdates=none', { method:'PATCH', json:cuerpo });
@@ -341,6 +352,7 @@ async function calGuardarForm(f){
     calDlg.close(); toast(edit ? 'Cambios guardados en Google Calendar' : 'Evento creado en Google Calendar');
     CAL.fecha = ini; CAL.cache = {}; cargarCalendario();
   } catch(e){ toast('No se pudo guardar: ' + e.message); }
+  delete f.dataset.env; if(bt) bt.disabled = false;
 }
 async function calBorrar(clave){
   var e = calBuscar(clave); if(!e) return;
@@ -367,12 +379,15 @@ document.addEventListener('pointerdown', function(ev){
   var t = ev.target;
   var evt = t.closest && t.closest('.cal-evt[data-mov], .cal-mes .cal-chip, .cal-todo .cal-chip');
   if(evt){
+    // con el dedo no se arrastra: deslizar para desplazar la rejilla movía el evento y lo guardaba en Google sin querer. Tocar sigue abriendo su tarjeta (click)
+    if(ev.pointerType === 'touch') return;
     var e = calBuscar(evt.dataset.calEv); if(!e || !calEscribible(e._k, e._cal)) return;
     calArr = { el:evt, e:e, x0:ev.clientX, y0:ev.clientY, modo:t.dataset.tirador ? 'fin' : 'mover', movido:false, mes:!evt.classList.contains('cal-evt') };
     return;
   }
   var col = t.closest && t.closest('.cal-col');
   if(col && !t.closest('.cal-evt')){
+    if(CAL.pop) return;   // con una tarjeta abierta, tocar fuera solo la cierra (lo hace el «click»): antes además abría «Nuevo evento»
     // arrastrar en un hueco marca la duración del evento nuevo (o un clic: una hora)
     var m0 = Math.floor(calMinutosEn(col, ev.clientY) / 30) * 30;
     calArr = { nuevo:true, col:col, m0:m0, m1:m0 + 60, y0:ev.clientY, movido:false };

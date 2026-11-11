@@ -193,7 +193,8 @@ export default async function handler(req, res) {
       if (d.ok) { avisos.push(...d.avisos); Object.assign(nuevosH, d.nuevosH); crmExt = d.nuevos; crmVuelven = d.vuelven; }
     } catch (e) {}
   }
-  if (Object.keys(nuevosH).length) await updateStore((n) => { Object.assign(n.hist, nuevosH); });
+  // stFin: el almacén más reciente que ya tiene esta pasada (el recién escrito, o el leído al empezar): con él se mandan los avisos sin releer Drive por cada uno
+  const stFin = Object.keys(nuevosH).length ? await updateStore((n) => { Object.assign(n.hist, nuevosH); }) : st0;
   // se borran solo los que se han mirado y no se han vuelto a poner mientras tanto
   if (segHechos.length) await updateSeg((seg) => { segHechos.forEach((s) => { const c = s.k + '|' + s.hilo, a = seg[c]; if (a && a.puesto === s.puesto) delete seg[c]; }); }).catch(() => {});
   // el número rojo del icono: correos de personas sin leer (Principal, último mes) en todas las cuentas
@@ -205,6 +206,6 @@ export default async function handler(req, res) {
     avisos.forEach((a) => { a.badge = badge; });
   }
   const enviados = [];
-  if (hayMoviles) for (const a of avisos) enviados.push(await pushTodos(a));
+  if (hayMoviles) for (const a of avisos) enviados.push(await pushTodos(a, stFin));
   return res.status(200).json({ ok: true, avisos: avisos.length, entregas: enviados.flat().filter((c) => c >= 200 && c < 300).length, puntos: Object.keys(nuevosH).length, whatsapp: wa, crmExt, crmVuelven, crmToqueUltimo: hist._hookT ? new Date(Number(hist._hookT)).toISOString() : null, purgados, llamadasInstancia: llamadas, instanciaMin: Math.round((Date.now() - arranque) / 60000), moviles: Object.keys(st0.push || {}).length, movilesSoloLeads: Object.values(st0.push || {}).filter((s) => s && s.solo === 'leads').length, crmPunto: Number(nuevosH._crmext || hist._crmext) || 0, seguimientos: segHechos.length, enviosServidor: envHechos.length, leads });
 }

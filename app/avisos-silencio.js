@@ -50,11 +50,24 @@ async function silenciarAlternar(id){
   else { var i = sil.indexOf(id); if(i >= 0) sil.splice(i, 1); else sil.push(id); }
   try { localStorage.setItem(SIL_KEY, JSON.stringify(sil)); } catch(e){}
   silencioPintar();
+  silUltimo = sil;
+  await silEnviar();
+}
+// Al servidor va UN envío a la vez y siempre con la última lista: con varios toques seguidos salían varios envíos en paralelo, cada uno
+// con la lista entera, y si llegaban desordenados el servidor se quedaba con una lista vieja.
+var silUltimo = null, silEnviando = false, silPendiente = false;
+async function silEnviar(){
+  if(silEnviando){ silPendiente = true; return; }
+  silEnviando = true;
   try {
-    var reg = await swListo(), s = reg && await reg.pushManager.getSubscription();
-    if(s){
-      var r = await fetch('/api/push', { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ accion:'silencio', endpoint:s.endpoint, mute:sil }) });
-      if(!r.ok) throw new Error('no');
-    }
-  } catch(e){ toast('Guardado en este navegador, pero no se pudo avisar al servidor: vuelve a intentarlo'); }
+    do {
+      silPendiente = false;
+      var sil = silUltimo, reg = await swListo(), s = reg && await reg.pushManager.getSubscription();
+      if(s){
+        var r = await fetch('/api/push', { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ accion:'silencio', endpoint:s.endpoint, mute:sil }) });
+        if(!r.ok) throw new Error('no');
+      }
+    } while(silPendiente);
+  } catch(e){ silPendiente = false; toast('Guardado en este navegador, pero no se pudo avisar al servidor: vuelve a intentarlo'); }
+  silEnviando = false;
 }

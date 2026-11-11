@@ -13,13 +13,19 @@ export const panelCrmExt = () => { const p = String(process.env.CRM_EXT_PANEL ||
 const txt = (v, n) => (v == null ? '' : String(v).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, n));
 // La última nota de la ficha, sin el apunte automático de «Datos cambiados…»: solo importan los que entran, no lo que se edita después.
 const notaUtil = (v) => { const t = txt(v, 240); return /^datos cambiados/i.test(t) ? '' : t; };
-let memoria = { t: 0, v: null };
+let memoria = { t: 0, v: null }, enVuelo = null;
 
 // { ok, filas: [normalizadas, sin límite], maxId, total } o { ok:false, error }
 // fresco = true (el vigía) se salta la memoria: un aviso no puede llegar tarde por servir un dato de hace 50 s.
 export async function crmExtListar(fresco = false) {
   if (!hayCrmExt()) return { ok: false, error: 'sin_clave' };
   if (!fresco && memoria.v && Date.now() - memoria.t < 25000) return memoria.v;
+  if (fresco) return pedirLista();   // el vigía y el toque del CRM: siempre su propia consulta, nunca la de otro
+  // la vista de la app: si ya hay una consulta en marcha en esta instancia (dos pestañas, el sondeo y la vuelta a la pestaña a la vez), se espera esa
+  if (!enVuelo) enVuelo = pedirLista().finally(() => { enVuelo = null; });
+  return enVuelo;
+}
+async function pedirLista() {
   let r;
   try {
     r = await fetch(URL_CRM(), { method: 'POST', headers: { 'x-clave': CLAVE(), 'content-type': 'application/json', 'accept-encoding': 'gzip' }, body: JSON.stringify({ accion: 'listar' }), signal: AbortSignal.timeout(15000) });
@@ -47,7 +53,8 @@ export async function crmExtVer(id) {
   if (!hayCrmExt() || !Number.isInteger(id) || id <= 0) return null;
   let r;
   try {
-    r = await fetch(URL_CRM(), { method: 'POST', headers: { 'x-clave': CLAVE(), 'content-type': 'application/json', 'accept-encoding': 'gzip' }, body: JSON.stringify({ accion: 'ver', p_id: id }), signal: AbortSignal.timeout(15000) });
+    // 8 s (antes 15): es una ficha suelta, y el vigía pide hasta 6 en la misma pasada. Si no llega a tiempo, esa reentrada no se avisa en esta pasada (igual que con cualquier otro fallo).
+    r = await fetch(URL_CRM(), { method: 'POST', headers: { 'x-clave': CLAVE(), 'content-type': 'application/json', 'accept-encoding': 'gzip' }, body: JSON.stringify({ accion: 'ver', p_id: id }), signal: AbortSignal.timeout(8000) });
   } catch (e) { return null; }
   if (r.status !== 200) return null;
   const j = await r.json().catch(() => null);
@@ -79,13 +86,14 @@ export async function detectarCrmExt(hist, fresco = true) {
     if (nv.length > 5) avisos.push({ title: nv.length + ' contactos nuevos' + (rotulo ? ' · ' + rotulo : ''), body: 'Han entrado a la vez en el CRM', tag: 'cx-resumen-' + x.maxId, fuente: 'lx', url: '/app?vista=LEADSEXT' });
     else nv.forEach((l) => avisos.push({ title: 'Nuevo lead · ' + l.nombre + (rotulo ? ' · ' + rotulo : ''), body: [l.origen, l.estado, l.nota].filter(Boolean).join(' · ').slice(0, 160), tag: 'cx-' + l.id, fuente: 'lx', url: '/app?vista=LEADSEXT' }));
     const cand = x.filas.filter((l) => l.id <= punto && ms(l.actualizado) > T).sort((a, b) => ms(b.actualizado) - ms(a.actualizado)).slice(0, 6);
-    for (const l of cand) {
-      const acts = await crmExtVer(l.id);
-      const nota = (acts || []).find((a) => a.tipo === 'nota' && ms(a.creado) > T && esEntrada(a.texto));
-      if (!nota) continue;
+    // las fichas candidatas (6 como mucho) se consultan a la vez, no una detrás de otra; los avisos salen en el mismo orden que antes
+    const vistas = await Promise.all(cand.map((l) => crmExtVer(l.id).catch(() => null)));
+    cand.forEach((l, i) => {
+      const nota = (vistas[i] || []).find((a) => a.tipo === 'nota' && ms(a.creado) > T && esEntrada(a.texto));
+      if (!nota) return;
       vuelven++;
       avisos.push({ title: 'Vuelve a entrar · ' + l.nombre + (rotulo ? ' · ' + rotulo : ''), body: nota.texto.slice(0, 160), tag: 'cx-v-' + l.id + '-' + ms(nota.creado), fuente: 'lx', url: '/app?vista=LEADSEXT' });
-    }
+    });
   }
   const nuevosH = {};
   if (x.maxId > punto) nuevosH._crmext = x.maxId;

@@ -35,7 +35,9 @@ var LX_COL = ['#7c9a8e', '#b08968', '#8a8fb5', '#c27c7c', '#6f9fb0', '#a88fb0', 
     + '.lx-acc{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}.lx-hora{color:var(--faint);font-size:12px;white-space:nowrap;text-align:right}'
     + '.lx-pie{margin:26px 0 0;border:1px dashed var(--line-strong,var(--line));border-radius:14px;padding:12px 15px;color:var(--faint);font-size:13px}'
     + '.lx-vacio{margin:40px auto;text-align:center;color:var(--faint);padding:24px;max-width:440px}'
-    + '@media(max-width:900px){.lx-card{grid-template-columns:38px minmax(0,1fr)}.lx-hora{grid-column:2;text-align:left}.lx-stat b{font-size:21px}}';
+    + '@media(max-width:900px){.lx-card{grid-template-columns:38px minmax(0,1fr)}.lx-hora{grid-column:2;text-align:left}.lx-stat b{font-size:21px}}'
+    // con el dedo: los filtros con 40 px de toque (medían unos 27)
+    + '@media(pointer:coarse){.lx-chip{min-height:40px;padding:4px 14px}}';
   document.head.appendChild(css);
 })();
 
@@ -71,15 +73,19 @@ function lxFiltrados(){
 function lxOrigen(l){ if(!l.origen) return ''; if(/^personal/.test(l.origen)) return 'Personal'; return LX_ORIGEN[l.origen] || (l.origen.charAt(0).toUpperCase() + l.origen.slice(1).replace(/_/g, ' ')); }
 function lxEstado(l){ return l.estado ? l.estado.charAt(0).toUpperCase() + l.estado.slice(1).replace(/_/g, ' ') : ''; }
 function lxColor(l){ var h = 0, s = String(l.id); for(var k = 0; k < s.length; k++) h = (h * 31 + s.charCodeAt(k)) % 997; return LX_COL[h % LX_COL.length]; }
+// los formateadores de fecha se crean una vez y se reutilizan (crear uno por tarjeta en cada repintado es lo caro); una fecha rara sale como antes
+var LX_FMT = {};
+function lxFmt(n, opt, d){ if(isNaN(d)) return String(d); return (LX_FMT[n] || (LX_FMT[n] = new Intl.DateTimeFormat([], opt))).format(d); }
+function lxHM(d){ return lxFmt('hm', { hour:'2-digit', minute:'2-digit' }, d); }
 function lxDia(l){
   var t = lxAlta(l); if(!t) return 'Sin fecha'; var d = new Date(t), h = new Date(), ayer = new Date(h.getFullYear(), h.getMonth(), h.getDate() - 1);
   if(d.toDateString() === h.toDateString()) return 'Hoy'; if(d.toDateString() === ayer.toDateString()) return 'Ayer';
-  return d.toLocaleDateString([], { weekday:'long', day:'numeric', month:'long' });
+  return lxFmt('dia', { weekday:'long', day:'numeric', month:'long' }, d);
 }
 function lxHora(l){
   var t = lxAlta(l); if(!t) return ''; var min = Math.round((Date.now() - t) / 60000);
   if(min < 1) return 'ahora'; if(min < 60) return 'hace ' + min + ' min'; if(min < 360) return 'hace ' + Math.floor(min / 60) + ' h';
-  var d = new Date(t); return d.toDateString() === new Date().toDateString() ? d.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }) : d.toLocaleDateString([], { day:'numeric', month:'short' }) + ' ' + d.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+  var d = new Date(t); return d.toDateString() === new Date().toDateString() ? lxHM(d) : lxFmt('dm', { day:'numeric', month:'short' }, d) + ' ' + lxHM(d);
 }
 // WhatsApp solo si el número parece de móvil (España: 6 o 7 y nueve cifras; con 34 delante también); si trae otro prefijo, se usa tal cual
 function lxWa(tel){
@@ -89,8 +95,9 @@ function lxWa(tel){
 }
 function lxCard(l){
   var nu = lxNuevo(l), cafe = lxEsCafe(l), wa = lxWa(l.telefono), tel = String(l.telefono || '').replace(/[^\d+]/g, '');
-  return '<article class="lx-card' + (nu ? ' nuevo' : '') + '" data-lx-id="' + esc(l.id) + '"><span class="lx-av" style="background:' + lxColor(l) + '">' + esc(l.nombre.replace(/[^\p{L}\p{N}]/gu, '').charAt(0).toUpperCase() || '?') + '</span><div>'
-    + '<div class="lx-nom"><span>' + esc(l.nombre) + '</span>' + (cafe ? '<span class="lx-pill cafe">Café</span>' : (l.estado ? '<span class="lx-pill">' + esc(lxEstado(l)) + '</span>' : '')) + (l.origen ? '<span class="lx-pill">' + esc(lxOrigen(l)) + '</span>' : '') + '</div>'
+  var nom = String(l.nombre || '');   // un contacto sin nombre en el CRM no puede tirar la vista entera
+  return '<article class="lx-card' + (nu ? ' nuevo' : '') + '" data-lx-id="' + esc(l.id) + '"><span class="lx-av" style="background:' + lxColor(l) + '">' + esc(nom.replace(/[^\p{L}\p{N}]/gu, '').charAt(0).toUpperCase() || '?') + '</span><div>'
+    + '<div class="lx-nom"><span>' + esc(nom) + '</span>' + (cafe ? '<span class="lx-pill cafe">Café</span>' : (l.estado ? '<span class="lx-pill">' + esc(lxEstado(l)) + '</span>' : '')) + (l.origen ? '<span class="lx-pill">' + esc(lxOrigen(l)) + '</span>' : '') + '</div>'
     + '<div class="lx-dat">' + (l.telefono ? '<span>' + esc(l.telefono) + '</span>' : '') + (l.email ? '<span>' + esc(l.email) + '</span>' : '') + (l.empresa ? '<span>' + esc(l.empresa) + (l.cargo ? ' · ' + esc(l.cargo) : '') + '</span>' : '') + '</div>'
     + (l.nota ? '<div class="lx-nota">' + esc(l.nota) + '</div>' : '')
     + '<div class="lx-acc">' + (tel ? '<a class="btn sm" data-lx-visto="' + esc(l.id) + '" href="tel:' + esc(tel) + '">Llamar</a>' : '') + (wa ? '<a class="btn sm" data-lx-visto="' + esc(l.id) + '" href="https://wa.me/' + esc(wa) + '" target="_blank" rel="noopener noreferrer">WhatsApp</a>' : '')
@@ -102,6 +109,7 @@ function pintarLeadsExt(){
   var ant = el.querySelector('.lx-cuerpo'), y = ant ? ant.scrollTop : 0;
   if(!LX.leads && !LX.cargando){ cargarLeadsExt(); return; }
   var rot = LX.nombre ? 'Leads ' + LX.nombre : 'Leads';
+  LX_PC = LX.cargando;   // pintado a mitad de una carga (sale «Cargando…»): al acabar hay que repintar aunque no cambie nada
   var sub = LX.cargando ? 'Cargando…' : (LX.error ? 'Sin conexión con el CRM' : 'Conectado al CRM · se actualiza solo');
   var h = '<div class="vista-esp lx">' + cabezaVista(esc(rot), sub, 'lx', LX.cargando) + '<div class="lx-cuerpo">';
   if(!LX.leads){ h += '<div class="lx-vacio">Cargando los leads…</div>'; }
@@ -123,16 +131,29 @@ function pintarLeadsExt(){
   if(lxNoVistos()) LX_T = setTimeout(function(){ if(st.folder !== 'LEADSEXT') return; (LX.leads || []).forEach(function(l){ if(lxNuevo(l)) LX_V[l.id] = 1; }); lxGuardarVistos(); }, 5000);
 }
 var LX_T = 0;
+// Con la vista abierta se refresca cada 30 s. Si la respuesta es igual que la anterior NO se repinta (rehacer todas las tarjetas cada 30 s
+// podía comerse un toque en «Llamar» o «WhatsApp» y gastaba para nada): solo se pone al día el «hace X min» de cada tarjeta.
+var LX_FIRMA = '', LX_PC = false;
+function lxRefrescarHoras(){
+  var por = {}; (LX.leads || []).forEach(function(l){ por[l.id] = l; });
+  [].slice.call(document.querySelectorAll('.lx-card[data-lx-id]')).forEach(function(c){
+    var l = por[c.dataset.lxId], h = c.querySelector('.lx-hora'); if(!l || !h) return;
+    var t = lxHora(l); if(h.textContent !== t) h.textContent = t;
+  });
+}
 async function cargarLeadsExt(){
-  if(LX.cargando) return; var primera = !LX.leads; LX.cargando = true; if(primera){ LX.error = null; if(st.folder === 'LEADSEXT') pintarLeadsExt(); }
+  if(LX.cargando) return; var primera = !LX.leads, cambio = primera; LX.cargando = true; if(primera){ LX.error = null; if(st.folder === 'LEADSEXT') pintarLeadsExt(); }
   try {
     var r = await fetch('/api/zernio?r=leads-ext', { cache:'no-store', credentials:'same-origin' });
     if(r.status === 401) throw new Error('sesion');
     var j = await r.json().catch(function(){ return {}; });
-    if(j.ok){ lxFijarBase(j.leads); LX.leads = j.leads || []; LX.total = j.total || 0; LX.nombre = j.nombre || LX.nombre; LX.panel = j.panel || ''; LX.error = null; if(j.nombre && window.LX_NOMBRE !== j.nombre){ window.LX_NOMBRE = j.nombre; } }
+    if(j.ok){ lxFijarBase(j.leads);
+      // la firma lleva el día: al pasar la medianoche se repinta una vez, para que «Hoy» y «Ayer» sean verdad
+      var firma = JSON.stringify([j.leads || [], j.total || 0, j.nombre || '', j.panel || '']) + '|' + new Date().toDateString();
+      if(firma !== LX_FIRMA || LX.error){ cambio = true; LX_FIRMA = firma; } LX.leads = j.leads || []; LX.total = j.total || 0; LX.nombre = j.nombre || LX.nombre; LX.panel = j.panel || ''; LX.error = null; if(j.nombre && window.LX_NOMBRE !== j.nombre){ window.LX_NOMBRE = j.nombre; } }
     else if(primera){ LX.error = j.error || 'crm'; LX.leads = []; }   // un fallo suelto del refresco no borra lo que ya se ve
   } catch(e){ if(primera){ LX.error = 'red'; LX.leads = []; } }
-  finally { LX.cargando = false; drawSide(); if(st.folder === 'LEADSEXT') pintarLeadsExt(); }
+  finally { LX.cargando = false; if(cambio || LX_PC){ drawSide(); if(st.folder === 'LEADSEXT') pintarLeadsExt(); } else if(st.folder === 'LEADSEXT') lxRefrescarHoras(); }
 }
 document.addEventListener('click', function(e){
   var t;

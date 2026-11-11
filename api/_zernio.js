@@ -11,6 +11,20 @@ export async function zernio(path) {
   return { status: r.status, body: j };
 }
 
+// Las cuentas conectadas en Zernio (GET /accounts), igual que zernio('/accounts') pero con memoria: cambian muy de tarde en tarde y al arrancar la app
+// se pedían dos veces seguidas (panel de integraciones y vista WhatsApp). Memoria de 60 s por instancia y una sola petición en marcha a la vez.
+// Solo se guarda una respuesta 200: un fallo de Zernio se vuelve a intentar en la siguiente llamada. Quien la recibe no debe modificarla (es compartida).
+let cuentasMem = { t: 0, v: null }, cuentasVuelo = null;
+export function cuentasZernio() {
+  if (cuentasMem.v && Date.now() - cuentasMem.t < 60000) return Promise.resolve(cuentasMem.v);
+  if (!cuentasVuelo) {
+    cuentasVuelo = zernio('/accounts')
+      .then((x) => { if (x.status === 200) cuentasMem = { t: Date.now(), v: x }; return x; })
+      .finally(() => { cuentasVuelo = null; });
+  }
+  return cuentasVuelo;
+}
+
 // Las conversaciones de WhatsApp como leads del CRM: cada una es un lead (todo lo que llega por WhatsApp lo es).
 // `etapas` = las del CRM; `guardadas` = { idConversación: etapa } que el usuario ya movió; «No es lead» las aparta.
 export async function leadsWhatsApp(etapas, guardadas, noLead, alias) {

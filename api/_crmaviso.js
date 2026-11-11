@@ -25,14 +25,15 @@ export async function crmAviso(req, res) {
   if (!d.ok) return res.status(200).json({ ok: false, error: 'crm' });
   // se «reclaman» los puntos antes de avisar: si el vigía ya los movió mientras tanto, no se avisa dos veces
   let reclamado = false;
-  await updateStore((n) => {
+  const stFin = await updateStore((n) => {
     n.hist = n.hist || {};
     if ((Number(n.hist._crmext) || 0) !== d.punto) return false;
     Object.assign(n.hist, d.nuevosH, { _hookT: Date.now() });
     reclamado = true;
-  }).catch(() => {});
+  }).catch(() => null);
   if (!reclamado) return res.status(200).json({ ok: true, omitido: 'ya_visto' });
   let entregas = 0;
-  for (const a of d.avisos) entregas += (await pushTodos(a)).filter((c) => c >= 200 && c < 300).length;
+  // los avisos salen con el almacén que se acaba de leer para reclamar los puntos (o el del principio si esa escritura falló): sin releer Drive por cada aviso
+  for (const a of d.avisos) entregas += (await pushTodos(a, stFin || st)).filter((c) => c >= 200 && c < 300).length;
   return res.status(200).json({ ok: true, avisos: d.avisos.length, nuevos: d.nuevos, vuelven: d.vuelven, entregas });
 }

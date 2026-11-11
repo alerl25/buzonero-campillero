@@ -5,6 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#ffffff">
+<script>
+/* Arranque adelantado. Dos cosas que no pueden esperar a que baje y se lea el resto de la página:
+   1) el tema elegido se pone ya, antes del primer pintado (sin fogonazo blanco en los temas oscuros);
+   2) la sesión y el permiso de la cuenta que tenías abierta se piden ya: cuando el código principal arranca, ya han llegado. */
+(function(){
+  var d = document.documentElement, k = null;
+  try { var t = localStorage.getItem('buzonero-tema'), p = localStorage.getItem('buzonero-paleta'); if(t === 'dark' || t === 'light') d.setAttribute('data-theme', t); if(p && /^[a-z]{2,20}$/.test(p)) d.setAttribute('data-paleta', p); } catch(e){}
+  try { k = new URLSearchParams(location.search).get('acc') || localStorage.getItem('buzonero-cuenta'); } catch(e){}
+  var pide = function(u){ return fetch(u, { credentials:'same-origin' }).then(function(r){ return r.json().catch(function(){ return {}; }).then(function(j){ return { status:r.status, ok:r.ok, j:j }; }); }).catch(function(){ return { status:0, ok:false, j:{} }; }); };
+  try { window.BZ_PRE = { s:pide('/api/session'), k:k, t:(k && /^[a-z0-9_-]{1,24}$/i.test(k)) ? pide('/api/token?acc=' + encodeURIComponent(k)) : null }; } catch(e){}
+})();
+</script>
+<link rel="preload" as="script" href="/app/i18n.js">
 <!-- app instalable (iPhone: Safari → Compartir → Añadir a pantalla de inicio) -->
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/app/icono-180.png">
@@ -15,8 +28,14 @@
 <title>Buzonero Campillero</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Montserrat:wght@600&display=swap" rel="stylesheet">
-<script src="https://unpkg.com/@phosphor-icons/web@2.1.1" integrity="sha384-cPFV+/abYd3INVFHPmSKpBmcnH+Q+bTZW7dv/EiuShUNPkHyFmRF8PsL7Ibfvunk" crossorigin="anonymous"></script>
+<link rel="preconnect" href="https://unpkg.com" crossorigin>
+<!-- Inter va aquí (antes la pedía tema.css con @import: una petición encadenada que retrasaba el primer pintado) -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Montserrat:wght@600&display=optional" rel="stylesheet">
+<!-- Iconos Phosphor: solo los dos estilos que usa la app (normal y relleno). Antes se cargaba el script del paquete, que
+     pedía los seis estilos (unos 500 kB de CSS) y bloqueaba la página mientras tanto. -->
+<link rel="preload" as="font" type="font/woff2" crossorigin="anonymous" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/Phosphor.woff2">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css" integrity="sha384-6p9AefaqUhEVheRlj1mpAkbngHXy9mbYMrIdcIt4Jlc9lOLIablJq3bBsLOjGwZ7" crossorigin="anonymous">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css" integrity="sha384-pPVoXE8ft+zxKtxIDDI7SfTK6y95NHm4qa+hKEg/hs8VkjW5IP+9/dGOPCbDpUPl" crossorigin="anonymous">
 <!-- Editor de texto enriquecido: Squire (Fastmail, MIT), con DOMPurify para limpiar el HTML -->
 <script src="https://unpkg.com/dompurify@3.2.6/dist/purify.min.js" integrity="sha384-JEyTNhjM6R1ElGoJns4U2Ln4ofPcqzSsynQkmEc/KGy6336qAZl70tDLufbkla+3" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/squire-rte@2.4.9/dist/squire.js" integrity="sha384-eN7INIflu/P3A0suqeYB8vZwFmJ3EfShAMa8rEJGjjAS0ssijB7qy54IsqwWkJsi" crossorigin="anonymous"></script>
@@ -272,7 +291,9 @@
   /* móvil: el logo de arriba lo dibujan las partículas (el sobre que se forma); la imagen queda invisible pero en su sitio */
   .particulas-logo .brand .logo-mark { opacity:0; }
   /* los correos que no están en pantalla no se dibujan hasta que llegas a ellos (el navegador reserva su alto) */
-  .rw:not(.entra):not(.leaving):not(.swiping) { content-visibility:auto; contain-intrinsic-size:auto 82px; }
+  /* solo de la fila 20 en adelante (las que no caben en la primera pantalla): en las primeras, cada repintado las dejaba un
+     fotograma con la altura estimada y la lista daba un saltito */
+  .rw:nth-child(n+20):not(.entra):not(.leaving):not(.swiping) { content-visibility:auto; contain-intrinsic-size:auto 84px; }
   .rw.swiping { user-select:none; -webkit-user-select:none; }
   .rw .sw-bg { position:absolute; inset:0; z-index:0; display:flex; align-items:center; padding:0 22px; background:var(--surface-2); color:var(--mute); font-weight:600; font-size:13.5px; transition:background-color .16s ease, color .16s ease; }
   .rw[data-lado="der"] .sw-bg { justify-content:flex-end; }
@@ -930,6 +951,32 @@
     .read { padding-left:var(--sal); padding-right:var(--sar); }
     .read-bar { flex:none; height:calc(57px + var(--sat)); padding-top:calc(8px + var(--sat)); }
     .login { padding-top:max(9vh, calc(var(--sat) + 24px)); padding-bottom:calc(24px + var(--sab)); }
+    /* las ventanas (redactar, evento, firma, temas) son hojas a pantalla completa: su cabecera también baja de la isla
+       (tema.css le quitaba el margen que index.html le daba) */
+    .dlg-head { padding-top:calc(6px + var(--sat)); min-height:calc(56px + var(--sat)); }
+    /* vistas que no son correo (calendario, leads, redes…): «Redactar» se queda en lápiz para no tapar el contenido,
+       y en el chat de WhatsApp y en el CRM no sale (tienen su propia caja de escribir y sus propios botones abajo) */
+    /* pie de redactar: en el móvil «Borrar borrador» no cabía con su texto (se salía y pisaba el botón de la firma): queda en papelera */
+    #discard { font-size:0 !important; gap:0; width:44px; min-width:44px; height:44px; padding:0; justify-content:center; border-color:transparent; background:transparent; flex:none; }
+    #discard i { font-size:21px !important; color:var(--mute); }
+    .dlg-foot .push { flex:none; }
+    .dlg-foot .saved:empty { display:none; }
+    body.en-vista .fab, body:has(.shell.crm-on) .fab { display:none !important; }
+    #app .cv-body { padding-bottom:calc(12px + var(--sab)); }
+  }
+  /* las vistas con desplazamiento propio (calendario, WhatsApp, leads, CRM…) dejan libre la barra de inicio del iPhone */
+  #app .cal-scroll, #app .cal-mes, #app .men-lista { padding-bottom:var(--sab); }
+  #app .cal-lado { padding-bottom:calc(20px + var(--sab)); }
+  #app .men-hilo { padding-bottom:calc(16px + var(--sab)); }
+  #app .lx-cuerpo { padding-bottom:calc(40px + var(--sab)); }
+  #app .shell:has(.vancha) .rows { padding-bottom:calc(24px + var(--sab)); }
+  #app .cv-ficha { padding-bottom:calc(18px + var(--sab)); }
+  /* con el dedo, los controles pequeños del CRM crecen hasta poder tocarse bien */
+  @media (pointer:coarse) {
+    .cv-del { width:40px; height:40px; }
+    .cv-tabs button { min-height:40px; }
+    .cv-fm select, .cv-fila select, .cv-ficha-et select { min-height:40px; }
+    .cv-fm { grid-template-columns:minmax(150px,1.5fr) 140px 56px 70px minmax(100px,1fr) minmax(180px,2.4fr) 100px 124px; min-width:890px; }
   }
 </style>
 <script src="/app/particulas.js" defer></script>
@@ -1131,7 +1178,11 @@ var st = { acc:null, cat:'ALL', folder:'INBOX', label:null, q:'', filter:'all', 
 var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 function $(id){ return document.getElementById(id); }
 function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
-function fmtN(n){ return Number(n||0).toLocaleString(BZ.loc); }
+var FMT = {};
+function fmtDe(clave, opt){ var k = BZ.loc + '|' + clave; return FMT[k] || (FMT[k] = opt ? new Intl.DateTimeFormat(BZ.loc, opt) : new Intl.NumberFormat(BZ.loc)); }
+function fmtN(n){ return fmtDe('n').format(Number(n||0)); }
+// lo que hay que medir en pantalla (ancho de una pestaña, de un titular) se mide una vez por fotograma, no después de cada cambio
+function porFotograma(fn){ var pend = false; return function(){ if(pend) return; pend = true; requestAnimationFrame(function(){ pend = false; fn(); }); }; }
 function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
 function a(){ return ACC[st.acc]; }
 
@@ -1158,18 +1209,29 @@ document.addEventListener('visibilitychange', function(){ if(document.hidden && 
 addEventListener('pagehide', comprometerPendiente);
 
 /* ---------------- sesión y tokens ---------------- */
-var TOK = {};
-async function token(k, force){
+var TOK = {}, TOKP = {};
+/* El permiso de cada cuenta se pide UNA vez aunque lo necesiten varias llamadas a la vez (al abrir, etiquetas, contadores
+   y firma lo pedían cada una por su lado: cuatro peticiones iguales por cuenta, que además el navegador pone en fila). */
+function token(k, force){
   var t = TOK[k];
-  if(!force && t && t.exp - Date.now() > 60000) return t.v;
-  var r = await fetch('/api/token?acc=' + k, { credentials:'same-origin' });
-  if(r.status === 401){ showLogin(); throw new Error('sesion'); }
-  var j = await r.json().catch(function(){ return {}; });
-  if(r.status === 409){ if(!ACC[k].broken) setTimeout(function(){ alertBroken(k); }, 0); ACC[k].broken = true; if(j.motivo) ACC[k].caida = { descripcion: j.motivo, desde: j.desde }; throw new Error('reconectar'); }
-  if(!r.ok || !j.access_token) throw new Error('No se pudo conectar con Google');
-  ACC[k].broken = false;
-  TOK[k] = { v:j.access_token, exp: Date.now() + (j.expires_in||3600)*1000 };
-  return j.access_token;
+  if(!force && t && t.exp - Date.now() > 60000) return Promise.resolve(t.v);
+  if(TOKP[k]) return TOKP[k];
+  return tokenDe(k, fetch('/api/token?acc=' + k, { credentials:'same-origin' }).then(function(r){ return r.json().catch(function(){ return {}; }).then(function(j){ return { status:r.status, ok:r.ok, j:j }; }); }));
+}
+// «pedido» = la respuesta de /api/token ya en camino (la de aquí o la que se adelantó en el <head>)
+function tokenDe(k, pedido){
+  var p = TOKP[k] = pedido.then(function(r){
+    var j = r.j || {};
+    if(r.status === 401){ showLogin(); throw new Error('sesion'); }
+    if(r.status === 409){ if(!ACC[k].broken) setTimeout(function(){ alertBroken(k); }, 0); ACC[k].broken = true; if(j.motivo) ACC[k].caida = { descripcion: j.motivo, desde: j.desde }; throw new Error('reconectar'); }
+    if(!r.ok || !j.access_token) throw new Error('No se pudo conectar con Google');
+    ACC[k].broken = false;
+    TOK[k] = { v:j.access_token, exp: Date.now() + (j.expires_in||3600)*1000 };
+    return j.access_token;
+  });
+  var fin = function(){ if(TOKP[k] === p) delete TOKP[k]; };
+  p.then(fin, fin);
+  return p;
 }
 async function api(k, url, opt){
   opt = opt || {};
@@ -1177,7 +1239,10 @@ async function api(k, url, opt){
     var tk = await token(k, attempt === 1);
     var h = Object.assign({ Authorization:'Bearer ' + tk }, opt.headers || {});
     if(opt.json !== undefined){ h['Content-Type'] = 'application/json'; }
-    var r = await fetch(url, { method: opt.method || 'GET', headers:h, body: opt.json !== undefined ? JSON.stringify(opt.json) : opt.body });
+    // «no-store»: sin caché del navegador. No es por frescura (Google ya manda no-cache): es que, con caché, el navegador
+    // pone EN FILA las peticiones a una misma dirección, y la misma dirección se pide a la vez para cada cuenta
+    // (perfil, etiquetas, contadores): cinco cuentas eran cinco esperas seguidas en vez de una.
+    var r = await fetch(url, { method: opt.method || 'GET', headers:h, body: opt.json !== undefined ? JSON.stringify(opt.json) : opt.body, cache:'no-store' });
     if(r.status === 401 && attempt === 0) continue;
     if(r.status === 429) CUOTA_HASTA = Date.now() + 60000;   // Google pide calma: lo de fondo se para un minuto
     if((r.status === 429 || r.status >= 500) && attempt < 2){ await sleep(600 * (attempt + 1)); continue; }
@@ -1237,11 +1302,11 @@ function isMe(email){ email = (email||'').toLowerCase(); return KEYS.some(functi
 function initials(n){ var w = (n||'?').replace(/[^\p{L}\p{N} ]/gu,'').trim().split(/\s+/); return ((w[0]||'?')[0] + (w[1] ? w[1][0] : (w[0]||'')[1] || '')).toUpperCase(); }
 function fmtDate(ms, long){
   var d = new Date(+ms), now = new Date();
-  if(long) return d.toLocaleDateString(BZ.loc, { weekday:'short', day:'numeric', month:'short' }) + ', ' + d.toLocaleTimeString(BZ.loc, { hour:'2-digit', minute:'2-digit' });
-  if(d.toDateString() === now.toDateString()) return d.toLocaleTimeString(BZ.loc, { hour:'2-digit', minute:'2-digit' });
+  if(long) return fmtDe('largo', { weekday:'short', day:'numeric', month:'short' }).format(d) + ', ' + fmtDe('hora', { hour:'2-digit', minute:'2-digit' }).format(d);
+  if(d.toDateString() === now.toDateString()) return fmtDe('hora', { hour:'2-digit', minute:'2-digit' }).format(d);
   var y = new Date(now); y.setDate(now.getDate()-1); if(d.toDateString() === y.toDateString()) return 'Ayer';
-  if(d.getFullYear() === now.getFullYear()) return d.toLocaleDateString(BZ.loc, { day:'numeric', month:'short' }).replace('.', '');
-  return d.toLocaleDateString(BZ.loc, { day:'2-digit', month:'2-digit', year:'2-digit' });
+  if(d.getFullYear() === now.getFullYear()) return fmtDe('dia', { day:'numeric', month:'short' }).format(d).replace('.', '');
+  return fmtDe('corto', { day:'2-digit', month:'2-digit', year:'2-digit' }).format(d);
 }
 function unent(x){ var t = document.createElement('textarea'); t.innerHTML = String(x == null ? '' : x); return t.value; }
 function dateHTML(ms, cls){ var t = fmtDate(ms); return '<span class="'+cls+(/^[A-Za-zÁÉÍÓÚáéíóú]/.test(t) ? ' word' : '')+'" title="'+esc(fmtDate(ms, true))+'">'+esc(t)+'</span>'; }
@@ -1384,13 +1449,14 @@ function repaintPhotos(){ clearTimeout(repaintTimer); repaintTimer = setTimeout(
 /* ---------------- pestañas ---------------- */
 function drawTabs(){
   var ind = $('tabInd');
-  $('tabs').innerHTML = KEYS.map(function(k){ var c = ACC[k], u = c.unread;
+  var h = KEYS.map(function(k){ var c = ACC[k], u = c.unread;
     return '<button class="tab" role="tab" id="tab-'+k+'" aria-selected="'+(k===st.acc)+'" data-k="'+k+'" aria-label="'+esc(c.name)+'" title="'+esc(c.name + ' · ' + c.email)+'" style="--tc:'+c.color+'">'
       + '<span class="orb">'+c.init+(PH[c.email] ? '<img src="'+esc(PH[c.email])+'" alt="" referrerpolicy="no-referrer" onerror="this.remove()">' : '')+'</span><span class="who"><b>'+esc(c.name)+'</b><small>'+esc(c.email)+'</small></span>'
       + (c.broken ? '<i class="ph ph-warning warn" aria-label="Desconectada"></i>' : '<span class="count" aria-label="'+(u||0)+' sin leer">'+(u ? fmtN(u) : '')+'</span>') + '</button>'; }).join('');
-  $('tabs').appendChild(ind); moveInd();
+  if(h !== drawTabs.ult || !$('tab-' + st.acc)){ drawTabs.ult = h; $('tabs').innerHTML = h; $('tabs').appendChild(ind); }
+  moveInd();
 }
-function moveInd(){ var t = $('tab-'+st.acc); if(!t) return; var ind = $('tabInd'); ind.style.transform = 'translateX('+t.offsetLeft+'px) scaleX('+(t.offsetWidth/100)+')'; ind.style.setProperty('--ti', a().color); }
+var moveInd = porFotograma(function(){ var t = $('tab-'+st.acc); if(!t) return; var ind = $('tabInd'); ind.style.transform = 'translateX('+t.offsetLeft+'px) scaleX('+(t.offsetWidth/100)+')'; ind.style.setProperty('--ti', a().color); });
 addEventListener('resize', moveInd);
 
 /* ---------------- etiquetas y contadores ---------------- */
@@ -1402,13 +1468,13 @@ async function loadAccountMeta(k){
     c.unread = r[1].threadsUnread || 0; c.inboxTotal = r[1].threadsTotal || 0; c.drafts = r[2].messagesTotal || 0;
     var sa = (r[3].sendAs || []); var prim = sa.filter(function(s){ return s.isPrimary; })[0] || sa[0] || {};
     c.signature = prim.signature || ''; c.displayName = prim.displayName || ''; c.aliases = sa.map(function(s){ return (s.sendAsEmail||'').toLowerCase(); });
-    c.broken = false;
+    c.broken = false; metaGuardar(k);
   } catch(e){ if(String(e.message) === 'reconectar') c.broken = true; }
 }
 async function loadCatCounts(k){
   var ids = ['CATEGORY_PERSONAL','CATEGORY_PROMOTIONS','CATEGORY_SOCIAL','CATEGORY_UPDATES','CATEGORY_FORUMS'];
   var r = await pool(ids, 3, function(id){ return gm(k, 'labels/' + id); });
-  var m = {}; r.forEach(function(x, i){ if(x && !x._err){ m[ids[i]] = x.threadsUnread || 0; } }); ACC[k].catUnread = m;
+  var m = {}; r.forEach(function(x, i){ if(x && !x._err){ m[ids[i]] = x.threadsUnread || 0; } }); ACC[k].catUnread = m; metaGuardar(k);
 }
 // número de borradores: siempre el de Gmail (antes se sumaba a mano y se inflaba, llegó a marcar 226 con 0 borradores)
 function refrescarBorradores(k){ return gm(k, 'labels/DRAFT').then(function(l){ ACC[k].drafts = l.messagesTotal || 0; drawSide(); }).catch(function(){}); }
@@ -1418,7 +1484,7 @@ async function refreshCounts(){
   loadCatCounts(st.acc).then(function(){ drawCats(); drawSide(); }).catch(function(){});
   await Promise.all(KEYS.map(async function(k){ try { var before = ACC[k].counted ? ACC[k].unread : null; var l = await gm(k, 'labels/INBOX'); ACC[k].unread = l.threadsUnread || 0; ACC[k].inboxTotal = l.threadsTotal || 0; ACC[k].counted = true;
     if(before !== null && ACC[k].unread > before) notifyNew(k); } catch(e){} }));
-  drawTabs(); drawSide(); actualizarBadge();
+  drawTabs(); drawSide(); actualizarBadge(); KEYS.forEach(metaGuardar);
 }
 
 /* ---------------- aviso de cuenta desconectada (fijo hasta reconectar) ---------------- */
@@ -1595,6 +1661,37 @@ function summarize(t, enviados){
 /* Listas en memoria: al volver a una cuenta, carpeta o pestaña, sus correos salen AL INSTANTE desde aquí
    y se ponen al día por detrás. Al abrir la app se precargan las bandejas de las demás cuentas. */
 var LISTAS = {};
+/* Lo último visto, guardado en este dispositivo: al abrir la app, la bandeja, los contadores y las etiquetas de la última vez
+   salen AL INSTANTE y se ponen al día por detrás (antes: pantalla de carga hasta que Gmail contestaba a todo).
+   Solo la primera página de Recibidos de cada cuenta; caduca a los 3 días y se borra al cerrar sesión, como todo «buzonero-…». */
+var GUARDA_MAX = 3 * 86400000;
+function guardaLeer(clave){ try { var o = JSON.parse(localStorage.getItem(clave) || 'null'); return o && o.t && Date.now() - o.t < GUARDA_MAX ? o : null; } catch(e){ return null; } }
+function guardaPoner(clave, o){ try { o.t = Date.now(); localStorage.setItem(clave, JSON.stringify(o)); } catch(e){} }
+function guardaVaciar(){ try { Object.keys(localStorage).forEach(function(x){ if(/^buzonero-(lista|meta)-/.test(x)) localStorage.removeItem(x); }); } catch(e){} }
+var META_CAMPOS = ['labels', 'unread', 'inboxTotal', 'drafts', 'displayName', 'aliases', 'catUnread', 'signature'];
+function metaGuardar(k){
+  var c = ACC[k]; if(!c || c.broken) return; var o = {};
+  META_CAMPOS.forEach(function(f){ if(c[f] !== undefined && !(f === 'signature' && String(c[f]).length > 20000)) o[f] = c[f]; });
+  var firma = JSON.stringify(o); if(metaGuardar.ult[k] === firma) return; metaGuardar.ult[k] = firma;
+  guardaPoner('buzonero-meta-' + k, o);
+}
+metaGuardar.ult = {};
+function metaDeGuarda(k){ var o = guardaLeer('buzonero-meta-' + k), c = ACC[k]; if(!o || !c) return; META_CAMPOS.forEach(function(f){ if(o[f] !== undefined && c[f] === undefined) c[f] = o[f]; }); }
+function claveRecibidos(k){ return k + '|INBOX|ALL|||all'; }
+function listaGuardar(k){
+  var l = LISTAS[claveRecibidos(k)]; if(!l || l.guardada || !l.threads.length) return;
+  var firma = l.threads.slice(0, 25).map(function(t){ return t.id + ':' + t.hid + (t.unread ? 'u' : '') + (t.star ? 's' : ''); }).join();
+  if(listaGuardar.ult[k] === firma) return; listaGuardar.ult[k] = firma;
+  guardaPoner('buzonero-lista-' + k, { threads:l.threads.slice(0, 25), estimate:l.estimate || 0 });
+}
+listaGuardar.ult = {};
+function listaDeGuarda(k){
+  var o = guardaLeer('buzonero-lista-' + k), clave = claveRecibidos(k);
+  if(!o || !Array.isArray(o.threads) || !o.threads.length || LISTAS[clave]) return;
+  var filas = o.threads.filter(function(x){ return x && x.id && x.hid; });
+  LISTAS[clave] = { threads:filas, next:null, estimate:o.estimate || 0, guardada:true };
+  filas.forEach(function(x){ if(!META[k + '|' + x.id]) META[k + '|' + x.id] = x; });   // si Gmail dice que no ha cambiado, no se vuelve a pedir
+}
 function claveLista(k){ return (k || st.acc) + '|' + st.folder + '|' + st.cat + '|' + (st.label || '') + '|' + (st.q || '') + '|' + st.filter; }
 // trae una lista; si se pasa «parcial», le entrega los primeros correos en cuanto llegan (sin esperar a los 25)
 /* Resumen de cada conversación ya traída (por cuenta e historial): si Gmail dice que no ha cambiado, no se vuelve a pedir.
@@ -1630,10 +1727,17 @@ async function loadList(append){
     if(gen !== st.gen || k !== st.acc) return;
     var sig = function(a){ return a.map(function(t){ return t.id + ':' + t.hid; }).join(); };
     // ya estaba al día: mismas filas y, si no hay más páginas, también el mismo número (si no, lo borrado al final de la lista, p. ej. un borrador, se quedaba en pantalla)
-    if(cache && sig(res.rows) === sig(st.threads.slice(0, res.rows.length)) && (res.next || st.threads.length === res.rows.length)){ st.next = res.next; st.estimate = res.estimate; return; }
+    if(cache && sig(res.rows) === sig(st.threads.slice(0, res.rows.length)) && (res.next || st.threads.length === res.rows.length)){
+      // mismas filas que lo que ya se ve (lo normal al abrir desde lo guardado): no se repinta nada; solo el final y el recuento
+      st.next = res.next; st.estimate = res.estimate; st.loading = false;
+      LISTAS[clave] = { threads:st.threads.slice(), next:st.next, estimate:st.estimate }; if(clave === claveRecibidos(k)) listaGuardar(k);
+      vigilarMas(); drawTools();
+      precargarHilos();
+      return; }
     var sc = $('rows').scrollTop;
     st.threads = append ? st.threads.concat(res.rows) : res.rows; st.next = res.next; st.estimate = res.estimate;
     st.loading = false; drawRows(); if(cache) $('rows').scrollTop = sc;
+    if(!append) precargarHilos();
     return;
   } catch(e){
     st.resto = false;
@@ -1647,12 +1751,12 @@ async function loadList(append){
 // precarga por detrás una lista (cuenta, carpeta, pestaña) si no está ya en memoria
 var precargando = {};
 async function precargarLista(k, folder, cat){
-  var clave = k + '|' + folder + '|' + (cat || 'ALL') + '|||all'; if(VISTAS[folder] || LISTAS[clave] || precargando[clave] || ACC[k].broken) return;
+  var clave = k + '|' + folder + '|' + (cat || 'ALL') + '|||all'; if(VISTAS[folder] || (LISTAS[clave] && !LISTAS[clave].guardada) || precargando[clave] || ACC[k].broken) return;
   precargando[clave] = true;
   try { var p = new URLSearchParams(); p.set('maxResults', '25');
     if(folder !== 'ALL'){ p.append('labelIds', folder); if(folder === 'INBOX' && cat && cat !== 'ALL') p.append('labelIds', cat); }
     if(folder === 'SPAM' || folder === 'TRASH') p.set('includeSpamTrash', 'true');
-    var res = await traerLista(k, p); if(!LISTAS[clave]) LISTAS[clave] = { threads:res.rows, next:res.next, estimate:res.estimate }; }
+    var res = await traerLista(k, p); if(!LISTAS[clave] || LISTAS[clave].guardada){ LISTAS[clave] = { threads:res.rows, next:res.next, estimate:res.estimate }; if(clave === claveRecibidos(k)) listaGuardar(k); } }
   catch(e){} finally { delete precargando[clave]; }
 }
 // al abrir la app, sin prisa y de una en una: las bandejas de las demás cuentas y las carpetas y pestañas de la actual
@@ -1737,7 +1841,7 @@ function rowHTML(t){
    los ya leídos, plegados. Lo que abras o cierres a mano se recuerda en este dispositivo. */
 var MESES = {}; try { MESES = JSON.parse(localStorage.getItem('buzonero-meses2') || '{}'); } catch(e){}
 function claveMes(ts){ var d = new Date(ts); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); }
-function nombreMes(ts){ var d = new Date(ts), n = d.toLocaleDateString(BZ.loc, { month:'long' }); n = n.charAt(0).toUpperCase() + n.slice(1); return d.getFullYear() !== new Date().getFullYear() ? n + ' ' + d.getFullYear() : n; }
+function nombreMes(ts){ var d = new Date(ts), n = fmtDe('mes', { month:'long' }).format(d); n = n.charAt(0).toUpperCase() + n.slice(1); return d.getFullYear() !== new Date().getFullYear() ? n + ' ' + d.getFullYear() : n; }
 function filasPorMes(lista){
   // cada correo va a SU mes aunque la lista llegue desordenada (antes, un correo viejo colado entre los de octubre
   // partía el mes en dos y parecía que octubre traía correos antiguos); los meses, del más nuevo al más viejo
@@ -1766,8 +1870,18 @@ function drawCats(){
   el.innerHTML = TABS.map(function(t){ var n = t[0] === 'ALL' ? 0 : (cu[t[0]] || 0);
     return '<button role="tab" title="'+t[1]+'" data-cat="'+t[0]+'" aria-selected="'+(st.cat === t[0])+'"><i class="ph '+t[2]+'"></i><span>'+t[1]+'</span>'+(n ? '<em>'+(n > 99 ? '99+' : n)+'</em>' : '')+'</button>'; }).join('');
 }
+// el final de la lista: al acercarse, los correos siguientes se piden solos. Si ya hay filas pintadas y solo ha cambiado
+// «hay más páginas», se añade o se quita el botón sin tocar las filas (repintarlas todas hacía parpadear la lista)
+function vigilarMas(){
+  var el = $('rows'), lm = $('loadMore');
+  if(st.next && !lm && el.querySelector('.rw')){ el.insertAdjacentHTML('beforeend', '<div class="more"><button class="btn" id="loadMore"><i class="ph ph-arrow-down"></i> Cargar más</button></div>'); lm = $('loadMore'); }
+  else if(!st.next && lm){ lm.parentNode.remove(); lm = null; }
+  if(drawRows.obs) drawRows.obs.disconnect();
+  if(lm && 'IntersectionObserver' in window){ drawRows.obs = new IntersectionObserver(function(es){ if(es[0].isIntersecting && !lm.disabled && !enPausa()) lm.click(); }, { root:el, rootMargin:'0px 0px 400px 0px' }); drawRows.obs.observe(lm); }
+}
 function emptyKey(){ return st.q ? 'SEARCH' : st.label ? 'LABEL' : (st.folder === 'INBOX' && st.cat !== 'ALL') ? st.cat : st.folder; }
 function drawRows(){
+  document.body.classList.toggle('en-vista', enVista()); document.body.dataset.vista = enVista() ? st.folder : '';
   if(enVista()){ $('tools').innerHTML = ''; $('tools').hidden = true; $('tools').classList.remove('selecting'); $('cats').hidden = true; if(drawRows.obs) drawRows.obs.disconnect(); drawRows.clave = st.folder; VISTAS[st.folder](); return; }
   drawTools(); drawCats();
   var el = $('rows');
@@ -1779,10 +1893,9 @@ function drawRows(){
   if(!st.threads.length){ var e = EMPTY[emptyKey()]; el.innerHTML = '<div class="empty"><div class="halo"><i class="ph ph-check-circle"></i></div><h2>'+e[0]+'<em>.</em></h2><p>'+e[1]+'</p></div>'; return; }
   el.innerHTML = filasPorMes(st.threads) + (st.resto ? Array(4).join('<div class="sk-row"><span class="sk-av"></span><span class="sk-tx"><i style="width:38%"></i><i style="width:82%"></i><i style="width:64%"></i></span></div>') : '') + (st.next ? '<div class="more"><button class="btn" id="loadMore"><i class="ph ph-arrow-down"></i> Cargar más</button></div>' : '');
   // al llegar al final, los correos siguientes (y sus meses) se cargan solos, como en la app de Gmail: sin botón en medio
-  var lm = $('loadMore'); if(drawRows.obs) drawRows.obs.disconnect();
-  if(lm && 'IntersectionObserver' in window){ drawRows.obs = new IntersectionObserver(function(es){ if(es[0].isIntersecting && !lm.disabled && !enPausa()) lm.click(); }, { root:el, rootMargin:'0px 0px 400px 0px' }); drawRows.obs.observe(lm); }
+  vigilarMas();
   // lo que se ve queda guardado (archivar, leer, etc. incluidos): al volver aquí sale tal cual, al instante
-  if(!st.loading && !st.resto && !st.listErr && !a().broken && st.threads.length) LISTAS[claveLista()] = { threads:st.threads.slice(), next:st.next, estimate:st.estimate };
+  if(!st.loading && !st.resto && !st.listErr && !a().broken && st.threads.length){ LISTAS[claveLista()] = { threads:st.threads.slice(), next:st.next, estimate:st.estimate }; if(claveLista() === claveRecibidos(st.acc)) listaGuardar(st.acc); }
   // lista nueva (otra cuenta, carpeta, pestaña o búsqueda): los correos entran en cascada; las actualizaciones, sin animar
   var clave = st.acc + '|' + st.folder + '|' + st.cat + '|' + st.label + '|' + st.q;
   if(st.threads.length && clave !== drawRows.clave){ drawRows.clave = clave; if(!reduce) [].slice.call(el.querySelectorAll('.rw')).slice(0, 6).forEach(function(r, i){ r.style.setProperty('--i', i); r.classList.add('entra'); setTimeout(function(){ r.classList.remove('entra'); }, 400 + i * 28); }); }
@@ -1814,19 +1927,35 @@ function marcarFila(id, leida){
   var rows = $('rows'), prev = rows.querySelector('.row[aria-current="true"]'); if(prev) prev.setAttribute('aria-current', 'false');
   var rw = rows.querySelector('[data-rw="' + CSS.escape(id) + '"]'), row = rw && rw.querySelector('.row'); if(!row) return;
   row.setAttribute('aria-current', 'true'); if(leida) row.classList.remove('unread');
-  if(LISTAS[claveLista()]) LISTAS[claveLista()] = { threads:st.threads.slice(), next:st.next, estimate:st.estimate };
+  if(LISTAS[claveLista()]){ LISTAS[claveLista()] = { threads:st.threads.slice(), next:st.next, estimate:st.estimate }; if(claveLista() === claveRecibidos(st.acc)) listaGuardar(st.acc); }
 }
 var FULL = {}, FULL_ORDEN = [];
-// lo guardado vale 60 s como mucho, y se olvida al tocar ese hilo (borrador, envío, archivar…)
+// lo guardado vale mientras la lista diga que el hilo no ha cambiado (mismo historial), 10 min como mucho; si no se sabe, 60 s.
+// Y se olvida al tocar ese hilo (borrador, envío, archivar…)
 function olvidarHilo(k, id){ delete FULL[k + '|' + id]; }
 function traerHilo(k, id){
   var t = byId(id), key = k + '|' + id, c = FULL[key];
-  if(c && Date.now() - c.t < 60000 && (!t || !c.hid || c.hid === t.hid)) return c.p;
+  if(c && (!t || !c.hid || c.hid === t.hid) && Date.now() - c.t < (t && c.hid && c.hid === t.hid ? 600000 : 60000)) return c.p;
   var p = gm(k, 'threads/' + id + '?format=full');
   FULL[key] = { hid:t && t.hid, p:p, t:Date.now() }; FULL_ORDEN.push(key);
   while(FULL_ORDEN.length > 30){ delete FULL[FULL_ORDEN.shift()]; }
   p.catch(function(){ delete FULL[key]; });
   return p;
+}
+/* Los primeros correos de la lista se traen por detrás, de dos en dos y sin quitar sitio a lo que pidas tú: al tocarlos se abren
+   al instante (antes cada apertura esperaba a Gmail). No se hace con «ahorro de datos» activado ni con la app en segundo plano. */
+function precargarHilos(){
+  clearTimeout(precargarHilos.t);
+  precargarHilos.t = setTimeout(async function(){
+    if(enVista() || document.hidden || enPausa() || (navigator.connection && navigator.connection.saveData)) return;
+    var k = st.acc, gen = st.gen, ids = st.threads.filter(function(x){ return !x.draftOnly; }).slice(0, 5).map(function(x){ return x.id; });
+    await pool(ids, 2, async function(id){
+      if(gen !== st.gen || k !== st.acc || document.hidden || enPausa()) return;
+      if(Date.now() < PRIORIDAD_HASTA) await sleep(PRIORIDAD_HASTA - Date.now() + 200);
+      if(gen !== st.gen || k !== st.acc) return;
+      await traerHilo(k, id).catch(function(){});
+    });
+  }, 1200);
 }
 async function openThread(id){
   if(rescatarDlg()) minimizar();   // si estabas respondiendo en otro hilo, esa respuesta se minimiza (no se pierde)
@@ -1983,7 +2112,7 @@ function renderThread(animate){
   setTimeout(function(){ abiertos.forEach(function(f, j){ setTimeout(function(){ if(f.isConnected) fillFrame(f, c.msgs[+f.dataset.frame], k); }, j * 60); }); }, innerWidth <= 900 && animate ? 200 : 0);
   setTimeout(function(){ if(cur === c) precargarAdjuntos(c); }, 600);
   el.classList.add('is-open'); document.querySelector('.shell').classList.add('reading'); el.scrollTop = 0;
-  var rbar = el.querySelector('.read-bar'); if(rbar) el.style.setProperty('--rb', rbar.offsetHeight + 'px');
+  requestAnimationFrame(function(){ var rbar = el.querySelector('.read-bar'); if(rbar) el.style.setProperty('--rb', rbar.offsetHeight + 'px'); });
   // si estabas respondiendo en este hilo, el editor vuelve a su sitio con lo escrito
   if(respondiendo){ if(comp && comp.threadId === c.id) montarEnLinea(); else minimizar(); }
   if(window.IntersectionObserver){ var dock = $('replyDock'), rb = el.querySelector('.reply');
@@ -2349,11 +2478,12 @@ function drawEmptyRead(){
   ajustarTitular();
 }
 // el titular de la portada va en una sola línea: si no cabe, se encoge la letra
-function ajustarTitular(){
+var ajustarTitular = porFotograma(function(){
+  if(innerWidth <= 900) return;
   var h = document.querySelector('#read > .empty h2'); if(!h) return;
   h.style.fontSize = '';
   if(h.scrollWidth > h.clientWidth + 1){ var fs = parseFloat(getComputedStyle(h).fontSize); h.style.fontSize = Math.max(18, Math.floor(fs * h.clientWidth / h.scrollWidth)) + 'px'; }
-}
+});
 addEventListener('resize', function(){ clearTimeout(ajustarTitular.t); ajustarTitular.t = setTimeout(ajustarTitular, 120); });
 
 /* ---------------- menús ---------------- */
@@ -3416,7 +3546,7 @@ addEventListener('focus', function(){ autoSync(true); });
 /* si se publica una versión nueva, la página se pone al día sola (sin perder nada a medio escribir) */
 var myVersion = null;
 async function checkVersion(){
-  try { var j = await (await fetch('/api/session', { cache:'no-store' })).json(); if(!j.version) return;
+  try { var j = await (await fetch('/api/session?r=version', { cache:'no-store', credentials:'same-origin' })).json(); if(!j.version) return;   // ruta ligera: solo la versión, sin leer el almacén
     if(myVersion === null){ myVersion = j.version; return; }
     // versión nueva publicada: se recarga SOLO si no estás haciendo nada (ni leyendo un correo, ni con un adjunto,
     // la firma, el redactar o un menú abiertos, ni escribiendo); si no, se espera a la siguiente comprobación
@@ -4048,9 +4178,12 @@ async function actualizarBadge(forzar){
 }
 
 async function start(){
-  var s = await fetch('/api/session', { credentials:'same-origin' }).catch(function(){ return { status:0 }; });
-  if(s.status !== 200){ showLogin(); return; }
-  var sj = await s.json().catch(function(){ return {}; });
+  // la sesión (y el permiso de la cuenta abierta) ya se pidieron en el <head>; si no (tras entrar con contraseña), se piden ahora
+  var pre = window.BZ_PRE; window.BZ_PRE = null;
+  var s = pre && pre.s ? await pre.s : await fetch('/api/session', { credentials:'same-origin' }).then(function(r){ return r.json().catch(function(){ return {}; }).then(function(j){ return { status:r.status, j:j }; }); }).catch(function(){ return { status:0, j:{} }; });
+  if(s.status !== 200){ if(s.status === 401) guardaVaciar(); showLogin(); return; }
+  var sj = s.j || {};
+  if(sj.version) myVersion = sj.version;   // la versión publicada viene con la sesión: no hace falta pedirla otra vez al abrir
   // las cuentas llegan del servidor, en orden: las cuatro primeras con los colores del tema (--c-1…--c-4), las demás con estos
   var EXTRA_COL = ['#d0457f', '#4c9a45', '#2a9bb5', '#c46a2b', '#8a6ad8'];
   (sj.accounts || []).forEach(function(x){
@@ -4076,11 +4209,23 @@ async function start(){
   $('login').hidden = true; $('app').hidden = false;
   var saved = null; try { saved = localStorage.getItem('buzonero-cuenta'); } catch(e){}
   if(saved && ACC[saved]) st.acc = saved;
-  drawTabs(); drawSide(); drawEmptyRead(); st.loading = true; drawRows();
-  await loadAccountMeta(st.acc); drawTabs(); drawSide(); drawEmptyRead();
-  loadCatCounts(st.acc).then(function(){ drawCats(); drawSide(); }).catch(function(){});
-  loadAllContacts();
+  // el permiso de esta cuenta, si se adelantó en el <head> para ella (si era para otra, se pide el suyo como siempre)
+  if(pre && pre.t && pre.k === st.acc && !qs.get('reconectada')) tokenDe(st.acc, pre.t).catch(function(){});
+  /* Lo de la última vez, al instante: contadores, etiquetas, fotos y la bandeja de cada cuenta salen de lo guardado en este
+     dispositivo y se ponen al día por detrás. Antes se esperaba a las etiquetas para empezar a pedir la lista. */
+  KEYS.forEach(function(k){ metaDeGuarda(k); listaDeGuarda(k); });
+  try { var cg = ctCache(st.acc); if(cg) ctMerge(st.acc, cg); } catch(e){}
+  drawTabs(); drawSide(); drawEmptyRead(); st.loading = true;
   loadList(false);
+  var etqAntes = JSON.stringify(a().labels || null);
+  loadAccountMeta(st.acc).then(function(){
+    drawTabs(); drawSide(); if(!cur && !st.sel) drawEmptyRead();
+    // las etiquetas han cambiado (o no estaban guardadas): la lista se repinta para que salgan en cada correo
+    var conEtq = st.threads.some(function(x){ return (x.labels || []).some(function(id){ return /^Label_/.test(id); }); });
+    if(conEtq && JSON.stringify(a().labels || null) !== etqAntes && !enVista()){ var sc = $('rows').scrollTop; drawRows(); $('rows').scrollTop = sc; }
+  });
+  loadCatCounts(st.acc).then(function(){ drawCats(); drawSide(); }).catch(function(){});
+  setTimeout(loadAllContacts, 1500);   // contactos y fotos: después de la lista, que es lo que se está esperando
   KEYS.filter(function(k){ return k !== st.acc; }).forEach(function(k){ loadAccountMeta(k).then(function(){ drawTabs(); }); });
   if(abrirHilo) setTimeout(function(){ openThread(abrirHilo); }, 300);
   if(qs.get('contactos')){ var cr = qs.get('contactos'); setTimeout(function(){ toast(cr === 'ok' ? 'Contactos de Google conectados' : 'No se pudieron conectar los contactos (' + cr + ')'); }, 1200); }
@@ -4093,7 +4238,7 @@ async function start(){
   cargarSeg();
   // los contadores de Paquetes y Basura parada, sin prisa: cuando ya se ha precargado lo demás
   setTimeout(function(){ cargarPaquetes(false).then(function(){ return cargarAhorro(false); }).catch(function(){}); }, 45000);
-  lastSync = Date.now(); checkVersion(); updateTitle();
+  lastSync = Date.now(); if(myVersion === null) checkVersion(); updateTitle();
   if(document.fonts) document.fonts.ready.then(moveInd);
 }
 if(innerWidth < 900) $('q').placeholder = 'Buscar';

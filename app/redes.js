@@ -14,7 +14,7 @@ var RED_ABREV = { facebook:'FB', instagram:'IG', linkedin:'in', tiktok:'TT', twi
 var RED_COL = { facebook:'#1877f2', instagram:'#c13584', linkedin:'#0a66c2', tiktok:'#1c1c1c', twitter:'#14171a', youtube:'#d4141c', pinterest:'#e60023', threads:'#3a3a3a', bluesky:'#1185fe', gmb:'#4285f4' };
 var RED_FORM = ['facebook', 'instagram', 'linkedin', 'twitter', 'tiktok', 'bluesky', 'threads', 'gmb'];   // las que se programan con el formulario sencillo
 var RED_PXH = 48;   // alto de una hora en el calendario
-var RED = { marcas:null, marca:'', vista:'cal', dias:30, lunes:null, posts:null, cargando:false, error:'', modo:'', form:null, detalle:null };
+var RED = { marcas:null, marca:'', vista:'cal', dias:30, lunes:null, posts:null, cargando:false, error:'', modo:'', form:null, detalle:null, gen:0 };
 try { RED.marca = localStorage.getItem('buzonero-red-marca') || ''; RED.dias = +localStorage.getItem('buzonero-red-dias') || 30; RED.vista = localStorage.getItem('buzonero-red-vista') === 'lista' ? 'lista' : 'cal'; } catch(e){}
 
 (function(){
@@ -23,7 +23,7 @@ try { RED.marca = localStorage.getItem('buzonero-red-marca') || ''; RED.dias = +
     + '.rs-barra{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:6px 16px 12px}.rs-barra select{font:inherit;border:1px solid var(--line-strong);border-radius:var(--r-sm);padding:7px 10px;background:var(--bg);color:var(--text);max-width:240px}'
     + '.rs-barra .push{margin-left:auto}.rs-titulo{font-weight:600;font-size:15px;margin:0 6px;white-space:nowrap}.rs-seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:999px;overflow:hidden}.rs-seg button{border:0;background:none;color:var(--mute);font:inherit;padding:6px 14px;cursor:pointer}.rs-seg button[aria-pressed=true]{background:var(--acc);color:#fff}'
     /* calendario semanal */
-    + '.rs-cal{margin:0 16px 16px;border:1px solid var(--line);border-radius:var(--r);overflow:auto;background:var(--bg);max-height:calc(100vh - 250px);min-height:420px}.rs-cal-in{min-width:760px;position:relative}'
+    + '.rs-cal{margin:0 16px 16px;border:1px solid var(--line);border-radius:var(--r);overflow:auto;background:var(--bg);max-height:calc(100vh - 250px);max-height:calc(100dvh - 250px);min-height:min(420px,70vh)}.rs-cal-in{min-width:760px;position:relative}'
     + '.rs-cab{display:grid;grid-template-columns:52px repeat(7,minmax(0,1fr));position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}.rs-cab>div{padding:8px 4px;text-align:center;border-left:1px solid var(--line)}.rs-cab>div:first-child{border-left:0}'
     + '.rs-cab small{display:block;color:var(--faint);font-size:11px;letter-spacing:.08em;text-transform:uppercase}.rs-cab b{font-size:18px;font-weight:600}.rs-cab .hoy b{display:inline-grid;place-items:center;min-width:30px;height:30px;border-radius:50%;background:var(--acc);color:#fff}'
     + '.rs-cuerpo{display:grid;grid-template-columns:52px repeat(7,minmax(0,1fr));position:relative}.rs-horas span{display:block;height:' + 48 + 'px;font-size:11px;color:var(--faint);text-align:right;padding-right:8px;transform:translateY(-7px)}'
@@ -36,11 +36,15 @@ try { RED.marca = localStorage.getItem('buzonero-red-marca') || ''; RED.dias = +
     + '.rs-post{display:flex;gap:12px;border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:8px;background:var(--bg)}.rs-hora{font-variant-numeric:tabular-nums;font-weight:600;min-width:44px}'
     + '.rs-tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}.rs-texto{white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px}.rs-chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}'
     /* ventana de crear / ver */
-    + '.rs-velo{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.4);display:grid;place-items:center;padding:16px}.rs-modal{width:min(560px,100%);max-height:calc(100vh - 32px);overflow:auto;background:var(--bg);border-radius:var(--r);padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.35);display:flex;flex-direction:column;gap:12px}'
+    // la ventana respeta la isla y la barra de inicio del iPhone (--sat/--sab, de index.html) y mide lo que se ve de verdad (dvh): con 100vh el pie quedaba bajo la barra de Safari
+    + '.rs-velo{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.4);display:grid;place-items:center;padding:calc(16px + var(--sat,0px)) calc(16px + var(--sar,0px)) calc(16px + var(--sab,0px)) calc(16px + var(--sal,0px))}'
+    + '.rs-modal{width:min(560px,100%);max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px - var(--sat,0px) - var(--sab,0px));overscroll-behavior:contain;overflow:auto;background:var(--bg);border-radius:var(--r);padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.35);display:flex;flex-direction:column;gap:12px}'
     + '.rs-modal h3{margin:0;font-size:17px}.rs-modal label{display:flex;flex-direction:column;gap:4px;font-weight:600;font-size:13px}'
     + '.rs-modal textarea,.rs-modal input[type=date],.rs-modal input[type=time]{font:inherit;font-weight:400;border:1px solid var(--line-strong);border-radius:var(--r-sm);padding:8px 10px;background:var(--bg);color:var(--text);min-width:0}'
     + '.rs-checks{display:flex;gap:8px;flex-wrap:wrap}.rs-checks label{flex-direction:row;align-items:center;gap:6px;font-weight:500;border:1px solid var(--line);border-radius:999px;padding:4px 12px;cursor:pointer}.rs-fila{display:flex;gap:12px;flex-wrap:wrap}'
-    + '.rs-aviso{color:var(--mute);font-size:13px;margin:0}.rs-err{color:var(--acc);font-size:13px;margin:0}.rs-full{white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px;border:1px solid var(--line);border-radius:var(--r-sm);padding:10px 12px}';
+    + '.rs-aviso{color:var(--mute);font-size:13px;margin:0}.rs-err{color:var(--acc);font-size:13px;margin:0}.rs-full{white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px;border:1px solid var(--line);border-radius:var(--r-sm);padding:10px 12px}'
+    // con el dedo: 40 px de toque en lo pequeño (sobre todo las redes donde se publica: equivocarse ahí sale caro)
+    + '@media(pointer:coarse){.rs-seg button,.rs-barra select{min-height:40px}.rs-checks label{min-height:40px;padding:4px 14px}}';
   document.head.appendChild(css);
 })();
 
@@ -66,14 +70,19 @@ async function cargarRedes(){
   RED.cargando = false; if(st.folder === 'REDES') pintarRedes();
 }
 async function cargarPostsRedes(){
-  var m = redMarca(); if(!m){ RED.posts = []; if(st.folder === 'REDES') pintarRedes(); return; }
+  // gen = cuál es la última petición: si se pulsa «siguiente» dos veces seguidas y la primera respuesta llega después, se descarta
+  // (si no, se pintaban las publicaciones de otra semana bajo la cabecera de esta y parecía vacía)
+  var gen = ++RED.gen;
+  var m = redMarca(); if(!m){ RED.posts = []; RED.cargando = false; if(st.folder === 'REDES') pintarRedes(); return; }
   RED.cargando = true; RED.error = ''; if(st.folder === 'REDES') pintarRedes();
   try {
     var desde, hasta;
     if(RED.vista === 'cal'){ desde = RED.lunes; hasta = redSuma(RED.lunes, 6); } else { desde = new Date(); hasta = redSuma(desde, RED.dias); }
     var j = await hubFetch('/api/zernio?r=mc-posts&blogId=' + encodeURIComponent(m.id) + '&desde=' + redIso(desde) + '&hasta=' + redIso(hasta));
-    if(j.ok){ RED.posts = j.posts; } else { RED.posts = []; RED.error = j.error === 'permiso' ? 'permiso' : (j.error || 'metricool'); }
-  } catch(e){ RED.posts = []; RED.error = 'red'; }
+    if(gen !== RED.gen) return;
+    // texto y redes siempre con valor: una publicación sin texto (solo imagen) no puede tirar la vista entera
+    if(j.ok){ RED.posts = (j.posts || []).map(function(p){ p.texto = p.texto == null ? '' : String(p.texto); p.redes = p.redes || []; return p; }); } else { RED.posts = []; RED.error = j.error === 'permiso' ? 'permiso' : (j.error || 'metricool'); }
+  } catch(e){ if(gen !== RED.gen) return; RED.posts = []; RED.error = 'red'; }
   RED.cargando = false; if(st.folder === 'REDES') pintarRedes();
 }
 function redFormNuevo(fecha, hora){

@@ -28,7 +28,10 @@ var MEN_PLAT = { whatsapp:['WhatsApp', 'ph-whatsapp-logo'], instagram:['Instagra
     + '.men-av .ph{font-size:18px;color:var(--faint)}.men-av.col{color:#fff}'
     + '.men-barra{display:flex;align-items:center;gap:10px;padding:8px 16px;border-bottom:1px solid var(--line);font-size:13px;color:var(--mute)}.men-barra .ph{font-size:17px;color:var(--faint)}.men-barra .btn{margin-left:auto}.men-barra b{color:var(--text);font-weight:500}'
     + '.men-vacio{margin:auto;text-align:center;color:var(--faint);padding:24px;max-width:420px}.men-vacio a{color:var(--acc)}'
-    + '@media(max-width:900px){.men-body{grid-template-columns:minmax(0,1fr)}.men-body.chat-on .men-lista{display:none}.men-body:not(.chat-on) .men-chat{display:none}}';
+    // «Volver»: solo en el móvil, donde el chat ocupa el sitio de la lista (sin él no había forma de volver a ella); 44 px de toque
+    + '.men-volver,.men-cab.solo{display:none}'
+    + '@media(max-width:900px){.men-body{grid-template-columns:minmax(0,1fr)}.men-body.chat-on .men-lista{display:none}.men-body:not(.chat-on) .men-chat{display:none}'
+    + '.men-cab .men-volver{display:grid;width:44px;height:44px;margin:-4px -4px -4px -10px;flex:none}.men-cab.solo{display:flex}}';
   document.head.appendChild(css);
 })();
 
@@ -48,9 +51,10 @@ function menAvatar(c){
   return '<span class="men-av col" style="background:' + MEN_COL[h % MEN_COL.length] + '">' + esc(i.nombre.replace(/[^\p{L}\p{N}]/gu, '').charAt(0).toUpperCase() || '?') + '</span>';
 }
 function menCabecera(c){
-  if(!c) return '';
+  var volver = '<button type="button" class="icon-btn men-volver" data-men-volver="1" aria-label="Volver a las conversaciones"><i class="ph ph-arrow-left"></i></button>';
+  if(!c) return '<div class="men-cab solo">' + volver + '</div>';   // conversación que aún no está en la lista: al menos se puede volver
   var i = menInfo(c);
-  return '<div class="men-cab">' + menAvatar(c) + '<span class="men-tx"><b>' + esc(i.nombre) + '</b><small>' + esc(c.telefono ? '+' + String(c.telefono).replace(/\D/g, '') : '') + '</small></span>'
+  return '<div class="men-cab">' + volver + menAvatar(c) + '<span class="men-tx"><b>' + esc(i.nombre) + '</b><small>' + esc(c.telefono ? '+' + String(c.telefono).replace(/\D/g, '') : '') + '</small></span>'
     + '<button type="button" class="btn sm" data-men-nombre="' + esc(c.id) + '"><i class="ph ph-pencil-simple"></i> ' + (i.real ? 'Cambiar nombre' : 'Poner nombre') + '</button></div>';
 }
 async function menPonerNombre(id){
@@ -77,13 +81,16 @@ async function menApi(url, opt){
 async function cargarMensajes(){
   if(MEN.cargando) return; MEN.cargando = true; MEN.error = null; if(st.folder === 'MENSAJES') pintarMensajes();
   try {
+    // el estado y la lista de conversaciones se piden A LA VEZ (antes, una detrás de otra). La lista solo se usa si hay algún WhatsApp
+    // conectado; su fallo se guarda y se lanza al usarla, para que cuente igual que antes
+    var pc = menApi('/api/zernio?r=conversaciones').then(function(j){ return { j:j }; }, function(err){ return { err:err }; });
     var e = await menApi('/api/zernio?r=estado');
     if(!e.ok){ MEN.error = e.error === 'sin_clave' ? 'sin_clave' : 'fallo'; MEN.cuentas = []; MEN.convs = []; }
     else {
       MEN.cuentas = e.cuentas;
       MEN.contactos = e.contactos || [];
       MEN.agenda = e.agenda || { n:0, fotos:0, fallos:[] };
-      MEN.convs = e.cuentas.length ? ((await menApi('/api/zernio?r=conversaciones')).conversaciones || []) : [];
+      if(e.cuentas.length){ var rc = await pc; if(rc.err) throw rc.err; MEN.convs = rc.j.conversaciones || []; } else MEN.convs = [];
     }
     MEN.at = Date.now();
     MEN_FIRMA = menFirmaConvs(MEN.convs);
@@ -159,6 +166,7 @@ document.addEventListener('click', function(e){
       .then(function(){ MEN.contactos = []; MEN.convs = null; cargarMensajes(); toast('Contactos de Google quitados'); }).catch(function(){ toast('No se pudo quitar'); });
     return;
   }
+  if(e.target.closest('[data-men-volver]')){ MEN.sel = null; MEN.msgs = null; pintarMensajes(); return; }   // del chat a la lista (móvil)
   if((t = e.target.closest('[data-men-nombre]'))){ menPonerNombre(t.dataset.menNombre); return; }
   if((t = e.target.closest('[data-men]'))){ var p = t.dataset.men.split('|'); abrirConversacion(p[0], p[1]); return; }
   if(e.target.closest('[data-ve="men"]')){ MEN.convs = null; MEN.sel = null; cargarMensajes(); }

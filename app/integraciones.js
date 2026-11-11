@@ -17,7 +17,7 @@ var HUB = { j:null, cargando:false, error:false, mc:{ token:'', userId:'', error
     + '@media(max-width:900px){.shell:not(.crm-on):has(.vancha),.shell.reading:not(.crm-on):has(.vancha){grid-template-columns:minmax(0,1fr)}}'
     + '.shell:not(.crm-on):has(.vancha)>.list{overflow:hidden;display:flex;flex-direction:column}.shell:has(.vancha) .rows{flex:1;min-height:0;overflow:auto;padding-bottom:24px}'
     + '.vista-esp.vancha{max-width:1100px;margin:0 auto;width:100%}'
-    + '.hub-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;padding:6px 16px 24px}'
+    + '.hub-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(320px,100%),1fr));gap:14px;padding:6px 16px 24px}'
     + '.hub-card{border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:10px;background:var(--bg)}.hub-card.ancha{grid-column:1/-1}'
     + '.hub-h{display:flex;align-items:center;gap:10px}.hub-h .ph{font-size:22px;color:var(--acc)}.hub-h b{font-weight:600;font-size:15px}.hub-h .cv-est{margin-left:auto}'
     + '.hub-card p{margin:0;color:var(--mute);font-size:13.5px}.hub-card p small{color:var(--faint)}'
