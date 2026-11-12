@@ -1536,7 +1536,10 @@ async function notifyNew(k){
       if(window.estaSilenciado && estaSilenciado('correo:' + k)) continue;   // cuenta silenciada en Ajustes → Avisos: ni aviso ni sonido
       if(esPropaganda(last.labelIds, hdr(last.payload, 'List-Unsubscribe'), hdr(ms[0].payload, 'Subject'))) continue;   // publicidad: sin aviso ni sonido
       if(+last.internalDate < Math.max(appStart, Date.now() - 15 * 60000)) continue;   // solo lo que acaba de llegar
-      if(parseAddr(hdr(last.payload, 'From')).email.toLowerCase() === ACC[k].email) continue;   // lo que envía esa misma cuenta no se avisa
+      var deQuien = parseAddr(hdr(last.payload, 'From')).email.toLowerCase();
+      if(deQuien === ACC[k].email) continue;   // lo que envía esa misma cuenta no se avisa
+      // ni lo que sale de otra de tus cuentas fijas (con copia a otra persona, ese correo llega a su bandeja): las añadidas con «Añadir cuenta» cuentan como de otra persona
+      if(KEYS.some(function(o){ return !ACC[o].extra && String(ACC[o].email).toLowerCase() === deQuien; })) continue;
       showNotif(k, t.id, hdr(last.payload, 'From'), hdr(ms[0].payload, 'Subject') || '(sin asunto)', unent(last.snippet || ''));
     }
   } catch(e){}

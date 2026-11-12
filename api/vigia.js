@@ -69,6 +69,7 @@ async function pasada(req, res) {
   // los CRM con la detección de leads activa: sus cuentas se miran aunque no haya móviles
   const crmFull = await readCrm().catch(() => ({ crms: {} })), crms = crmFull.crms || {};
   const todas = await allAccounts(), nuevosH = {}, avisos = [];
+  const propias = new Set(Object.values(todas).filter((a) => !a.extra).map((a) => String(a.email).toLowerCase()));
   const crmDe = {}; Object.keys(todas).forEach((k) => { const c = crmDeCuenta(crms, k); if (c && c.deteccion && c.deteccion.activa && c.etapas && c.etapas.length >= 2) crmDe[k] = c; });
   if (!hayMoviles && !vencidos.length && !pendEnv.length && !Object.keys(crmDe).length) return res.status(200).json({ ok: true, sinMoviles: true });
   const tokens = {}, leads = { nuevos: 0, bots: 0, respondidos: 0 };
@@ -119,6 +120,9 @@ async function pasada(req, res) {
         const H = {}; ((m.payload && m.payload.headers) || []).forEach((h) => { H[h.name.toLowerCase()] = h.value; });
         if (esPropaganda(m.labelIds, H)) return;   // publicidad: entra, pero sin avisar
         if (nombre(H.from).toLowerCase() === acc.email.toLowerCase() || (H.from || '').toLowerCase().includes('<' + acc.email.toLowerCase() + '>')) return;   // lo que envía esa misma cuenta, no
+        // ni lo que sale de OTRA de tus cuentas fijas (BZ_CUENTAS): al escribir con copia a otra persona, ese correo llega a su bandeja y no hay que avisarte de tu propio correo.
+        // Las cuentas añadidas con «Añadir cuenta» (la de otra persona) cuentan como de otra persona: si ella te escribe, sí avisa.
+        if (propias.has(correoDe(H.from))) return;
         const snip = String(m.snippet || '').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
         avisos.push({ title: nombre(H.from) + ' · ' + acc.name, body: (H.subject || '(sin asunto)') + (snip ? '\n' + snip.slice(0, 140) : ''), tag: k + '-' + m.threadId, fuente: 'correo:' + k, url: '/app?acc=' + encodeURIComponent(k) + '&hilo=' + encodeURIComponent(m.threadId) });
       });

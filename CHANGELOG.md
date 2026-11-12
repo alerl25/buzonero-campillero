@@ -2,6 +2,11 @@
 
 Todas las versiones de Buzonero Campillero. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [1.23.2] · 2026-11-12
+
+### Corregido
+- **Avisos de tu propio correo.** Al escribir desde una de tus cuentas con copia a otra persona cuya cuenta también está en Buzonero, ese correo llegaba a la bandeja de la otra persona y avisaba en tu móvil como si fuera de fuera. Ahora no avisa (ni el aviso al móvil ni el de la app abierta) cuando el remitente es otra de tus cuentas fijas (`BZ_CUENTAS`). Las cuentas añadidas con «Añadir cuenta» cuentan como de otra persona: si te escribe, sí avisa.
+
 ## [1.23.1] · 2026-11-11
 
 ### Corregido
